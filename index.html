@@ -625,7 +625,6 @@ function modalTrocarSenha(){ const u=usuarioAtual();
   if(u.origem==='google') return abrirModal(`<h3>Trocar senha</h3><p style="font-size:14px;color:#556">Sua conta usa login com Google. A senha é gerenciada pela sua Conta Google.</p><div class="modal-acts"><button class="btn btn-primary" onclick="fecharModal()">Entendi</button></div>`);
   abrirModal(`<h3>Trocar senha</h3>
     <div id="tsErr"></div>
-    <div class="field"><label>Senha atual</label><input type="password" id="tsAtual"></div>
     <div class="field"><label>Nova senha</label><input type="password" id="tsNova" oninput="checaSenha(this.value)">
       <ul class="pwd-rules" id="pwdRules" style="color:var(--verde-escuro)"><li data-r="len">Mínimo 8 caracteres</li><li data-r="up">1 maiúscula</li><li data-r="num">1 número</li><li data-r="spec">1 especial</li></ul></div>
     <div class="field"><label>Confirmar nova senha</label><input type="password" id="tsNova2"></div>
