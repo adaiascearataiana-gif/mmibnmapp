@@ -1,16 +1,19 @@
 {
   "name": "Ministério de Música IBNM",
-  "short_name": "IBNM Música",
-  "description": "App do Ministério de Música da IBNM: playlist, cifras, letras, áudios, escala e culto ao vivo.",
-  "start_url": ".",
-  "scope": ".",
+  "short_name": "MM IBNM",
+  "description": "App do Ministério de Música da IBNM — escala, cifras, repertório e avisos.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b3d2e",
   "theme_color": "#0b3d2e",
-  "lang": "pt-BR",
+  "categories": ["music", "lifestyle", "productivity"],
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

@@ -182,11 +182,22 @@ table.escala tr.vigente td{font-weight:700}
 .me-tag{display:inline-block;background:var(--verde-med);color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;margin-left:6px}
 
 /* ===== TOOLBAR EDITOR ===== */
-.editor-tb{display:flex;flex-wrap:wrap;gap:4px;background:var(--cinza);padding:8px;border-radius:10px 10px 0 0;border:1px solid #dde;border-bottom:none}
-.editor-tb button{width:36px;height:34px;border-radius:7px;background:#fff;color:var(--verde-escuro);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center}
-.editor-tb button:active{background:var(--verde-med);color:#fff}
-.editor-tb .sep{width:1px;background:#ccd;margin:2px 2px}
-.editor-area{width:100%;min-height:260px;border:1px solid #dde;border-radius:0 0 10px 10px;padding:14px;font-family:'Courier New',monospace;font-size:14px;line-height:1.9;resize:vertical;outline:none}
+.editor-tb{display:flex;flex-wrap:wrap;align-items:center;gap:3px;background:linear-gradient(#fbfbfb,#eceff2);padding:6px 8px;border-radius:8px 8px 0 0;border:1px solid #c9ced6;border-bottom:none;position:relative}
+.editor-tb button{min-width:34px;height:32px;padding:0 7px;border-radius:5px;background:transparent;color:#2b2b2b;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;gap:3px;border:1px solid transparent;cursor:pointer}
+.editor-tb button:hover{background:#fff;border-color:#c9ced6}
+.editor-tb button:active{background:var(--verde-med);color:#fff;border-color:var(--verde-med)}
+.editor-tb .sep{width:1px;align-self:stretch;background:#c9ced6;margin:3px 4px}
+.editor-tb .tom{font-size:12px;font-weight:700;color:var(--verde-escuro);background:#fff;border:1px solid #c9ced6;border-radius:5px;padding:0 8px;height:32px;display:flex;align-items:center;gap:4px}
+.editor-tb .tom b{color:var(--dourado-esc);font-size:13px}
+.cor-btn-swatch{display:block;width:15px;height:4px;border-radius:1px;background:#c0392b;margin-top:1px}
+.cor-pop{position:absolute;top:42px;left:8px;z-index:40;background:#fff;border:1px solid #c9ced6;border-radius:8px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);display:none;grid-template-columns:repeat(8,1fr);gap:5px;width:max-content}
+.cor-pop.show{display:grid}
+.cor-pop i{width:20px;height:20px;border-radius:4px;cursor:pointer;border:1px solid rgba(0,0,0,.18)}
+.cor-pop i:hover{transform:scale(1.15)}
+.editor-rich{width:100%;min-height:260px;max-height:62vh;overflow:auto;border:1px solid #c9ced6;border-radius:0 0 8px 8px;padding:14px;font-family:'Courier New',monospace;font-size:14px;line-height:1.9;outline:none;white-space:pre-wrap;background:#fff;color:#2b2b2b}
+.editor-rich:focus{border-color:var(--verde-claro);box-shadow:0 0 0 2px rgba(47,163,119,.15)}
+.editor-rich:empty:before{content:attr(data-ph);color:#aab}
+.editor-area{width:100%;min-height:180px;border:1px solid #c9ced6;border-radius:8px;padding:14px;font-family:'Courier New',monospace;font-size:14px;line-height:1.9;resize:vertical;outline:none}
 .editor-area:focus{border-color:var(--verde-claro)}
 
 /* ===== TOAST / NOTIFICACOES ===== */
@@ -667,23 +678,28 @@ function renderListaMusicas(soFav){
   if(soFav){ const fv=DB.favoritos[u.email]||[]; musicas=musicas.filter(m=>fv.includes(m.id)); }
   const letras='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
   const comLetra=new Set(musicas.map(m=>(m.titulo[0]||'#').toUpperCase()));
+  const alpha = `<div class="alpha-bar"><button class="${filtroLetra==='TODAS'?'active':''}" onclick="setLetra('TODAS')">Tudo</button>`+
+    letras.map(l=>`<button class="${filtroLetra===l?'active':''} ${comLetra.has(l)?'has':''}" onclick="setLetra('${l}')">${l}</button>`).join('')+`</div>`;
+  return `<div class="page"><div class="page-ttl">${soFav?'\u2B50 Favoritos':'\uD83C\uDFB5 Músicas'}</div>
+    <input class="search-box" id="buscaMusica" placeholder="\uD83D\uDD0D Buscar música ou artista..." value="${esc(filtroBusca)}" oninput="buscarMusicas(this.value)">
+    ${alpha}
+    ${adm&&!soFav? `<button class="mini-btn" style="margin-bottom:12px" onclick="modalNovaMusica()">\u2795 Adicionar música</button>`:''}
+    <div id="listaMusicas">${listaMusicasHTML(soFav)}</div></div>`;
+}
+function listaMusicasHTML(soFav){
+  const u=usuarioAtual(); let musicas=DB.musicas.slice();
+  if(soFav){ const fv=DB.favoritos[u.email]||[]; musicas=musicas.filter(m=>fv.includes(m.id)); }
   let vis=musicas.filter(m=>{
     const okL = filtroLetra==='TODAS' || (m.titulo[0]||'').toUpperCase()===filtroLetra;
     const okB = !filtroBusca || (m.titulo+' '+(m.artista||'')).toLowerCase().includes(filtroBusca.toLowerCase());
     return okL&&okB; });
   vis.sort((a,b)=>a.titulo.localeCompare(b.titulo,'pt'));
-  const alpha = `<div class="alpha-bar"><button class="${filtroLetra==='TODAS'?'active':''}" onclick="setLetra('TODAS')">Tudo</button>`+
-    letras.map(l=>`<button class="${filtroLetra===l?'active':''} ${comLetra.has(l)?'has':''}" onclick="setLetra('${l}')">${l}</button>`).join('')+`</div>`;
-  const lista = vis.length? vis.map(m=>`<div class="song-row" onclick="abrirMusica('${m.id}')">
+  return vis.length? vis.map(m=>`<div class="song-row" onclick="abrirMusica('${m.id}')">
       <div class="s-ic">\uD83C\uDFB5</div><div style="flex:1"><div class="s-nm">${esc(m.titulo)}</div><div class="s-ar">${esc(m.artista||'')}</div></div>
       <span class="star ${ehFav(m.id)?'on':''}" onclick="toggleFav('${m.id}',event)">\u2605</span></div>`).join('')
     : `<div class="empty"><div class="big">${soFav?'\u2B50':'\uD83C\uDFB5'}</div>${soFav?'Você ainda não tem favoritos. Toque na estrela de uma música.':'Nenhuma música encontrada.'}</div>`;
-  return `<div class="page"><div class="page-ttl">${soFav?'\u2B50 Favoritos':'\uD83C\uDFB5 Músicas'}</div>
-    <input class="search-box" placeholder="\uD83D\uDD0D Buscar música ou artista..." value="${esc(filtroBusca)}" oninput="filtroBusca=this.value;go('${soFav?'favoritos':'musicas'}')" autofocus>
-    ${alpha}
-    ${adm&&!soFav? `<button class="mini-btn" style="margin-bottom:12px" onclick="modalNovaMusica()">\u2795 Adicionar música</button>`:''}
-    ${lista}</div>`;
 }
+function buscarMusicas(val){ filtroBusca=val; const soFav=(typeof paginaMusicas!=='undefined' && paginaMusicas==='favoritos'); const el=document.getElementById('listaMusicas'); if(el) el.innerHTML=listaMusicasHTML(soFav); }
 function setLetra(l){ filtroLetra=l; go(paginaMusicas); }
 
 /* ============== VISUALIZADOR DA MUSICA ============== */
@@ -703,7 +719,7 @@ function renderMusica(){
         <button onclick="abrirMusica('${m.id}','audio')">\uD83C\uDFA7 Ouvir áudio</button></div>
       ${yt}
       ${adm?`<button class="mini-btn" style="margin-bottom:10px" onclick="editorCifra('${m.id}')">\u270F\uFE0F Editar cifra</button>`:''}
-      <div class="cifra-box">${m.cifra? realcaCifra(m.cifra) : '<span style="color:#aab">Cifra ainda não cadastrada.</span>'}</div>`;
+      <div class="cifra-box">${m.cifra? renderCifraView(m.cifra) : '<span style="color:#aab">Cifra ainda não cadastrada.</span>'}</div>`;
   } else if(abaAtual==='letra'){
     corpo = `<div class="sub-links">
         <button onclick="abrirMusica('${m.id}','cifra')">\uD83C\uDFBC Ver cifra</button>
@@ -730,6 +746,7 @@ function realcaCifra(txt){ // realca acordes (linhas com padrao de acordes)
     if(/^[\s]*([A-G][#b]?(m|maj|min|sus|dim|aug|add)?[0-9]?(\/[A-G][#b]?)?[\s]*)+$/.test(l) && l.trim())
       return '<span class="ch">'+l+'</span>'; return l; }).join('\n');
 }
+function renderCifraView(c){ if(!c) return ''; if(/<[a-z!/][\s\S]*>/i.test(c)) return limparCifraHtml(c); return realcaCifra(c); }
 
 /* ============== PLAYER (audios do Google Drive) ============== */
 function driveUrl(id){ return 'https://drive.google.com/uc?export=download&id='+id; }
@@ -771,20 +788,25 @@ function editorCifra(id){ if(!ehAdmin()) return; musicaAberta=id;
       <div class="field"><label>Link do vídeo no YouTube</label><input id="edYt" value="${esc(m.youtube||'')}" placeholder="https://youtube.com/watch?v=..."></div>
     </div>
     <div class="card"><h3>Cifra</h3>
-      <div class="editor-tb">
-        <button title="Negrito" onmousedown="fmt(event,'bold')"><b>B</b></button>
-        <button title="Itálico" onmousedown="fmt(event,'italic')"><i>I</i></button>
-        <button title="Sublinhado" onmousedown="fmt(event,'underline')"><u>U</u></button>
+      <div class="editor-tb" id="edTb">
+        <button type="button" title="Desfazer (Ctrl+Z)" onmousedown="edUndo(event)">\u21B6</button>
+        <button type="button" title="Refazer (Ctrl+Y)" onmousedown="edRedo(event)">\u21B7</button>
         <div class="sep"></div>
-        <button title="Acorde" onmousedown="fmt(event,'acorde')" style="color:var(--verde-med)">A\u266D</button>
-        <button title="Seção" onmousedown="fmt(event,'secao')">[ ]</button>
+        <button type="button" title="Negrito (Ctrl+B)" onmousedown="fmt(event,'bold')"><b>N</b></button>
+        <button type="button" title="Itálico (Ctrl+I)" onmousedown="fmt(event,'italic')"><i>I</i></button>
+        <button type="button" title="Sublinhado (Ctrl+U)" onmousedown="fmt(event,'underline')"><u>S</u></button>
         <div class="sep"></div>
-        <button title="Transpor +" onmousedown="transpor(event,1)">\u266F</button>
-        <button title="Transpor -" onmousedown="transpor(event,-1)">\u266D</button>
+        <button type="button" title="Cor do texto" onmousedown="togglePaleta(event)">A<span class="cor-btn-swatch" id="corAtual"></span></button>
+        <button type="button" title="Seção / Refrão" onmousedown="fmt(event,'secao')">[ ]</button>
         <div class="sep"></div>
-        <button title="Limpar" onmousedown="fmt(event,'clear')">\uD83E\uDDF9</button>
+        <span class="tom" title="Tom atual da cifra">Tom <b id="tomAtual">?</b></span>
+        <button type="button" title="Descer meio tom" onmousedown="transpor(event,-1)">\u2013</button>
+        <button type="button" title="Subir meio tom" onmousedown="transpor(event,1)">+</button>
+        <div class="sep"></div>
+        <button type="button" title="Limpar tudo" onmousedown="fmt(event,'clear')">\uD83E\uDDF9</button>
+        <div class="cor-pop" id="corPop"></div>
       </div>
-      <textarea class="editor-area" id="edCifra" placeholder="Digite ou cole a cifra aqui...\nEx.:\n[Intro] C  G  Am  F\n\nC            G\nMinha vida muda...">${esc(m.cifra||'')}</textarea>
+      <div class="editor-rich" id="edCifra" contenteditable="true" data-ph="Digite ou cole a cifra aqui. Ex.: [Intro] C  G  Am  F">${cifraInicialHtml(m.cifra)}</div>
     </div>
     <div class="card"><h3>Letra</h3>
       <textarea class="editor-area" id="edLetra" style="min-height:180px;font-family:inherit" placeholder="Letra da música...">${esc(m.letra||'')}</textarea></div>
@@ -798,18 +820,69 @@ function editorCifra(id){ if(!ehAdmin()) return; musicaAberta=id;
       <button class="btn btn-dark" onclick="salvarCifra('${id}',false)">\uD83D\uDCBE Salvar rascunho</button>
       <button class="btn btn-primary" onclick="salvarCifra('${id}',true)">\uD83D\uDCE2 Publicar</button>
     </div></div>`;
-}
-function fmt(ev,tipo){ ev.preventDefault(); const ta=$('#edCifra'); const s=ta.selectionStart,e=ta.selectionEnd;
-  const sel=ta.value.slice(s,e); let novo=sel, wrap=0;
-  if(tipo==='bold'){novo='**'+sel+'**';wrap=2;} else if(tipo==='italic'){novo='_'+sel+'_';wrap=1;}
-  else if(tipo==='underline'){novo='__'+sel+'__';wrap=2;} else if(tipo==='acorde'){novo='['+(sel||'C')+']';wrap=1;}
-  else if(tipo==='secao'){novo='['+(sel||'Refrão')+']';wrap=1;} else if(tipo==='clear'){ if(confirm('Limpar toda a cifra?')) ta.value=''; return; }
-  ta.setRangeText(novo,s,e,'end'); ta.focus();
+  edBindEditor();
 }
 const NOTAS=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-function transpor(ev,passo){ ev.preventDefault(); const ta=$('#edCifra');
-  ta.value = ta.value.replace(/\b([A-G][#b]?)/g,(m,n)=>{ n=n.replace('b','#'); let i=NOTAS.indexOf(n[0]+(n[1]||'')); if(i<0)i=NOTAS.indexOf(n[0]); if(i<0)return m; return NOTAS[(i+passo+12)%12]; });
-  toast(passo>0?'Transposto +1 semitom':'Transposto -1 semitom');
+const CORES=['#000000','#434343','#666666','#999999','#b7b7b7','#ffffff','#c0392b','#e74c3c','#e67e22','#f1c40f','#2ecc71','#27ae60','#1abc9c','#3498db','#2980b9','#8e44ad','#9b59b6','#145c43','#0b3d2e','#c9a200','#d35400','#16a085','#2c3e50','#7f8c8d'];
+let _edUndo=[], _edRedo=[], _edCur='', _edTimer=null;
+function edEl(){ return document.getElementById('edCifra'); }
+function cifraInicialHtml(c){ if(!c) return ''; if(/<[a-z!/][\s\S]*>/i.test(c)) return limparCifraHtml(c); return esc(c).replace(/\n/g,'<br>'); }
+function limparCifraHtml(html){
+  const box=document.createElement('div'); box.innerHTML=html||'';
+  const ok={B:1,STRONG:1,I:1,EM:1,U:1,SPAN:1,FONT:1,DIV:1,BR:1,P:1};
+  (function limpa(no){
+    [...no.childNodes].forEach(n=>{
+      if(n.nodeType===1){
+        if(n.tagName==='SCRIPT'||n.tagName==='STYLE'){ n.remove(); return; }
+        if(!ok[n.tagName]){ while(n.firstChild) no.insertBefore(n.firstChild,n); n.remove(); return; }
+        [...n.attributes].forEach(a=>{
+          const nm=a.name.toLowerCase();
+          if(nm==='color' && n.tagName==='FONT') return;
+          if(nm==='style'){ const col=(a.value.match(/(?:^|;)\s*color\s*:\s*([^;]+)/i)||[])[1];
+            n.removeAttribute('style'); if(col) n.style.color=col.trim(); return; }
+          n.removeAttribute(a.name);
+        });
+        limpa(n);
+      } else if(n.nodeType!==3){ n.remove(); }
+    });
+  })(box);
+  return box.innerHTML;
+}
+function getCifraHtml(){ const el=edEl(); return el? limparCifraHtml(el.innerHTML) : ''; }
+function edInit(){ const el=edEl(); _edCur=el? el.innerHTML : ''; _edUndo=[]; _edRedo=[]; }
+function edCommit(){ const el=edEl(); if(!el) return; if(el.innerHTML!==_edCur){ _edUndo.push(_edCur); if(_edUndo.length>150)_edUndo.shift(); _edRedo=[]; _edCur=el.innerHTML; } }
+function edOnInput(){ clearTimeout(_edTimer); _edTimer=setTimeout(()=>{ edCommit(); atualizaTom(); },350); }
+function edUndo(ev){ if(ev)ev.preventDefault(); const el=edEl(); if(!el) return; edCommit(); if(!_edUndo.length){ toast('Nada para desfazer'); return; } _edRedo.push(_edCur); _edCur=_edUndo.pop(); el.innerHTML=_edCur; el.focus(); atualizaTom(); }
+function edRedo(ev){ if(ev)ev.preventDefault(); const el=edEl(); if(!el) return; edCommit(); if(!_edRedo.length){ toast('Nada para refazer'); return; } _edUndo.push(_edCur); _edCur=_edRedo.pop(); el.innerHTML=_edCur; el.focus(); atualizaTom(); }
+function fmt(ev,tipo){ ev.preventDefault(); const el=edEl(); if(!el) return; el.focus(); edCommit();
+  if(tipo==='clear'){ if(confirm('Limpar toda a cifra?')){ el.innerHTML=''; edCommit(); atualizaTom(); } return; }
+  if(tipo==='secao'){ const sel=(window.getSelection&&String(window.getSelection()))||''; document.execCommand('insertText',false,'['+(sel||'Refrão')+']'); edCommit(); return; }
+  const cmd={bold:'bold',italic:'italic',underline:'underline'}[tipo]; if(cmd) document.execCommand(cmd,false,null); edCommit();
+}
+function togglePaleta(ev){ ev.preventDefault(); const pop=document.getElementById('corPop'); if(!pop) return;
+  if(!pop.dataset.feito){ pop.innerHTML=CORES.map(c=>`<i style="background:${c}" onmousedown="aplicarCor(event,'${c}')"></i>`).join(''); pop.dataset.feito='1'; }
+  pop.classList.toggle('show'); const el=edEl(); if(el) el.focus();
+}
+function aplicarCor(ev,cor){ ev.preventDefault(); const el=edEl(); if(!el) return; el.focus(); edCommit();
+  try{ document.execCommand('styleWithCSS',false,true); }catch(e){} document.execCommand('foreColor',false,cor);
+  const sw=document.getElementById('corAtual'); if(sw) sw.style.background=cor;
+  const pop=document.getElementById('corPop'); if(pop) pop.classList.remove('show'); edCommit();
+}
+function _transpToken(tok,passo){ const mt=tok.match(/^([A-G][#b]?)(.*)$/); if(!mt) return tok; let n=mt[1].replace('b','#'); let i=NOTAS.indexOf(n); if(i<0) return tok; return NOTAS[(i+passo+12)%12]+mt[2]; }
+function transpor(ev,passo){ ev.preventDefault(); const el=edEl(); if(!el) return; edCommit();
+  const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null); const ns=[]; while(w.nextNode()) ns.push(w.currentNode);
+  const re=/(^|[\s(\[])([A-G][#b]?(?:m|maj|min|sus|dim|aug|add|7|6|9|11|13|2|4|5)*(?:\/[A-G][#b]?)?)(?=$|[\s)\]])/g;
+  ns.forEach(tn=>{ tn.nodeValue=tn.nodeValue.replace(re,(mm,pre,ch)=> pre+_transpToken(ch,passo)); });
+  edCommit(); atualizaTom(); toast(passo>0?'Subiu meio tom':'Desceu meio tom');
+}
+function atualizaTom(){ const el=edEl(); const alvo=document.getElementById('tomAtual'); if(!el||!alvo) return;
+  const mt=(el.textContent||'').match(/(?:^|[\s(\[])([A-G][#b]?(?:m|maj|min|sus|dim|aug)?)(?=$|[\s)\]])/);
+  alvo.textContent = mt? mt[1] : '?';
+}
+function edBindEditor(){ const el=edEl(); if(!el) return; edInit(); atualizaTom();
+  el.addEventListener('input', edOnInput);
+  el.addEventListener('paste', function(e){ e.preventDefault(); const t=((e.clipboardData||window.clipboardData).getData('text')||''); document.execCommand('insertText',false,t); });
+  el.addEventListener('keydown', function(e){ if(e.ctrlKey||e.metaKey){ const k=e.key.toLowerCase(); if(k==='z'){ e.preventDefault(); edUndo(); } else if(k==='y'){ e.preventDefault(); edRedo(); } } });
 }
 function addAudio(id){ const m=DB.musicas.find(x=>x.id===id); const nome=$('#edAudNome').value.trim(); let v=$('#edAudUrl').value.trim();
   if(!nome||!v) return toast('Informe nome e link/ID.');
@@ -818,7 +891,7 @@ function addAudio(id){ const m=DB.musicas.find(x=>x.id===id); const nome=$('#edA
 function removerAudio(id,i){ const m=DB.musicas.find(x=>x.id===id); m.audios.splice(i,1); saveDB(); editorCifra(id); }
 function salvarCifra(id,publicar){ const m=DB.musicas.find(x=>x.id===id);
   m.titulo=$('#edTit').value.trim()||m.titulo; m.artista=$('#edArt').value.trim(); m.youtube=$('#edYt').value.trim();
-  m.cifra=$('#edCifra').value; m.letra=$('#edLetra').value;
+  m.cifra=getCifraHtml(); m.letra=$('#edLetra').value;
   if(publicar){ const jaPub=m.publicada; m.publicada=true; saveDB();
     if(!jaPub){ notificarTodos('\uD83C\uDFBC','Nova música disponível','"'+m.titulo+'" foi publicada no app. Confira a cifra, letra e áudio!'); }
     toast('Publicado! Todos foram notificados.'); abrirMusica(id,'cifra');
@@ -1309,7 +1382,7 @@ async function removerAudio(id,i){ const m=DB.musicas.find(x=>x.id===id); m.audi
 }
 async function salvarCifra(id,publicar){ const m=DB.musicas.find(x=>x.id===id); if(!m) return;
   m.titulo=$('#edTit').value.trim()||m.titulo; m.artista=$('#edArt').value.trim(); m.youtube=$('#edYt').value.trim();
-  m.cifra=$('#edCifra').value; m.letra=$('#edLetra').value;
+  m.cifra=getCifraHtml(); m.letra=$('#edLetra').value;
   const jaPub=m.publicada; if(publicar) m.publicada=true;
   await sb.from('musicas').update({titulo:m.titulo,artista:m.artista,youtube:m.youtube,cifra:m.cifra,letra:m.letra,dados:{publicada:!!m.publicada}}).eq('id',id);
   if(publicar){ if(!jaPub) notificarTodos('\uD83C\uDFBC','Nova musica disponivel','\"'+m.titulo+'\" foi publicada no app. Confira a cifra, letra e audio!');
