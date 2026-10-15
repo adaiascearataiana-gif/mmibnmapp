@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b3d2e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="IBNM Música">
+<title>Ministério de Música IBNM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --verde-escuro:#0b3d2e; --verde:#145c43; --verde-med:#1f7a5a; --verde-claro:#2fa377;
+  --dourado:#f1c40f; --dourado-esc:#c9a200; --branco:#ffffff; --cinza:#eef4f1;
+  --txt:#0b241b; --sombra:0 8px 28px rgba(0,0,0,.18); --radius:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:'Segoe UI',system-ui,Roboto,Arial,sans-serif;color:var(--txt);background:var(--cinza);overflow-x:hidden}
+button{font-family:inherit;cursor:pointer;border:none}
+input,select,textarea{font-family:inherit}
+a{color:var(--verde-med)}
+.hidden{display:none !important}
+
+/* Marca d'agua de notas musicais */
+.watermark{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;opacity:.08}
+.watermark span{position:absolute;color:#fff;user-select:none}
+.scr-login .watermark span{color:#fff}
+
+/* ===== TELAS DE AUTENTICACAO ===== */
+.scr-auth{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  background:linear-gradient(160deg,var(--verde-escuro),var(--verde) 60%,var(--verde-med));color:#fff;overflow-y:auto;padding:28px 20px 40px}
+.logo-wrap{text-align:center;margin:18px 0 10px}
+.logo-emblema{width:132px;height:132px;margin:0 auto;position:relative;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35))}
+.auth-card{width:100%;max-width:420px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);
+  backdrop-filter:blur(6px);border-radius:var(--radius);padding:22px;margin-top:6px;box-shadow:var(--sombra)}
+.auth-card h2{font-size:20px;margin-bottom:4px;text-align:center}
+.auth-card .sub{font-size:13px;opacity:.85;text-align:center;margin-bottom:18px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;margin-bottom:6px;font-weight:600;opacity:.95}
+.field input,.field select,.field textarea{width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.25);
+  background:rgba(255,255,255,.95);color:var(--txt);font-size:15px;outline:none}
+.field input:focus,.field select:focus{border-color:var(--dourado);box-shadow:0 0 0 3px rgba(241,196,15,.25)}
+.field .hint{font-size:11.5px;opacity:.8;margin-top:4px}
+.row2{display:flex;gap:10px}.row2>*{flex:1}
+.check-inline{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;opacity:.95;margin-top:8px}
+.check-inline input{width:18px;height:18px;flex:none}
+.btn{display:block;width:100%;padding:13px;border-radius:10px;font-size:15px;font-weight:700;transition:.15s}
+.btn-primary{background:var(--dourado);color:#3a2f00}
+.btn-primary:active{transform:scale(.98)}
+.btn-ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4)}
+.btn-google{background:#fff;color:#444;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:600}
+.btn-google svg{width:20px;height:20px}
+.divider{display:flex;align-items:center;gap:12px;margin:16px 0;opacity:.7;font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.3)}
+.auth-switch{text-align:center;font-size:13.5px;margin-top:16px}
+.auth-switch a{color:var(--dourado);font-weight:700;text-decoration:none;cursor:pointer}
+.pwd-rules{font-size:11.5px;margin-top:6px;line-height:1.6}
+.pwd-rules li{list-style:none;opacity:.6}
+.pwd-rules li.ok{opacity:1;color:#9fe8c4}
+.pwd-rules li.ok::before{content:'\2713 '}
+.pwd-rules li::before{content:'\25cb '}
+.err-msg{background:rgba(231,76,60,.9);color:#fff;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:12px}
+.ok-msg{background:rgba(46,204,113,.9);color:#063;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:12px}
+.ver-foot{position:fixed;bottom:8px;left:0;right:0;text-align:center;font-size:11px;z-index:60;color:rgba(255,255,255,.6);pointer-events:none}
+.app-shell .ver-foot{color:rgba(11,61,46,.45)}
+
+/* ===== APP SHELL ===== */
+.app-shell{position:relative;min-height:100%;z-index:5;background:var(--cinza)}
+.topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;padding:12px 14px;
+  background:linear-gradient(120deg,var(--verde-escuro),var(--verde-med));color:#fff;box-shadow:0 3px 12px rgba(0,0,0,.2)}
+.hamb{width:42px;height:42px;border-radius:10px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;flex:none}
+.hamb span{display:block;width:20px;height:2.5px;background:#fff;position:relative}
+.hamb span::before,.hamb span::after{content:'';position:absolute;left:0;width:20px;height:2.5px;background:#fff}
+.hamb span::before{top:-6px}.hamb span::after{top:6px}
+.topbar .ttl{font-size:16px;font-weight:800;letter-spacing:.3px;flex:1;line-height:1.1}
+.topbar .ttl small{display:block;font-size:10px;font-weight:600;opacity:.8;letter-spacing:1px}
+.topbar .ico-btn{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;flex:none;position:relative;color:#fff;font-size:19px}
+.badge{position:absolute;top:-2px;right:-2px;background:var(--dourado);color:#3a2f00;font-size:10px;font-weight:800;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.avatar-mini{width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid var(--dourado);background:#fff;flex:none}
+
+/* ===== MENU LATERAL (abre da esquerda, submenus abrem para a direita) ===== */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:48;opacity:0;visibility:hidden;transition:.25s}
+.overlay.show{opacity:1;visibility:visible}
+.sidemenu{position:fixed;top:0;left:0;bottom:0;width:280px;max-width:84vw;background:linear-gradient(180deg,var(--verde-escuro),var(--verde));color:#fff;
+  z-index:49;transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:6px 0 24px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow-y:auto}
+.sidemenu.show{transform:translateX(0)}
+.sm-head{padding:22px 18px 16px;border-bottom:1px solid rgba(255,255,255,.12);text-align:center}
+.sm-head .logo-emblema{width:76px;height:76px;margin-bottom:8px}
+.sm-head .nm{font-weight:800;font-size:15px}
+.sm-head .rl{font-size:11.5px;opacity:.8;margin-top:2px}
+.sm-nav{padding:10px 0;flex:1}
+.sm-item{display:flex;align-items:center;gap:12px;padding:14px 20px;font-size:14.5px;font-weight:600;color:#fff;background:none;width:100%;text-align:left;border-left:3px solid transparent}
+.sm-item .ic{font-size:18px;width:24px;text-align:center}
+.sm-item .ar{margin-left:auto;transition:.2s}
+.sm-item.open .ar{transform:rotate(90deg)}
+.sm-item:active,.sm-item.active{background:rgba(255,255,255,.1);border-left-color:var(--dourado)}
+.sm-sub{max-height:0;overflow:hidden;transition:max-height .3s ease;background:rgba(0,0,0,.18)}
+.sm-sub.open{max-height:400px}
+.sm-sub button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:11px 20px 11px 54px;font-size:13.5px;color:rgba(255,255,255,.9);background:none}
+.sm-sub button:active{background:rgba(255,255,255,.08)}
+.sm-foot{padding:14px 20px;border-top:1px solid rgba(255,255,255,.12);font-size:11px;opacity:.6}
+
+/* ===== CONTEUDO / PAGINAS ===== */
+.content{padding:16px 14px 70px;max-width:720px;margin:0 auto;position:relative;z-index:5}
+.page{animation:fade .25s}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.page-ttl{font-size:19px;font-weight:800;color:var(--verde-escuro);margin:4px 0 14px;display:flex;align-items:center;gap:10px}
+.card{background:#fff;border-radius:var(--radius);padding:18px;box-shadow:var(--sombra);margin-bottom:14px}
+.card h3{font-size:15px;color:var(--verde-escuro);margin-bottom:10px}
+.pill{display:inline-block;background:var(--verde-claro);color:#063524;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin:2px 4px 2px 0}
+.semana-badge{background:linear-gradient(120deg,var(--verde),var(--verde-claro));color:#fff;border-radius:var(--radius);padding:16px 18px;text-align:center;margin-bottom:16px;box-shadow:var(--sombra)}
+.semana-badge .lbl{font-size:12px;letter-spacing:2px;opacity:.9}
+.semana-badge .dt{font-size:24px;font-weight:900;margin-top:4px}
+
+/* ===== PERFIL ===== */
+.perfil-top{text-align:center;padding:8px 0 4px}
+.perfil-foto{width:116px;height:116px;border-radius:50%;object-fit:cover;border:4px solid var(--dourado);background:var(--cinza);margin:0 auto;display:block}
+.perfil-nome{font-size:19px;font-weight:800;color:var(--verde-escuro);margin-top:10px}
+.foto-acts{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+.mini-btn{background:var(--verde-med);color:#fff;padding:8px 14px;border-radius:20px;font-size:12.5px;font-weight:600}
+.mini-btn.sec{background:var(--cinza);color:var(--verde-escuro)}
+.info-row{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid #eef1ef;font-size:14px}
+.info-row:last-child{border:none}
+.info-row .k{color:#789;font-weight:600}
+.info-row .v{font-weight:600;text-align:right}
+
+/* ===== MUSICAS / ALFABETO ===== */
+.alpha-bar{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px}
+.alpha-bar button{width:32px;height:32px;border-radius:8px;background:#fff;color:var(--verde-escuro);font-weight:800;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.alpha-bar button.active{background:var(--verde-med);color:#fff}
+.alpha-bar button.has{border:1.5px solid var(--dourado)}
+.song-row{display:flex;align-items:center;gap:12px;background:#fff;border-radius:12px;padding:13px 15px;margin-bottom:9px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.song-row .s-ic{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--verde-med),var(--verde-claro));color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none}
+.song-row .s-nm{flex:1;font-weight:700;font-size:15px;color:var(--verde-escuro)}
+.song-row .s-ar{font-size:12px;color:#789;font-weight:500}
+.star{font-size:20px;color:#d8d8d8;flex:none}
+.star.on{color:var(--dourado)}
+.search-box{width:100%;padding:12px 16px;border-radius:12px;border:1px solid #dde;background:#fff;font-size:15px;margin-bottom:12px;outline:none}
+
+/* ===== VISUALIZADOR DE MUSICA ===== */
+.song-head{background:linear-gradient(120deg,var(--verde-escuro),var(--verde-med));color:#fff;border-radius:var(--radius);padding:18px;margin-bottom:14px;position:relative}
+.song-head .t{font-size:20px;font-weight:900}
+.song-head .a{font-size:13px;opacity:.85;margin-top:2px}
+.song-head .star{position:absolute;top:16px;right:16px;font-size:26px}
+.tabs3{display:flex;gap:8px;margin-bottom:14px}
+.tabs3 button{flex:1;padding:12px;border-radius:12px;background:#fff;color:var(--verde-escuro);font-weight:700;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.08);display:flex;flex-direction:column;align-items:center;gap:3px}
+.tabs3 button .ic{font-size:18px}
+.tabs3 button.active{background:var(--verde-med);color:#fff}
+.sub-links{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.sub-links button{background:var(--cinza);color:var(--verde-escuro);padding:9px 16px;border-radius:20px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;border:1.5px solid transparent}
+.sub-links button:active{border-color:var(--verde-claro)}
+.cifra-box{background:#fffdf5;border:1px solid #efe7c9;border-radius:12px;padding:16px;font-family:'Courier New',monospace;font-size:14px;line-height:1.9;white-space:pre-wrap;color:#2b2b2b;overflow-x:auto}
+.cifra-box .ch{color:var(--verde-med);font-weight:800}
+.letra-box{background:#fff;border-radius:12px;padding:18px;font-size:16px;line-height:2;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.yt-corner{position:relative;margin-bottom:12px}
+.yt-btn{display:inline-flex;align-items:center;gap:8px;background:#ff0000;color:#fff;padding:9px 16px;border-radius:22px;font-size:13px;font-weight:700;text-decoration:none}
+.yt-embed{width:100%;aspect-ratio:16/9;border:none;border-radius:12px;margin-top:10px}
+
+/* ===== PLAYER DE AUDIO ===== */
+.player{background:linear-gradient(135deg,var(--verde-escuro),var(--verde-med));border-radius:var(--radius);padding:18px;color:#fff;box-shadow:var(--sombra)}
+.player .pt{font-weight:800;font-size:16px;text-align:center;margin-bottom:4px}
+.player .pa{font-size:12px;opacity:.8;text-align:center;margin-bottom:14px}
+.player audio{width:100%;border-radius:30px}
+.player-list{margin-top:14px}
+.player-list button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:rgba(255,255,255,.1);color:#fff;padding:11px 14px;border-radius:10px;margin-bottom:8px;font-size:13.5px;font-weight:600}
+.player-list button.playing{background:var(--dourado);color:#3a2f00}
+
+/* ===== ESCALA ===== */
+.escala-wrap{overflow-x:auto;background:#fff;border-radius:12px;box-shadow:var(--sombra);padding:4px}
+table.escala{border-collapse:collapse;width:100%;font-size:12.5px;min-width:420px}
+table.escala th{background:var(--verde-escuro);color:#fff;padding:10px 8px;font-weight:700;position:sticky;top:0;text-align:left}
+table.escala td{padding:9px 8px;border-bottom:1px solid #eef1ef}
+table.escala tr.vigente{background:linear-gradient(90deg,rgba(241,196,15,.35),rgba(47,163,119,.18));box-shadow:inset 4px 0 0 var(--dourado)}
+table.escala tr.vigente td{font-weight:700}
+.vig-tag{display:inline-block;background:var(--dourado);color:#3a2f00;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;margin-left:6px}
+.me-tag{display:inline-block;background:var(--verde-med);color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;margin-left:6px}
+
+/* ===== TOOLBAR EDITOR ===== */
+.editor-tb{display:flex;flex-wrap:wrap;gap:4px;background:var(--cinza);padding:8px;border-radius:10px 10px 0 0;border:1px solid #dde;border-bottom:none}
+.editor-tb button{width:36px;height:34px;border-radius:7px;background:#fff;color:var(--verde-escuro);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center}
+.editor-tb button:active{background:var(--verde-med);color:#fff}
+.editor-tb .sep{width:1px;background:#ccd;margin:2px 2px}
+.editor-area{width:100%;min-height:260px;border:1px solid #dde;border-radius:0 0 10px 10px;padding:14px;font-family:'Courier New',monospace;font-size:14px;line-height:1.9;resize:vertical;outline:none}
+.editor-area:focus{border-color:var(--verde-claro)}
+
+/* ===== TOAST / NOTIFICACOES ===== */
+.toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%) translateY(20px);background:var(--verde-escuro);color:#fff;padding:13px 20px;border-radius:30px;font-size:14px;font-weight:600;box-shadow:var(--sombra);z-index:90;opacity:0;transition:.3s;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.notif-item{display:flex;gap:12px;background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-left:4px solid var(--verde-med)}
+.notif-item.unread{border-left-color:var(--dourado);background:#fffdf3}
+.notif-item .ni-ic{font-size:22px}
+.notif-item .ni-t{font-weight:800;font-size:14px;color:var(--verde-escuro)}
+.notif-item .ni-b{font-size:13px;color:#556;margin-top:3px}
+.notif-item .ni-dt{font-size:11px;color:#9aa;margin-top:5px}
+
+/* ===== MODAL ===== */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:95;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;visibility:hidden;transition:.2s}
+.modal-bg.show{opacity:1;visibility:visible}
+.modal{background:#fff;border-radius:var(--radius);padding:22px;width:100%;max-width:420px;box-shadow:var(--sombra);max-height:88vh;overflow-y:auto}
+.modal h3{color:var(--verde-escuro);margin-bottom:14px;font-size:17px}
+.modal .field label{color:var(--verde-escuro)}
+.modal .field input,.modal .field select,.modal .field textarea{background:#fff;border:1px solid #ccd;color:var(--txt)}
+.modal-acts{display:flex;gap:10px;margin-top:16px}
+.modal-acts .btn{flex:1}
+.btn-dark{background:var(--verde-med);color:#fff}
+.fab{position:fixed;right:18px;bottom:78px;width:58px;height:58px;border-radius:50%;background:var(--dourado);color:#3a2f00;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.3);z-index:45;font-weight:300}
+.admin-tag{background:var(--dourado);color:#3a2f00;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px}
+.empty{text-align:center;color:#9aa;padding:40px 20px;font-size:14px}
+.empty .big{font-size:46px;margin-bottom:10px;opacity:.5}
+
+/* ===== BOAS-VINDAS / ONBOARDING ===== */
+.bv{position:fixed;inset:0;z-index:120;background:linear-gradient(160deg,var(--verde-escuro),var(--verde) 60%,var(--verde-med));
+  color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 22px 70px;overflow-y:auto}
+.bv-card{width:100%;max-width:440px;text-align:center}
+.bv-logo{width:92px;height:92px;margin:0 auto 14px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35))}
+.bv-step{display:none;animation:fade .3s}
+.bv-step.active{display:block}
+.bv-ic{font-size:62px;margin-bottom:10px}
+.bv-h{font-size:22px;font-weight:900;margin-bottom:10px;letter-spacing:.3px}
+.bv-p{font-size:15px;line-height:1.65;opacity:.92;margin-bottom:8px}
+.bv-list{text-align:left;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:16px 18px;margin-top:8px}
+.bv-list .li{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.5;margin-bottom:12px}
+.bv-list .li:last-child{margin-bottom:0}
+.bv-list .li .e{font-size:22px;flex:none;line-height:1}
+.bv-list .li b{color:var(--dourado)}
+.bv-dots{display:flex;gap:8px;justify-content:center;margin:22px 0 16px}
+.bv-dots span{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.35);transition:.2s}
+.bv-dots span.on{background:var(--dourado);width:24px;border-radius:5px}
+.bv-nav{display:flex;gap:10px}
+.bv-nav .btn{flex:1}
+.bv-skip{position:absolute;top:18px;right:20px;font-size:13px;color:rgba(255,255,255,.85);background:none;font-weight:600}
+</style>
+</head>
+<body>
+<div class="watermark" id="wm"></div>
+
+<!-- Container das telas de autenticacao -->
+<div id="authScreens"></div>
+
+<!-- App principal -->
+<div class="app-shell hidden" id="appShell">
+  <div class="topbar">
+    <button class="hamb" onclick="toggleMenu(true)"><span></span></button>
+    <div class="ttl">MINISTÉRIO DE MÚSICA<small>IBNM</small></div>
+    <button class="ico-btn" onclick="go('notificacoes')">🔔<span class="badge hidden" id="notifBadge">0</span></button>
+    <img class="avatar-mini" id="topAvatar" onclick="go('perfil')" alt="perfil">
+  </div>
+  <div class="content" id="content"></div>
+</div>
+
+<!-- Menu lateral -->
+<div class="overlay" id="overlay" onclick="toggleMenu(false)"></div>
+<nav class="sidemenu" id="sidemenu"></nav>
+
+<!-- Modal generico -->
+<div class="modal-bg" id="modalBg"><div class="modal" id="modalBox"></div></div>
+<div class="toast" id="toast"></div>
+<div id="bvScreen"></div>
+<div class="ver-foot" id="verFoot"></div>
+
+<script id="logoTpl" type="text/template">
+<img src="data:image/jpeg;base64,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" alt="Ministerio de Musica IBNM" style="width:100%;height:100%;object-fit:contain;border-radius:16px">
+</script>
+<script>
+/* ============================================================
+   MINISTERIO DE MUSICA IBNM - App do Usuario (prototipo)
+   Persistencia local (localStorage). Pontos de integracao
+   para Google Login / Google Drive marcados com [INTEGRACAO].
+============================================================ */
+const VERSION = 'v0.2.0 (beta)';
+const DB_KEY = 'ibnm_mm_db_v1';
+const SES_KEY = 'ibnm_mm_sessao';
+const LOGO = document.getElementById('logoTpl').innerHTML;
+
+/* ---------- Banco de dados local ---------- */
+const defaultDB = {
+  usuarios: [],
+  musicas: [],
+  playlist: { inicio:'', fim:'', musicas:[], publicada:false },
+  escala: { colunas:[], linhas:[] },  // linhas: [{periodoInicio,periodoFim,celulas:{col:valor}}]
+  notificacoes: {},  // por email -> [ {id,ic,titulo,corpo,data,lida} ]
+  favoritos: {}      // por email -> [idMusica]
+};
+function loadDB(){ try{ return Object.assign({}, defaultDB, JSON.parse(localStorage.getItem(DB_KEY))||{}); }catch(e){ return JSON.parse(JSON.stringify(defaultDB)); } }
+function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
+let DB = loadDB();
+
+/* ---------- Sessao ---------- */
+function getSessao(){ try{ return JSON.parse(localStorage.getItem(SES_KEY)); }catch(e){ return null; } }
+function setSessao(email){ localStorage.setItem(SES_KEY, JSON.stringify({email})); }
+function logout(){ localStorage.removeItem(SES_KEY); location.reload(); }
+function usuarioAtual(){ const s=getSessao(); return s? DB.usuarios.find(u=>u.email===s.email) : null; }
+function ehAdmin(){ const u=usuarioAtual(); return u && u.admin; }
+
+/* ---------- Helpers ---------- */
+const $ = s=>document.querySelector(s);
+function esc(t){ return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function hashSenha(s){ let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h)+s.charCodeAt(i); return 'h'+(h>>>0).toString(36); }
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3200); }
+function fmtData(iso){ if(!iso) return ''; const d=new Date(iso); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'); }
+function fmtDataHora(iso){ const d=new Date(iso); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+const AVATAR_PADRAO = 'data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="#145c43"/><circle cx="60" cy="46" r="24" fill="#fff"/><path d="M20 112c0-24 18-36 40-36s40 12 40 36" fill="#fff"/></svg>');
+
+/* ---------- Marca d'agua de notas musicais ---------- */
+(function(){ const notas=['\u266A','\u266B','\u2669','\u266C','\uD834\uDD1E','\u266D'];
+  let h=''; for(let i=0;i<26;i++){ const sz=22+Math.random()*54; h+='<span style="top:'+(Math.random()*100)+'%;left:'+(Math.random()*100)+'%;font-size:'+sz+'px;transform:rotate('+(Math.random()*60-30)+'deg)">'+notas[i%notas.length]+'</span>'; }
+  $('#wm').innerHTML=h;
+})();
+$('#verFoot').textContent = 'Ministério de Música IBNM — '+VERSION;
+</script>
+<script>
+/* ============== TELAS DE AUTENTICACAO ============== */
+const VOCAL = ['Soprano','Contralto','Tenor','Barítono','Baixo'];
+const INSTR = ['Bateria','Piano','Contrabaixo','Violão','Guitarra'];
+
+function telaLogin(){
+  $('#authScreens').innerHTML = `
+  <div class="scr-auth scr-login">
+    <div class="logo-wrap"><div class="logo-emblema">${LOGO}</div>
+      <h1 style="font-size:17px;margin-top:12px;letter-spacing:1px">MINISTÉRIO DE MÚSICA</h1>
+      <div style="font-size:13px;opacity:.8;letter-spacing:3px">IBNM</div></div>
+    <div class="auth-card">
+      <h2>Entrar</h2><div class="sub">Acesse com seu e-mail e senha</div>
+      <div id="loginErr"></div>
+      <div class="field"><label>E-mail</label><input type="email" id="liEmail" placeholder="voce@email.com"></div>
+      <div class="field"><label>Senha</label><input type="password" id="liSenha" placeholder="Sua senha"></div>
+      <div style="text-align:right;margin-bottom:14px"><a onclick="telaRecupera()" style="font-size:12.5px">Esqueci minha senha</a></div>
+      <button class="btn btn-primary" onclick="fazerLogin()">Entrar</button>
+      <div class="divider">ou</div>
+      <button class="btn btn-google" onclick="loginGoogle()">
+        <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.8-6.8C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.3 13.3 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.1 5.3-4.6 7l7.1 5.5c4.1-3.8 6.2-9.4 6.2-17z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6l-7.9-6.2C1 16.5 0 20.1 0 24s1 7.5 2.6 10.8l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.1-5.5c-2 1.4-4.6 2.2-8.1 2.2-6.3 0-11.7-3.8-13.5-9.9l-7.9 6.2C6.5 42.6 14.6 48 24 48z"/></svg>
+        Continuar com Google</button>
+      <div class="auth-switch">Não tem conta? <a onclick="telaCadastro()">Cadastre-se</a></div>
+    </div>
+  </div>`;
+}
+
+function telaCadastro(){
+  const vocalChk = VOCAL.map(v=>`<label class="check-inline"><input type="checkbox" class="cbVocal" value="${v}"> ${v}</label>`).join('');
+  const instrChk = INSTR.map(v=>`<label class="check-inline"><input type="checkbox" class="cbInstr" value="${v}"> ${v}</label>`).join('');
+  $('#authScreens').innerHTML = `
+  <div class="scr-auth">
+    <div class="logo-wrap"><div class="logo-emblema" style="width:88px;height:88px">${LOGO}</div></div>
+    <div class="auth-card">
+      <h2>Criar cadastro</h2><div class="sub">Preencha seus dados do Ministério</div>
+      <div id="cadErr"></div>
+      <div class="field"><label>Nome completo</label><input id="cNome" placeholder="Seu nome completo"></div>
+      <div class="field"><label>Data de nascimento</label><input type="date" id="cNasc"></div>
+      <div class="field"><label>E-mail</label><input type="email" id="cEmail" placeholder="voce@email.com"></div>
+      <div class="field"><label>Telefone</label><input id="cTel" inputmode="numeric" placeholder="( 00 ) 00000-0000" oninput="maskTel(this)">
+        <label class="check-inline"><input type="checkbox" id="cWpp"> Este número é WhatsApp</label></div>
+      <div class="field"><label>Função no Ministério de Música</label>
+        <div style="background:rgba(255,255,255,.08);border-radius:10px;padding:10px 12px;margin-top:4px">
+          <div style="font-weight:700;font-size:13px;opacity:.9">🎤 Vocalista</div>${vocalChk}
+          <div style="font-weight:700;font-size:13px;opacity:.9;margin-top:10px">🎸 Instrumentista</div>${instrChk}
+        </div><div class="hint">Pode marcar mais de uma opção.</div></div>
+      <div class="field"><label>Senha</label><input type="password" id="cSenha" oninput="checaSenha(this.value)" placeholder="Mínimo 8 caracteres">
+        <ul class="pwd-rules" id="pwdRules">
+          <li data-r="len">Mínimo 8 caracteres</li><li data-r="up">1 letra maiúscula</li>
+          <li data-r="num">1 número</li><li data-r="spec">1 caractere especial</li></ul></div>
+      <div class="field"><label>Confirmar senha</label><input type="password" id="cSenha2" placeholder="Repita a senha"></div>
+      <button class="btn btn-primary" onclick="fazerCadastro()">Criar conta</button>
+      <div class="divider">ou</div>
+      <button class="btn btn-google" onclick="loginGoogle()">
+        <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.8-6.8C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.3 13.3 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.1 5.3-4.6 7l7.1 5.5c4.1-3.8 6.2-9.4 6.2-17z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6l-7.9-6.2C1 16.5 0 20.1 0 24s1 7.5 2.6 10.8l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.1-5.5c-2 1.4-4.6 2.2-8.1 2.2-6.3 0-11.7-3.8-13.5-9.9l-7.9 6.2C6.5 42.6 14.6 48 24 48z"/></svg>
+        Cadastrar com Google</button>
+      <div class="auth-switch">Já tem conta? <a onclick="telaLogin()">Entrar</a></div>
+    </div>
+  </div>`;
+}
+
+function maskTel(el){ let v=el.value.replace(/\D/g,'').slice(0,11);
+  let o=''; if(v.length>0)o='( '+v.slice(0,2); if(v.length>=2)o+=' ) '; if(v.length>2)o+=v.slice(2,7); if(v.length>7)o+='-'+v.slice(7,11); el.value=o; }
+function checaSenha(s){ const r={len:s.length>=8,up:/[A-Z]/.test(s),num:/[0-9]/.test(s),spec:/[^A-Za-z0-9]/.test(s)};
+  document.querySelectorAll('#pwdRules li').forEach(li=>li.classList.toggle('ok',r[li.dataset.r])); return r; }
+function senhaValida(s){ const r=checaSenha(s); return r.len&&r.up&&r.num&&r.spec; }
+function erro(id,msg){ $('#'+id).innerHTML='<div class="err-msg">'+esc(msg)+'</div>'; }
+</script>
+<script>
+/* ============== LOGICA DE AUTENTICACAO ============== */
+function fazerLogin(){
+  const email=$('#liEmail').value.trim().toLowerCase(), senha=$('#liSenha').value;
+  if(!email||!senha) return erro('loginErr','Preencha e-mail e senha.');
+  const u=DB.usuarios.find(x=>x.email===email);
+  if(!u) return erro('loginErr','Usuário não encontrado.');
+  if(u.senhaHash!==hashSenha(senha)) return erro('loginErr','Senha incorreta.');
+  setSessao(email); iniciarApp();
+}
+
+function fazerCadastro(){
+  const nome=$('#cNome').value.trim(), nasc=$('#cNasc').value, email=$('#cEmail').value.trim().toLowerCase();
+  const tel=$('#cTel').value.trim(), wpp=$('#cWpp').checked, senha=$('#cSenha').value, senha2=$('#cSenha2').value;
+  const vocal=[...document.querySelectorAll('.cbVocal:checked')].map(c=>c.value);
+  const instr=[...document.querySelectorAll('.cbInstr:checked')].map(c=>c.value);
+  if(!nome) return erro('cadErr','Informe seu nome completo.');
+  if(!nasc) return erro('cadErr','Informe sua data de nascimento.');
+  if(!/^[^@]+@[^@]+\.[^@]+$/.test(email)) return erro('cadErr','E-mail inválido.');
+  if(tel.replace(/\D/g,'').length<10) return erro('cadErr','Telefone incompleto.');
+  if(!vocal.length && !instr.length) return erro('cadErr','Selecione ao menos uma função no Ministério.');
+  if(!senhaValida(senha)) return erro('cadErr','A senha não cumpre os requisitos.');
+  if(senha!==senha2) return erro('cadErr','As senhas não conferem.');
+  if(DB.usuarios.find(u=>u.email===email)) return erro('cadErr','Já existe conta com este e-mail.');
+  const primeiro = DB.usuarios.length===0; // primeiro cadastro vira ADM
+  DB.usuarios.push({ email, nome, nasc, tel, wpp, vocal, instr, senhaHash:hashSenha(senha),
+    foto:'', admin:primeiro, origem:'local', criado:new Date().toISOString() });
+  DB.notificacoes[email]=[]; DB.favoritos[email]=[]; saveDB();
+  setSessao(email);
+  if(primeiro) notificar(email,'👑','Você é o Administrador','Como primeiro cadastro, você recebeu acesso de ADM.');
+  notificar(email,'🎵','Bem-vindo(a)!','Seu cadastro no Ministério de Música IBNM foi criado.');
+  iniciarApp();
+}
+
+/* [INTEGRACAO] Login com Google.
+   Em producao usar Google Identity Services (GIS) com seu CLIENT_ID OAuth.
+   Aqui simulamos trazendo dados de perfil do Google para o cadastro. */
+function loginGoogle(){
+  const nome = prompt('Simulação do Login Google.\nNa versão final abrirá a conta Google real.\n\nNome (como viria do Google):','');
+  if(!nome) return;
+  const email=(prompt('E-mail da conta Google:','')||'').trim().toLowerCase();
+  if(!/^[^@]+@[^@]+\.[^@]+$/.test(email)) return toast('E-mail Google inválido.');
+  let u=DB.usuarios.find(x=>x.email===email);
+  if(!u){ const primeiro=DB.usuarios.length===0;
+    u={ email, nome, nasc:'', tel:'', wpp:false, vocal:[], instr:[], senhaHash:'', foto:'',
+       admin:primeiro, origem:'google', criado:new Date().toISOString() };
+    DB.usuarios.push(u); DB.notificacoes[email]=[]; DB.favoritos[email]=[];
+    notificar(email,'🎵','Bem-vindo(a)!','Conta criada via Google. Complete seu perfil (função no MM).');
+  }
+  saveDB(); setSessao(email); iniciarApp();
+  if(!u.vocal.length && !u.instr.length) setTimeout(()=>{ toast('Complete sua função no Ministério no seu perfil.'); go('perfil'); },600);
+}
+
+/* Recuperacao / confirmacao por e-mail (simulada) */
+function telaRecupera(){
+  $('#authScreens').innerHTML = `
+  <div class="scr-auth">
+    <div class="logo-wrap"><div class="logo-emblema" style="width:88px;height:88px">${LOGO}</div></div>
+    <div class="auth-card"><h2>Recuperar senha</h2>
+      <div class="sub">Enviaremos um link de redefinição para seu e-mail</div>
+      <div id="recErr"></div>
+      <div class="field"><label>E-mail cadastrado</label><input type="email" id="recEmail" placeholder="voce@email.com"></div>
+      <button class="btn btn-primary" onclick="enviarRecupera()">Enviar link</button>
+      <div class="auth-switch"><a onclick="telaLogin()">Voltar ao login</a></div>
+    </div></div>`;
+}
+function enviarRecupera(){ const email=$('#recEmail').value.trim().toLowerCase();
+  const u=DB.usuarios.find(x=>x.email===email);
+  if(!u) return erro('recErr','E-mail não encontrado.');
+  // [INTEGRACAO] Aqui o backend enviaria o e-mail de redefinicao.
+  $('#recErr').innerHTML='<div class="ok-msg">Enviamos um link de redefinição para '+esc(email)+'. Verifique sua caixa de entrada.</div>';
+}
+</script>
+<script>
+/* ============== NUCLEO DO APP (MENU + ROTAS) ============== */
+function notificar(email,ic,titulo,corpo){
+  if(!DB.notificacoes[email]) DB.notificacoes[email]=[];
+  DB.notificacoes[email].unshift({id:uid(),ic,titulo,corpo,data:new Date().toISOString(),lida:false});
+  saveDB();
+}
+function notificarTodos(ic,titulo,corpo,filtro){
+  DB.usuarios.forEach(u=>{ if(!filtro||filtro(u)) notificar(u.email,ic,titulo,corpo); });
+  saveDB();
+}
+function naoLidas(){ const u=usuarioAtual(); if(!u) return 0; return (DB.notificacoes[u.email]||[]).filter(n=>!n.lida).length; }
+function atualizaBadge(){ const n=naoLidas(), b=$('#notifBadge'); b.textContent=n; b.classList.toggle('hidden',n===0); }
+
+const MENU = [
+  {id:'inicio', ic:'\uD83C\uDFE0', nm:'Início'},
+  {id:'playlist', ic:'\uD83D\uDCC5', nm:'Playlist da Semana'},
+  {id:'musicas', ic:'\uD83C\uDFB5', nm:'Músicas', sub:[
+     {id:'musicas', ic:'\uD83C\uDFBC', nm:'Todas as músicas'},
+     {id:'favoritos', ic:'\u2B50', nm:'Favoritos'} ]},
+  {id:'escala', ic:'\uD83D\uDCCB', nm:'Escala Semanal'},
+  {id:'perfil', ic:'\uD83D\uDC64', nm:'Meu Perfil'},
+  {id:'notificacoes', ic:'\uD83D\uDD14', nm:'Notificações'},
+  {id:'ajuda', ic:'\u2753', nm:'Como usar o app'},
+];
+function montaMenu(){
+  const u=usuarioAtual();
+  let h=`<div class="sm-head"><div class="logo-emblema">${LOGO}</div>
+    <div class="nm">${esc(u.nome)}</div><div class="rl">${u.admin?'Administrador':'Membro'} • IBNM</div></div><div class="sm-nav">`;
+  MENU.forEach(m=>{
+    if(m.sub){ h+=`<button class="sm-item" onclick="toggleSub(this)"><span class="ic">${m.ic}</span>${m.nm}<span class="ar">\u25B6</span></button><div class="sm-sub">`;
+      m.sub.forEach(s=> h+=`<button onclick="go('${s.id}')"><span>${s.ic}</span>${s.nm}</button>`);
+      h+=`</div>`;
+    } else h+=`<button class="sm-item" onclick="go('${m.id}')"><span class="ic">${m.ic}</span>${m.nm}</button>`;
+  });
+  if(u.admin) h+=`<button class="sm-item" onclick="go('admin')"><span class="ic">\u2699\uFE0F</span>Painel do ADM</button>`;
+  h+=`</div><button class="sm-item" onclick="logout()"><span class="ic">\uD83D\uDEAA</span>Sair</button>
+    <div class="sm-foot">Ministério de Música IBNM<br>${VERSION}</div>`;
+  $('#sidemenu').innerHTML=h;
+}
+function toggleSub(btn){ btn.classList.toggle('open'); btn.nextElementSibling.classList.toggle('open'); }
+function toggleMenu(open){ $('#sidemenu').classList.toggle('show',open); $('#overlay').classList.toggle('show',open); }
+
+function go(page,arg){ toggleMenu(false); window.scrollTo(0,0);
+  const u=usuarioAtual(); if(!u) return;
+  if(page==='ajuda'){ telaBoasVindas(false); return; }
+  const fn = ROTAS[page]; $('#content').innerHTML = fn? fn(arg) : '<div class="empty">Página não encontrada.</div>';
+  atualizaBadge();
+}
+
+function iniciarApp(){
+  const u=usuarioAtual(); if(!u){ telaLogin(); return; }
+  $('#authScreens').innerHTML=''; $('#appShell').classList.remove('hidden');
+  $('#topAvatar').src = u.foto || AVATAR_PADRAO;
+  montaMenu(); verificaEscalaSemanal(); atualizaBadge();
+  if(!localStorage.getItem('ibnm_bv_'+u.email)){ telaBoasVindas(true); } else { go('inicio'); }
+}
+
+/* Inicializacao */
+/* Inicializacao agora e feita por bootCloud() no bloco de NUVEM ao final do arquivo. */
+</script>
+<script>
+/* ============== PAGINAS ============== */
+const ROTAS = {};
+
+ROTAS.inicio = function(){
+  const u=usuarioAtual(); const pl=DB.playlist;
+  const temPl = pl.publicada && pl.musicas.length;
+  let plBox = temPl
+    ? `<div class="semana-badge"><div class="lbl">PLAYLIST DA SEMANA</div><div class="dt">${fmtData(pl.inicio)} - ${fmtData(pl.fim)}</div></div>`
+    : `<div class="card"><div class="empty" style="padding:20px"><div class="big">\uD83C\uDFBC</div>Nenhuma playlist publicada ainda.</div></div>`;
+  const naEscala = usuarioNaEscalaVigente(u);
+  return `<div class="page">
+    <div class="page-ttl">Olá, ${esc(u.nome.split(' ')[0])}! \uD83D\uDC4B</div>
+    ${plBox}
+    ${naEscala? `<div class="card" style="border-left:4px solid var(--dourado)"><h3>\uD83D\uDCCD Você está na escala desta semana!</h3><p style="font-size:14px;color:#556">Função: <b>${esc(naEscala)}</b>. Veja os detalhes na Escala Semanal.</p><button class="mini-btn" style="margin-top:10px" onclick="go('escala')">Ver escala</button></div>`:''}
+    <div class="card"><h3>Acesso rápido</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
+        <button class="mini-btn" onclick="go('musicas')">\uD83C\uDFB5 Músicas</button>
+        <button class="mini-btn" onclick="go('favoritos')">\u2B50 Favoritos</button>
+        <button class="mini-btn" onclick="go('escala')">\uD83D\uDCCB Escala</button>
+        <button class="mini-btn" onclick="go('perfil')">\uD83D\uDC64 Perfil</button>
+      </div></div>
+    ${temPl? `<div class="card"><h3>Músicas da playlist</h3>${pl.musicas.map(id=>{const m=DB.musicas.find(x=>x.id===id);return m?`<div class="song-row" onclick="abrirMusica('${m.id}')"><div class="s-ic">\uD83C\uDFB5</div><div style="flex:1"><div class="s-nm">${esc(m.titulo)}</div><div class="s-ar">${esc(m.artista||'')}</div></div></div>`:''}).join('')}</div>`:''}
+  </div>`;
+};
+
+ROTAS.playlist = function(){
+  const pl=DB.playlist; const adm=ehAdmin();
+  let body;
+  if(pl.publicada && pl.musicas.length){
+    body = `<div class="semana-badge"><div class="lbl">PLAYLIST DA SEMANA</div><div class="dt">${fmtData(pl.inicio)} - ${fmtData(pl.fim)}</div></div>
+      ${pl.musicas.map(id=>{const m=DB.musicas.find(x=>x.id===id);return m?`<div class="song-row" onclick="abrirMusica('${m.id}')"><div class="s-ic">\uD83C\uDFB5</div><div style="flex:1"><div class="s-nm">${esc(m.titulo)}</div><div class="s-ar">${esc(m.artista||'')}</div></div><span class="star ${ehFav(m.id)?'on':''}">\u2605</span></div>`:''}).join('')}`;
+  } else body = `<div class="empty"><div class="big">\uD83C\uDFBC</div>Nenhuma playlist publicada ainda.</div>`;
+  return `<div class="page"><div class="page-ttl">\uD83D\uDCC5 Playlist da Semana</div>
+    ${adm? `<button class="mini-btn" style="margin-bottom:14px" onclick="modalPlaylist()">\u270F\uFE0F Montar / editar playlist</button>`:''}
+    ${body}</div>`;
+};
+
+ROTAS.notificacoes = function(){
+  const u=usuarioAtual(); const lista=DB.notificacoes[u.email]||[];
+  (DB.notificacoes[u.email]||[]).forEach(n=>n.lida=true); saveDB(); atualizaBadge();
+  return `<div class="page"><div class="page-ttl">\uD83D\uDD14 Notificações</div>
+    ${lista.length? lista.map(n=>`<div class="notif-item ${n.lida?'':'unread'}"><div class="ni-ic">${n.ic}</div><div style="flex:1"><div class="ni-t">${esc(n.titulo)}</div><div class="ni-b">${esc(n.corpo)}</div><div class="ni-dt">${fmtDataHora(n.data)}</div></div></div>`).join('') : '<div class="empty"><div class="big">\uD83D\uDD15</div>Nenhuma notificação.</div>'}</div>`;
+};
+</script>
+<script>
+/* ============== PERFIL ============== */
+ROTAS.perfil = function(){
+  const u=usuarioAtual();
+  const funcoes=[...u.vocal.map(v=>'\uD83C\uDFA4 '+v),...u.instr.map(i=>'\uD83C\uDFB8 '+i)];
+  return `<div class="page"><div class="page-ttl">\uD83D\uDC64 Meu Perfil ${u.admin?'<span class="admin-tag">ADM</span>':''}</div>
+    <div class="card"><div class="perfil-top">
+      <img class="perfil-foto" id="perfilFoto" src="${u.foto||AVATAR_PADRAO}">
+      <div class="perfil-nome">${esc(u.nome)}</div>
+      <div style="font-size:13px;color:#789">${esc(u.email)}</div>
+      <div class="foto-acts">
+        <button class="mini-btn" onclick="$('#inpGaleria').click()">\uD83D\uDDBC\uFE0F Galeria</button>
+        <button class="mini-btn" onclick="abrirCamera()">\uD83D\uDCF7 Câmera</button>
+        ${u.foto?`<button class="mini-btn sec" onclick="removerFoto()">Remover</button>`:''}
+      </div>
+      <input type="file" id="inpGaleria" accept="image/*" class="hidden" onchange="carregarFoto(this)">
+      <input type="file" id="inpCamera" accept="image/*" capture="user" class="hidden" onchange="carregarFoto(this)">
+    </div></div>
+    <div class="card"><h3>Meus dados</h3>
+      <div class="info-row"><span class="k">Nascimento</span><span class="v">${u.nasc?u.nasc.split('-').reverse().join('/'):'\u2014'}</span></div>
+      <div class="info-row"><span class="k">Telefone</span><span class="v">${esc(u.tel||'\u2014')} ${u.wpp?'\uD83D\uDCF1':''}</span></div>
+      <div class="info-row"><span class="k">WhatsApp</span><span class="v">${u.wpp?'Sim':'Não'}</span></div>
+      <div style="margin-top:10px"><div class="k" style="font-size:13px;margin-bottom:6px;color:#789;font-weight:600">Função no Ministério</div>
+        ${funcoes.length? funcoes.map(f=>`<span class="pill">${f}</span>`).join('') : '<span style="color:#aab;font-size:13px">Não informada</span>'}</div>
+      <button class="mini-btn" style="margin-top:14px" onclick="modalEditarPerfil()">\u270F\uFE0F Editar dados / função</button>
+    </div>
+    <div class="card"><h3>Segurança</h3>
+      <button class="mini-btn" onclick="modalTrocarSenha()">\uD83D\uDD12 Trocar senha</button>
+      <p style="font-size:12px;color:#9aa;margin-top:8px">A troca de senha exige confirmação por e-mail.</p>
+    </div>
+  </div>`;
+};
+
+function abrirCamera(){ $('#inpCamera').click(); }
+function carregarFoto(inp){ const f=inp.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=e=>{ const u=usuarioAtual(); u.foto=e.target.result; saveDB();
+    $('#perfilFoto')&&( $('#perfilFoto').src=u.foto); $('#topAvatar').src=u.foto; montaMenu(); toast('Foto atualizada!'); go('perfil'); };
+  r.readAsDataURL(f); }
+function removerFoto(){ const u=usuarioAtual(); u.foto=''; saveDB(); $('#topAvatar').src=AVATAR_PADRAO; montaMenu(); go('perfil'); }
+
+function modalEditarPerfil(){
+  const u=usuarioAtual();
+  const vocalChk=VOCAL.map(v=>`<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" class="eVocal" value="${v}" ${u.vocal.includes(v)?'checked':''}> ${v}</label>`).join('');
+  const instrChk=INSTR.map(v=>`<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" class="eInstr" value="${v}" ${u.instr.includes(v)?'checked':''}> ${v}</label>`).join('');
+  abrirModal(`<h3>Editar perfil</h3>
+    <div class="field"><label>Nome completo</label><input id="ePnome" value="${esc(u.nome)}"></div>
+    <div class="field"><label>Data de nascimento</label><input type="date" id="ePnasc" value="${u.nasc||''}"></div>
+    <div class="field"><label>Telefone</label><input id="ePtel" value="${esc(u.tel||'')}" oninput="maskTel(this)">
+      <label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" id="ePwpp" ${u.wpp?'checked':''}> É WhatsApp</label></div>
+    <div class="field"><label>Função no MM</label><div style="font-size:12px;font-weight:700;margin-top:4px">\uD83C\uDFA4 Vocalista</div>${vocalChk}
+      <div style="font-size:12px;font-weight:700;margin-top:8px">\uD83C\uDFB8 Instrumentista</div>${instrChk}</div>
+    <div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarPerfil()">Salvar</button></div>`);
+}
+function salvarPerfil(){ const u=usuarioAtual();
+  u.nome=$('#ePnome').value.trim()||u.nome; u.nasc=$('#ePnasc').value; u.tel=$('#ePtel').value; u.wpp=$('#ePwpp').checked;
+  u.vocal=[...document.querySelectorAll('.eVocal:checked')].map(c=>c.value);
+  u.instr=[...document.querySelectorAll('.eInstr:checked')].map(c=>c.value);
+  saveDB(); fecharModal(); montaMenu(); toast('Perfil atualizado!'); go('perfil'); }
+
+function modalTrocarSenha(){ const u=usuarioAtual();
+  if(u.origem==='google') return abrirModal(`<h3>Trocar senha</h3><p style="font-size:14px;color:#556">Sua conta usa login com Google. A senha é gerenciada pela sua Conta Google.</p><div class="modal-acts"><button class="btn btn-primary" onclick="fecharModal()">Entendi</button></div>`);
+  abrirModal(`<h3>Trocar senha</h3>
+    <div id="tsErr"></div>
+    <div class="field"><label>Senha atual</label><input type="password" id="tsAtual"></div>
+    <div class="field"><label>Nova senha</label><input type="password" id="tsNova" oninput="checaSenha(this.value)">
+      <ul class="pwd-rules" id="pwdRules" style="color:var(--verde-escuro)"><li data-r="len">Mínimo 8 caracteres</li><li data-r="up">1 maiúscula</li><li data-r="num">1 número</li><li data-r="spec">1 especial</li></ul></div>
+    <div class="field"><label>Confirmar nova senha</label><input type="password" id="tsNova2"></div>
+    <p style="font-size:12px;color:#9aa">\uD83D\uDCE7 Ao salvar, enviaremos um e-mail de confirmação para ${esc(u.email)}.</p>
+    <div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarSenha()">Salvar</button></div>`);
+}
+function salvarSenha(){ const u=usuarioAtual();
+  if(u.senhaHash!==hashSenha($('#tsAtual').value)) return $('#tsErr').innerHTML='<div class="err-msg">Senha atual incorreta.</div>';
+  const nova=$('#tsNova').value;
+  if(!senhaValida(nova)) return $('#tsErr').innerHTML='<div class="err-msg">A nova senha não cumpre os requisitos.</div>';
+  if(nova!==$('#tsNova2').value) return $('#tsErr').innerHTML='<div class="err-msg">As senhas não conferem.</div>';
+  u.senhaHash=hashSenha(nova); saveDB();
+  // [INTEGRACAO] backend envia e-mail de confirmacao da troca de senha
+  notificar(u.email,'\uD83D\uDD12','Senha alterada','Sua senha foi alterada. Enviamos uma confirmação para seu e-mail.');
+  fecharModal(); toast('Senha alterada! Confirmação enviada por e-mail.'); atualizaBadge();
+}
+
+/* ---------- Modal generico ---------- */
+function abrirModal(html){ $('#modalBox').innerHTML=html; $('#modalBg').classList.add('show'); }
+function fecharModal(){ $('#modalBg').classList.remove('show'); }
+$('#modalBg').addEventListener('click',e=>{ if(e.target===$('#modalBg')) fecharModal(); });
+</script>
+<script>
+/* ============== MUSICAS (alfabeto + lista) ============== */
+let filtroLetra='TODAS', filtroBusca='';
+function ehFav(id){ const u=usuarioAtual(); return (DB.favoritos[u.email]||[]).includes(id); }
+function toggleFav(id,ev){ if(ev) ev.stopPropagation(); const u=usuarioAtual();
+  if(!DB.favoritos[u.email]) DB.favoritos[u.email]=[];
+  const arr=DB.favoritos[u.email], i=arr.indexOf(id);
+  if(i<0){ arr.push(id); toast('Adicionada aos favoritos \u2B50'); } else { arr.splice(i,1); toast('Removida dos favoritos'); }
+  saveDB(); if(musicaAberta===id) abrirMusica(id,abaAtual); else go(paginaMusicas); }
+
+let paginaMusicas='musicas';
+ROTAS.musicas = function(){ paginaMusicas='musicas'; return renderListaMusicas(false); };
+ROTAS.favoritos = function(){ paginaMusicas='favoritos'; return renderListaMusicas(true); };
+
+function renderListaMusicas(soFav){
+  const adm=ehAdmin(); const u=usuarioAtual();
+  let musicas = DB.musicas.slice();
+  if(soFav){ const fv=DB.favoritos[u.email]||[]; musicas=musicas.filter(m=>fv.includes(m.id)); }
+  const letras='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const comLetra=new Set(musicas.map(m=>(m.titulo[0]||'#').toUpperCase()));
+  let vis=musicas.filter(m=>{
+    const okL = filtroLetra==='TODAS' || (m.titulo[0]||'').toUpperCase()===filtroLetra;
+    const okB = !filtroBusca || (m.titulo+' '+(m.artista||'')).toLowerCase().includes(filtroBusca.toLowerCase());
+    return okL&&okB; });
+  vis.sort((a,b)=>a.titulo.localeCompare(b.titulo,'pt'));
+  const alpha = `<div class="alpha-bar"><button class="${filtroLetra==='TODAS'?'active':''}" onclick="setLetra('TODAS')">Tudo</button>`+
+    letras.map(l=>`<button class="${filtroLetra===l?'active':''} ${comLetra.has(l)?'has':''}" onclick="setLetra('${l}')">${l}</button>`).join('')+`</div>`;
+  const lista = vis.length? vis.map(m=>`<div class="song-row" onclick="abrirMusica('${m.id}')">
+      <div class="s-ic">\uD83C\uDFB5</div><div style="flex:1"><div class="s-nm">${esc(m.titulo)}</div><div class="s-ar">${esc(m.artista||'')}</div></div>
+      <span class="star ${ehFav(m.id)?'on':''}" onclick="toggleFav('${m.id}',event)">\u2605</span></div>`).join('')
+    : `<div class="empty"><div class="big">${soFav?'\u2B50':'\uD83C\uDFB5'}</div>${soFav?'Você ainda não tem favoritos. Toque na estrela de uma música.':'Nenhuma música encontrada.'}</div>`;
+  return `<div class="page"><div class="page-ttl">${soFav?'\u2B50 Favoritos':'\uD83C\uDFB5 Músicas'}</div>
+    <input class="search-box" placeholder="\uD83D\uDD0D Buscar música ou artista..." value="${esc(filtroBusca)}" oninput="filtroBusca=this.value;go('${soFav?'favoritos':'musicas'}')" autofocus>
+    ${alpha}
+    ${adm&&!soFav? `<button class="mini-btn" style="margin-bottom:12px" onclick="modalNovaMusica()">\u2795 Adicionar música</button>`:''}
+    ${lista}</div>`;
+}
+function setLetra(l){ filtroLetra=l; go(paginaMusicas); }
+
+/* ============== VISUALIZADOR DA MUSICA ============== */
+let musicaAberta=null, abaAtual='cifra';
+function abrirMusica(id,aba){ musicaAberta=id; abaAtual=aba||'cifra';
+  toggleMenu(false); window.scrollTo(0,0);
+  $('#content').innerHTML = renderMusica(); }
+
+function renderMusica(){
+  const m=DB.musicas.find(x=>x.id===musicaAberta); if(!m) return go(paginaMusicas);
+  const adm=ehAdmin(); const fav=ehFav(m.id);
+  let corpo='';
+  if(abaAtual==='cifra'){
+    const yt = m.youtube? `<div class="yt-corner"><a class="yt-btn" href="${esc(m.youtube)}" target="_blank">\u25B6 Ver no YouTube</a></div>`:'';
+    corpo = `<div class="sub-links">
+        <button onclick="abrirMusica('${m.id}','letra')">\uD83D\uDCDD Somente letra</button>
+        <button onclick="abrirMusica('${m.id}','audio')">\uD83C\uDFA7 Ouvir áudio</button></div>
+      ${yt}
+      ${adm?`<button class="mini-btn" style="margin-bottom:10px" onclick="editorCifra('${m.id}')">\u270F\uFE0F Editar cifra</button>`:''}
+      <div class="cifra-box">${m.cifra? realcaCifra(m.cifra) : '<span style="color:#aab">Cifra ainda não cadastrada.</span>'}</div>`;
+  } else if(abaAtual==='letra'){
+    corpo = `<div class="sub-links">
+        <button onclick="abrirMusica('${m.id}','cifra')">\uD83C\uDFBC Ver cifra</button>
+        <button onclick="abrirMusica('${m.id}','audio')">\uD83C\uDFA7 Ouvir áudio</button></div>
+      <div class="letra-box">${m.letra? esc(m.letra) : '<span style="color:#aab">Letra ainda não cadastrada.</span>'}</div>`;
+  } else {
+    corpo = `<div class="sub-links">
+        <button onclick="abrirMusica('${m.id}','cifra')">\uD83C\uDFBC Ver cifra</button>
+        <button onclick="abrirMusica('${m.id}','letra')">\uD83D\uDCDD Somente letra</button></div>
+      ${renderPlayer(m)}`;
+  }
+  return `<div class="page">
+    <button class="mini-btn sec" style="margin-bottom:12px" onclick="go('${paginaMusicas}')">\u2190 Voltar</button>
+    <div class="song-head"><div class="t">${esc(m.titulo)}</div><div class="a">${esc(m.artista||'')}</div>
+      <span class="star ${fav?'on':''}" onclick="toggleFav('${m.id}')">\u2605</span></div>
+    <div class="tabs3">
+      <button class="${abaAtual==='cifra'?'active':''}" onclick="abrirMusica('${m.id}','cifra')"><span class="ic">\uD83C\uDFBC</span>Cifra</button>
+      <button class="${abaAtual==='letra'?'active':''}" onclick="abrirMusica('${m.id}','letra')"><span class="ic">\uD83D\uDCDD</span>Letra</button>
+      <button class="${abaAtual==='audio'?'active':''}" onclick="abrirMusica('${m.id}','audio')"><span class="ic">\uD83C\uDFA7</span>Áudio</button></div>
+    ${corpo}</div>`;
+}
+function realcaCifra(txt){ // realca acordes (linhas com padrao de acordes)
+  return esc(txt).split('\n').map(l=>{
+    if(/^[\s]*([A-G][#b]?(m|maj|min|sus|dim|aug|add)?[0-9]?(\/[A-G][#b]?)?[\s]*)+$/.test(l) && l.trim())
+      return '<span class="ch">'+l+'</span>'; return l; }).join('\n');
+}
+
+/* ============== PLAYER (audios do Google Drive) ============== */
+function driveUrl(id){ return 'https://drive.google.com/uc?export=download&id='+id; }
+function renderPlayer(m){
+  const audios=m.audios||[];
+  if(!audios.length) return `<div class="empty"><div class="big">\uD83C\uDFA7</div>Nenhum áudio disponível ainda.</div>`;
+  const primeiro=audios[0];
+  return `<div class="player">
+    <div class="pt" id="plNome">${esc(primeiro.nome)}</div><div class="pa">${esc(m.titulo)}</div>
+    <audio id="plAudio" controls autoplay src="${esc(primeiro.url)}"></audio>
+    ${audios.length>1? `<div class="player-list">${audios.map((a,i)=>`<button class="${i===0?'playing':''}" onclick="tocar('${esc(a.url)}',this,'${esc(a.nome)}')">\u25B6 ${esc(a.nome)}</button>`).join('')}</div>`:''}
+  </div>`;
+}
+function tocar(url,btn,nome){ const a=$('#plAudio'); a.src=url; a.play(); $('#plNome').textContent=nome;
+  document.querySelectorAll('.player-list button').forEach(b=>b.classList.remove('playing')); btn.classList.add('playing'); }
+</script>
+<script>
+/* ============== EDITOR DE CIFRA (somente ADM) ============== */
+function modalNovaMusica(){
+  abrirModal(`<h3>Nova música</h3>
+    <div class="field"><label>Título</label><input id="nmTit" placeholder="Nome da música"></div>
+    <div class="field"><label>Artista / Autor</label><input id="nmArt" placeholder="Opcional"></div>
+    <div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="criarMusica()">Criar</button></div>`);
+}
+function criarMusica(){ const t=$('#nmTit').value.trim(); if(!t) return toast('Informe o título.');
+  const m={id:uid(),titulo:t,artista:$('#nmArt').value.trim(),cifra:'',letra:'',youtube:'',audios:[],publicada:false,criado:new Date().toISOString()};
+  DB.musicas.push(m); saveDB(); fecharModal(); toast('Música criada! Edite a cifra e publique.'); editorCifra(m.id);
+}
+
+function editorCifra(id){ if(!ehAdmin()) return; musicaAberta=id;
+  const m=DB.musicas.find(x=>x.id===id); window.scrollTo(0,0); toggleMenu(false);
+  const audiosHtml = (m.audios||[]).map((a,i)=>`<div class="info-row"><span class="v" style="font-weight:600">\uD83C\uDFA7 ${esc(a.nome)}</span><button class="mini-btn sec" onclick="removerAudio('${id}',${i})">Remover</button></div>`).join('');
+  $('#content').innerHTML = `<div class="page">
+    <button class="mini-btn sec" style="margin-bottom:12px" onclick="abrirMusica('${id}','cifra')">\u2190 Voltar</button>
+    <div class="page-ttl">\u270F\uFE0F Editor — ${esc(m.titulo)}</div>
+    <div class="card"><h3>Dados</h3>
+      <div class="field"><label>Título</label><input id="edTit" value="${esc(m.titulo)}"></div>
+      <div class="field"><label>Artista</label><input id="edArt" value="${esc(m.artista||'')}"></div>
+      <div class="field"><label>Link do vídeo no YouTube</label><input id="edYt" value="${esc(m.youtube||'')}" placeholder="https://youtube.com/watch?v=..."></div>
+    </div>
+    <div class="card"><h3>Cifra</h3>
+      <div class="editor-tb">
+        <button title="Negrito" onmousedown="fmt(event,'bold')"><b>B</b></button>
+        <button title="Itálico" onmousedown="fmt(event,'italic')"><i>I</i></button>
+        <button title="Sublinhado" onmousedown="fmt(event,'underline')"><u>U</u></button>
+        <div class="sep"></div>
+        <button title="Acorde" onmousedown="fmt(event,'acorde')" style="color:var(--verde-med)">A\u266D</button>
+        <button title="Seção" onmousedown="fmt(event,'secao')">[ ]</button>
+        <div class="sep"></div>
+        <button title="Transpor +" onmousedown="transpor(event,1)">\u266F</button>
+        <button title="Transpor -" onmousedown="transpor(event,-1)">\u266D</button>
+        <div class="sep"></div>
+        <button title="Limpar" onmousedown="fmt(event,'clear')">\uD83E\uDDF9</button>
+      </div>
+      <textarea class="editor-area" id="edCifra" placeholder="Digite ou cole a cifra aqui...\nEx.:\n[Intro] C  G  Am  F\n\nC            G\nMinha vida muda...">${esc(m.cifra||'')}</textarea>
+    </div>
+    <div class="card"><h3>Letra</h3>
+      <textarea class="editor-area" id="edLetra" style="min-height:180px;font-family:inherit" placeholder="Letra da música...">${esc(m.letra||'')}</textarea></div>
+    <div class="card"><h3>Áudios (Google Drive)</h3>
+      ${audiosHtml||'<p style="font-size:13px;color:#9aa">Nenhum áudio.</p>'}
+      <div class="field" style="margin-top:10px"><label>Nome do áudio</label><input id="edAudNome" placeholder="Ex.: Voz guia"></div>
+      <div class="field"><label>Link ou ID do Google Drive</label><input id="edAudUrl" placeholder="ID do arquivo ou link compartilhado"></div>
+      <button class="mini-btn" onclick="addAudio('${id}')">\u2795 Adicionar áudio</button>
+      <p style="font-size:11.5px;color:#9aa;margin-top:8px">O áudio vem da pasta de backup no Google Drive do Ministério.</p></div>
+    <div style="display:flex;gap:10px;margin-bottom:20px">
+      <button class="btn btn-dark" onclick="salvarCifra('${id}',false)">\uD83D\uDCBE Salvar rascunho</button>
+      <button class="btn btn-primary" onclick="salvarCifra('${id}',true)">\uD83D\uDCE2 Publicar</button>
+    </div></div>`;
+}
+function fmt(ev,tipo){ ev.preventDefault(); const ta=$('#edCifra'); const s=ta.selectionStart,e=ta.selectionEnd;
+  const sel=ta.value.slice(s,e); let novo=sel, wrap=0;
+  if(tipo==='bold'){novo='**'+sel+'**';wrap=2;} else if(tipo==='italic'){novo='_'+sel+'_';wrap=1;}
+  else if(tipo==='underline'){novo='__'+sel+'__';wrap=2;} else if(tipo==='acorde'){novo='['+(sel||'C')+']';wrap=1;}
+  else if(tipo==='secao'){novo='['+(sel||'Refrão')+']';wrap=1;} else if(tipo==='clear'){ if(confirm('Limpar toda a cifra?')) ta.value=''; return; }
+  ta.setRangeText(novo,s,e,'end'); ta.focus();
+}
+const NOTAS=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function transpor(ev,passo){ ev.preventDefault(); const ta=$('#edCifra');
+  ta.value = ta.value.replace(/\b([A-G][#b]?)/g,(m,n)=>{ n=n.replace('b','#'); let i=NOTAS.indexOf(n[0]+(n[1]||'')); if(i<0)i=NOTAS.indexOf(n[0]); if(i<0)return m; return NOTAS[(i+passo+12)%12]; });
+  toast(passo>0?'Transposto +1 semitom':'Transposto -1 semitom');
+}
+function addAudio(id){ const m=DB.musicas.find(x=>x.id===id); const nome=$('#edAudNome').value.trim(); let v=$('#edAudUrl').value.trim();
+  if(!nome||!v) return toast('Informe nome e link/ID.');
+  let url=v; const mt=v.match(/[-\w]{25,}/); if(!/^https?:/.test(v) && mt) url=driveUrl(v); else if(mt && v.includes('drive.google')) url=driveUrl(mt[0]);
+  m.audios=m.audios||[]; m.audios.push({nome,url}); saveDB(); editorCifra(id); }
+function removerAudio(id,i){ const m=DB.musicas.find(x=>x.id===id); m.audios.splice(i,1); saveDB(); editorCifra(id); }
+function salvarCifra(id,publicar){ const m=DB.musicas.find(x=>x.id===id);
+  m.titulo=$('#edTit').value.trim()||m.titulo; m.artista=$('#edArt').value.trim(); m.youtube=$('#edYt').value.trim();
+  m.cifra=$('#edCifra').value; m.letra=$('#edLetra').value;
+  if(publicar){ const jaPub=m.publicada; m.publicada=true; saveDB();
+    if(!jaPub){ notificarTodos('\uD83C\uDFBC','Nova música disponível','"'+m.titulo+'" foi publicada no app. Confira a cifra, letra e áudio!'); }
+    toast('Publicado! Todos foram notificados.'); abrirMusica(id,'cifra');
+  } else { saveDB(); toast('Rascunho salvo.'); }
+}
+</script>
+<script>
+/* ============== ESCALA SEMANAL ============== */
+/* Cada linha tem periodoInicio/periodoFim (ISO). A linha vigente e destacada.
+   A verificacao de "vira na segunda 00:01" e feita comparando a data atual. */
+function segundaDaSemana(d){ d=new Date(d); const dia=d.getDay(); const diff=(dia===0?-6:1-dia); d.setDate(d.getDate()+diff); d.setHours(0,1,0,0); return d; }
+function linhaVigenteIdx(){
+  const hoje=new Date(); const seg=segundaDaSemana(hoje);
+  for(let i=0;i<DB.escala.linhas.length;i++){ const l=DB.escala.linhas[i];
+    if(l.periodoInicio){ const ini=new Date(l.periodoInicio); const fim=l.periodoFim?new Date(l.periodoFim):new Date(ini.getTime()+6*864e5);
+      if(hoje>=ini && hoje<=new Date(fim.getTime()+864e5)) return i; }
+  }
+  // fallback: casa pela segunda-feira da semana
+  for(let i=0;i<DB.escala.linhas.length;i++){ const l=DB.escala.linhas[i];
+    if(l.periodoInicio && segundaDaSemana(l.periodoInicio).getTime()===seg.getTime()) return i; }
+  return -1;
+}
+/* Normaliza texto (sem acentos, minúsculo) para comparação segura */
+function norm(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+/* Verifica se o NOME do usuário aparece na célula (prioriza nome, com limite de palavra) */
+function nomeNaCelula(valor,u){
+  if(!valor) return false;
+  const v=norm(valor); const full=norm(u.nome).trim(); if(!full) return false;
+  const first=full.split(' ')[0];
+  const tokens=v.split(/[^a-z0-9]+/).filter(Boolean);
+  if(v.includes(full)) return true;        // nome completo contido
+  if(tokens.includes(first)) return true;   // primeiro nome como palavra inteira
+  return false;
+}
+/* Colunas (postos/dias) em que o usuário aparece na linha informada */
+function colsDoUsuarioNaLinha(l,u){
+  const cols=[]; for(const c of DB.escala.colunas){ if(nomeNaCelula(l.celulas[c],u)) cols.push(c); } return cols;
+}
+function usuarioNaEscalaVigente(u){
+  const idx=linhaVigenteIdx(); if(idx<0) return null; const l=DB.escala.linhas[idx]; if(!l) return null;
+  const cols=colsDoUsuarioNaLinha(l,u);
+  return cols.length? cols.join(', ') : null;
+}
+ROTAS.escala = function(){
+  const adm=ehAdmin(); const idx=linhaVigenteIdx(); const u=usuarioAtual();
+  if(!DB.escala.colunas.length){
+    return `<div class="page"><div class="page-ttl">\uD83D\uDCCB Escala Semanal</div>
+      ${adm?`<button class="mini-btn" style="margin-bottom:14px" onclick="$('#inpEscala').click()">\uD83D\uDCC4 Importar escala (Excel)</button><input type="file" id="inpEscala" accept=".xlsx,.xls,.csv" class="hidden" onchange="importarEscala(this)">`:''}
+      <div class="empty"><div class="big">\uD83D\uDCCB</div>Nenhuma escala publicada ainda.</div></div>`;
+  }
+  const naEscala=usuarioNaEscalaVigente(u);
+  const ths=DB.escala.colunas.map(c=>`<th>${esc(c)}</th>`).join('');
+  const trs=DB.escala.linhas.map((l,i)=>{
+    const vig=i===idx;
+    const tds=DB.escala.colunas.map(c=>{ let v=l.celulas[c]||'';
+      const meu = v && u && nomeNaCelula(v,u);
+      return `<td>${esc(v)}${meu&&vig?'<span class="me-tag">VOCÊ</span>':''}</td>`; }).join('');
+    return `<tr class="${vig?'vigente':''}">${tds}</tr>`;
+  }).join('');
+  return `<div class="page"><div class="page-ttl">\uD83D\uDCCB Escala Semanal</div>
+    ${naEscala?`<div class="card" style="border-left:4px solid var(--dourado)"><h3>\uD83D\uDCCD Você está escalado(a) esta semana</h3><p style="font-size:14px;color:#556">${esc(naEscala)}</p></div>`:''}
+    ${adm?`<button class="mini-btn" style="margin-bottom:14px" onclick="$('#inpEscala').click()">\uD83D\uDCC4 Reimportar escala (Excel)</button><input type="file" id="inpEscala" accept=".xlsx,.xls,.csv" class="hidden" onchange="importarEscala(this)">`:''}
+    <p style="font-size:12px;color:#789;margin-bottom:10px">A linha vigente da semana aparece destacada. Atualiza toda segunda-feira às 00:01.</p>
+    <div class="escala-wrap"><table class="escala"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div></div>`;
+};
+function importarEscala(inp){ const f=inp.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=e=>{ try{
+    const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+    if(!rows.length) return toast('Planilha vazia.');
+    const colunas=rows[0].map((c,i)=>String(c||('Col'+(i+1))).trim());
+    const linhas=[]; for(let i=1;i<rows.length;i++){ const row=rows[i]; if(row.every(c=>!String(c).trim())) continue;
+      const cel={}; colunas.forEach((c,j)=>cel[c]=String(row[j]||'').trim());
+      const per=detectaPeriodo(colunas,cel);
+      linhas.push({periodoInicio:per.ini,periodoFim:per.fim,celulas:cel}); }
+    DB.escala={colunas,linhas}; saveDB();
+    notificarImportacaoEscala();
+    toast('Escala importada! '+linhas.length+' linha(s).'); go('escala');
+  }catch(err){ toast('Erro ao ler o arquivo: '+err.message); } };
+  r.readAsArrayBuffer(f);
+}
+function detectaPeriodo(colunas,cel){ // tenta achar datas dd/mm na primeira coluna
+  const ano=new Date().getFullYear();
+  for(const c of colunas){ const v=cel[c]||''; const m=v.match(/(\d{1,2})\/(\d{1,2})/g);
+    if(m&&m.length){ const p=(s)=>{const[d,mo]=s.split('/');return new Date(ano,mo-1,d).toISOString();};
+      return {ini:p(m[0]),fim:m[1]?p(m[1]):p(m[0])}; } }
+  return {ini:'',fim:''};
+}
+/* ===== Fluxo de notificação da escala =====
+   Limitação conhecida: por ser app estático, o disparo "segunda 00:01" ocorre
+   quando o usuário ABRE o app numa nova semana. O push automático de verdade
+   (mesmo com o app fechado) será ligado na finalização, via backend + Web Push. */
+
+/* Chave de deduplicação por usuário + semana (evita avisar 2x na mesma semana) */
+function chaveEscala(email,seg){ return 'ibnm_esc_'+email+'_'+seg; }
+/* Notifica UM usuário sobre a escala vigente, no máximo 1x por semana (salvo force) */
+function notificarEscalaUsuario(u,info,seg,force){
+  const ch=chaveEscala(u.email,seg);
+  if(force) localStorage.removeItem(ch);
+  if(localStorage.getItem(ch)) return false;
+  notificar(u.email,'\uD83D\uDCCD','Você está na escala desta semana',
+    'Posto(s): '+info+'. Confira a Escala Semanal e se prepare!');
+  localStorage.setItem(ch,'1'); return true;
+}
+/* Notifica todos os escalados da semana vigente (deduplicado; force reenviar) */
+function notificaEscalados(force){
+  const seg=segundaDaSemana(new Date()).toISOString().slice(0,10); let n=0;
+  DB.usuarios.forEach(u=>{ const info=usuarioNaEscalaVigente(u);
+    if(info && notificarEscalaUsuario(u,info,seg,force)) n++; });
+  saveDB(); return n;
+}
+/* Chamado ao importar/reimportar a escala (ADM) */
+function notificarImportacaoEscala(){
+  notificarTodos('\uD83D\uDCCB','Escala atualizada','A escala do Ministério foi publicada/atualizada no app. Confira a Escala Semanal.');
+  const n=notificaEscalados(false);
+  if(n) toast(n+' escalado(s) desta semana foram avisados.');
+}
+/* Chamado ao abrir o app: simula o "vira na segunda" avisando quem entrou na semana vigente */
+function verificaEscalaSemanal(){
+  if(!DB.escala.linhas.length) return;
+  const u=usuarioAtual(); if(!u) return;
+  const info=usuarioNaEscalaVigente(u); if(!info) return;
+  const seg=segundaDaSemana(new Date()).toISOString().slice(0,10);
+  if(notificarEscalaUsuario(u,info,seg,false)){ saveDB(); atualizaBadge(); }
+}
+</script>
+<script>
+/* ============== PLAYLIST (ADM) ============== */
+function modalPlaylist(){ const pl=DB.playlist;
+  const opts=DB.musicas.map(m=>`<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" class="plChk" value="${m.id}" ${pl.musicas.includes(m.id)?'checked':''}> ${esc(m.titulo)}</label>`).join('')||'<p style="font-size:13px;color:#9aa">Cadastre músicas primeiro.</p>';
+  abrirModal(`<h3>Playlist da semana</h3>
+    <div class="row2"><div class="field"><label>Início</label><input type="date" id="plIni" value="${pl.inicio?pl.inicio.slice(0,10):''}"></div>
+      <div class="field"><label>Fim</label><input type="date" id="plFim" value="${pl.fim?pl.fim.slice(0,10):''}"></div></div>
+    <div class="field"><label>Músicas</label><div style="max-height:200px;overflow-y:auto;border:1px solid #dde;border-radius:8px;padding:8px">${opts}</div></div>
+    <div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="publicarPlaylist()">\uD83D\uDCE2 Publicar</button></div>`);
+}
+function publicarPlaylist(){ const ini=$('#plIni').value, fim=$('#plFim').value;
+  if(!ini||!fim) return toast('Informe início e fim.');
+  const mus=[...document.querySelectorAll('.plChk:checked')].map(c=>c.value);
+  if(!mus.length) return toast('Selecione ao menos uma música.');
+  DB.playlist={inicio:new Date(ini).toISOString(),fim:new Date(fim).toISOString(),musicas:mus,publicada:true}; saveDB();
+  notificarTodos('\uD83D\uDCC5','PLAYLIST DISPONÍVEL','A playlist da próxima semana ('+fmtData(DB.playlist.inicio)+' - '+fmtData(DB.playlist.fim)+') já está no app. Você pode estar na escala. Verifique!');
+  fecharModal(); toast('Playlist publicada e todos notificados!'); go('playlist');
+}
+
+/* ============== PAINEL DO ADM ============== */
+ROTAS.admin = function(){ if(!ehAdmin()) return '<div class="empty">Acesso restrito.</div>';
+  const us=DB.usuarios;
+  return `<div class="page"><div class="page-ttl">\u2699\uFE0F Painel do ADM</div>
+    <div class="card"><h3>Ações</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button class="mini-btn" onclick="modalPlaylist()">\uD83D\uDCC5 Playlist</button>
+        <button class="mini-btn" onclick="go('musicas')">\uD83C\uDFB5 Músicas</button>
+        <button class="mini-btn" onclick="go('escala')">\uD83D\uDCCB Escala</button>
+        <button class="mini-btn" onclick="const n=notificaEscalados(true);toast(n+' escalado(s) notificado(s).')">\uD83D\uDD14 Avisar escala</button>
+      </div></div>
+    ${cardSimulacao()}
+    <div class="card"><h3>Membros (${us.length})</h3>
+      ${us.map(u=>`<div class="info-row"><span class="v" style="font-weight:700;text-align:left">${esc(u.nome)}${u.admin?' <span class="admin-tag">ADM</span>':''}<br><span style="font-weight:400;font-size:12px;color:#789">${esc(u.email)}</span></span>
+        <span>${u.email!==usuarioAtual().email?`<button class="mini-btn sec" onclick="toggleAdmin('${esc(u.email)}')">${u.admin?'Remover ADM':'Tornar ADM'}</button>`:''}</span></div>`).join('')}
+    </div>
+    <div class="card"><h3>Resumo</h3>
+      <div class="info-row"><span class="k">Músicas cadastradas</span><span class="v">${DB.musicas.length}</span></div>
+      <div class="info-row"><span class="k">Músicas publicadas</span><span class="v">${DB.musicas.filter(m=>m.publicada).length}</span></div>
+      <div class="info-row"><span class="k">Linhas na escala</span><span class="v">${DB.escala.linhas.length}</span></div>
+      <div class="info-row"><span class="k">Playlist publicada</span><span class="v">${DB.playlist.publicada?'Sim':'Não'}</span></div>
+    </div></div>`;
+};
+function toggleAdmin(email){ const u=DB.usuarios.find(x=>x.email===email); if(!u) return;
+  u.admin=!u.admin; saveDB(); toast(u.admin?'Agora é ADM.':'ADM removido.'); go('admin'); }
+</script>
+<script>
+/* ============== TELA DE BOAS-VINDAS / INSTRUÇÕES ============== */
+let _bvStep=0, _bvPrimeira=false;
+function telaBoasVindas(primeira){
+  _bvStep=0; _bvPrimeira=!!primeira;
+  const u=usuarioAtual(); const nome=u? esc(u.nome.split(' ')[0]) : '';
+  const steps=[
+    {ic:'\uD83C\uDFB5',h:'Bem-vindo(a), '+nome+'!',p:'Este é o app do <b>Ministério de Música IBNM</b>. Aqui você acompanha a playlist da semana, cifras, letras, áudios e a escala. Veja em poucos passos como usar.'},
+    {ic:'\u2630',h:'Menu de navegação',list:[
+      {e:'\u2630',t:'Toque no ícone no canto superior esquerdo para abrir o <b>menu</b> — ele desce e abre as seções.'},
+      {e:'\uD83D\uDCC5',t:'<b>Playlist da Semana</b>: as músicas escolhidas para os cultos da semana.'},
+      {e:'\uD83D\uDCCB',t:'<b>Escala Semanal</b>: veja em qual dia você está escalado(a).'} ]},
+    {ic:'\uD83C\uDFBC',h:'Cifras, letras e áudios',list:[
+      {e:'\uD83C\uDFB5',t:'Em <b>Músicas</b>, use o alfabeto ou a busca para achar a música.'},
+      {e:'\uD83C\uDFBC',t:'Ao abrir, escolha <b>Cifra</b>, <b>Letra</b> ou <b>Áudio</b>. Na cifra há o vídeo do YouTube e atalhos.'},
+      {e:'\u2B50',t:'Toque na <b>estrela</b> para salvar em <b>Favoritos</b>.'} ]},
+    {ic:'\uD83D\uDD14',h:'Perfil e avisos',list:[
+      {e:'\uD83D\uDC64',t:'No <b>Perfil</b> você coloca sua foto, edita sua função no MM e troca a senha.'},
+      {e:'\uD83D\uDD14',t:'O <b>sino</b> mostra avisos: nova playlist, nova música e quando você entra na escala.'},
+      {e:'\uD83D\uDCCD',t:'Se você estiver na escala da semana, receberá uma notificação automaticamente.'} ]},
+  ];
+  const dots = steps.map((_,i)=>`<span class="bv-dot ${i===0?'on':''}"></span>`).join('');
+  const stepsHtml = steps.map((s,i)=>`<div class="bv-step ${i===0?'active':''}" data-i="${i}">
+    <div class="bv-ic">${s.ic}</div><div class="bv-h">${s.h}</div>
+    ${s.p?`<div class="bv-p">${s.p}</div>`:''}
+    ${s.list?`<div class="bv-list">${s.list.map(it=>`<div class="li"><span class="e">${it.e}</span><span>${it.t}</span></div>`).join('')}</div>`:''}
+  </div>`).join('');
+  $('#bvScreen').innerHTML = `<div class="bv">
+    <button class="bv-skip" onclick="fecharBoasVindas()">${_bvPrimeira?'Pular':'Fechar'} \u2715</button>
+    <div class="bv-card">
+      <div class="bv-logo">${LOGO}</div>
+      <div id="bvSteps">${stepsHtml}</div>
+      <div class="bv-dots" id="bvDots">${dots}</div>
+      <div class="bv-nav">
+        <button class="btn btn-ghost" id="bvPrev" style="display:none" onclick="bvNav(-1)">Voltar</button>
+        <button class="btn btn-primary" id="bvNext" onclick="bvNav(1)">Próximo</button>
+      </div>
+    </div></div>`;
+  _bvTotal=steps.length; atualizaBv();
+}
+let _bvTotal=1;
+function bvNav(d){ const n=_bvStep+d;
+  if(n<0) return; if(n>=_bvTotal){ fecharBoasVindas(); return; }
+  _bvStep=n; atualizaBv();
+}
+function atualizaBv(){
+  document.querySelectorAll('#bvSteps .bv-step').forEach(s=>s.classList.toggle('active',+s.dataset.i===_bvStep));
+  document.querySelectorAll('#bvDots .bv-dot').forEach((d,i)=>d.classList.toggle('on',i===_bvStep));
+  $('#bvPrev').style.display = _bvStep>0? 'block':'none';
+  $('#bvNext').textContent = _bvStep===_bvTotal-1? (_bvPrimeira?'Começar':'Entendi!') : 'Próximo';
+}
+function fecharBoasVindas(){ const u=usuarioAtual();
+  if(u) localStorage.setItem('ibnm_bv_'+u.email,'1');
+  $('#bvScreen').innerHTML=''; if(_bvPrimeira) go('inicio');
+}
+</script>
+<script>
+/* ============== SIMULADOR DE NOTIFICAÇÃO (TESTE) ============== */
+/* Pré-visualiza quem SERIA notificado na semana vigente, sem enviar nada */
+function previewEscalados(){
+  return DB.usuarios.map(u=>({nome:u.nome,email:u.email,info:usuarioNaEscalaVigente(u)})).filter(x=>x.info);
+}
+function cardSimulacao(){
+  const idx=linhaVigenteIdx();
+  const prev=previewEscalados();
+  const semEscala = !DB.escala.linhas.length;
+  const semVigente = idx<0;
+  let preview;
+  if(semEscala) preview='<p style="font-size:13px;color:#9aa">Importe uma escala para testar o disparo.</p>';
+  else if(semVigente) preview='<p style="font-size:13px;color:#c0392b">Nenhuma linha vigente para a semana atual. Verifique as datas da escala.</p>';
+  else if(!prev.length) preview='<p style="font-size:13px;color:#9aa">Ninguém da semana vigente bate com os nomes cadastrados.</p>';
+  else preview=prev.map(p=>`<div class="info-row"><span class="v" style="text-align:left;font-weight:700">${esc(p.nome)}</span><span class="pill">${esc(p.info)}</span></div>`).join('');
+  return `<div class="card" style="border-left:4px solid var(--dourado)"><h3>\uD83E\uDDEA Simular disparo (teste)</h3>
+    <p style="font-size:12.5px;color:#789;margin-bottom:10px">Dispare manualmente, sem esperar a segunda-feira. Útil para validar antes de usar com o grupo.</p>
+    <div style="font-size:13px;font-weight:700;color:var(--verde-escuro);margin-bottom:6px">Quem receberia o aviso da escala (semana vigente):</div>
+    ${preview}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+      <button class="mini-btn" onclick="simDisparoEscala()">\uD83D\uDCCD Disparar escala agora</button>
+      <button class="mini-btn" onclick="simEscalaTodos()">\uD83D\uDCE3 Avisar todos (escala no app)</button>
+      <button class="mini-btn" onclick="simMinhaEscala()">\uD83D\uDC64 Testar só p/ mim</button>
+      <button class="mini-btn" onclick="simPlaylist()">\uD83D\uDCC5 Testar playlist</button>
+      <button class="mini-btn sec" onclick="simLimparMarcas()">\u267B\uFE0F Resetar avisos da semana</button>
+    </div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #cdd">
+      <div style="font-size:13px;font-weight:700;color:var(--verde-escuro);margin-bottom:6px">Disparar teste para um membro espec\u00EDfico:</div>
+      <select id="simMembroSel" style="width:100%;padding:9px 10px;border:1px solid #cdd;border-radius:8px;font-size:13.5px;background:#fff">${membrosOptions()}</select>
+      <button class="mini-btn" style="width:100%;margin-top:8px" onclick="simMembroEscolhido()">\uD83D\uDCE8 Enviar teste para o membro selecionado</button>
+    </div>
+    <p style="font-size:11.5px;color:#9aa;margin-top:10px">Dica: abra as <b>Notificações</b> (sino) para ver o resultado. Para testar como outro membro, saia e entre com a conta dele.</p></div>`;
+}
+function simDisparoEscala(){
+  if(!DB.escala.linhas.length) return toast('Importe uma escala primeiro.');
+  if(linhaVigenteIdx()<0) return toast('Sem linha vigente para a semana atual.');
+  const n=notificaEscalados(true);
+  atualizaBadge();
+  toast(n? ('Disparo simulado: '+n+' escalado(s) notificado(s).') : 'Ninguém da semana vigente bate com os cadastros.');
+  go('admin');
+}
+function simEscalaTodos(){
+  if(!DB.usuarios.length) return toast('Nenhum membro cadastrado.');
+  if(!DB.escala.linhas.length) return toast('Importe uma escala primeiro.');
+  notificarTodos('\uD83D\uDCCB','Escala atualizada','A escala do Ministério está publicada no app. Confira a Escala Semanal — você pode estar escalado(a) esta semana!');
+  atualizaBadge();
+  toast('Aviso de escala enviado a '+DB.usuarios.length+' membro(s).'); go('admin');
+}
+function simMinhaEscala(){ const u=usuarioAtual();
+  const info=usuarioNaEscalaVigente(u);
+  if(!info){ notificar(u.email,'\uD83E\uDDEA','Teste de notificação','Exemplo: você está na escala desta semana (Vocal). Confira a Escala Semanal.'); saveDB(); atualizaBadge();
+    return toast('Você não está na escala vigente — enviei um aviso de exemplo.'); }
+  const seg=segundaDaSemana(new Date()).toISOString().slice(0,10);
+  notificarEscalaUsuario(u,info,seg,true); saveDB(); atualizaBadge();
+  toast('Notificação de teste enviada para você. Veja no sino.');
+}
+function membrosOptions(){
+  if(!DB.usuarios.length) return '<option value="">Nenhum membro cadastrado</option>';
+  return DB.usuarios.map(u=>{ const info=usuarioNaEscalaVigente(u);
+    return `<option value="${esc(u.email)}">${esc(u.nome)}${info?' \u2014 escalado(a)':''}</option>`; }).join('');
+}
+function simMembroEscolhido(){
+  const sel=$('#simMembroSel'); if(!sel||!sel.value) return toast('Selecione um membro.');
+  const u=DB.usuarios.find(x=>x.email===sel.value); if(!u) return toast('Membro não encontrado.');
+  const info=usuarioNaEscalaVigente(u);
+  if(info){ const seg=segundaDaSemana(new Date()).toISOString().slice(0,10);
+    notificarEscalaUsuario(u,info,seg,true); saveDB(); atualizaBadge();
+    return toast('Aviso de escala enviado para '+u.nome+' (posto: '+info+').'); }
+  notificar(u.email,'\uD83E\uDDEA','Teste de notificação','Exemplo: você está na escala desta semana. Confira a Escala Semanal.');
+  saveDB(); atualizaBadge();
+  toast(u.nome+' não está na escala vigente — enviei um aviso de exemplo.');
+}
+function simPlaylist(){
+  if(!DB.playlist.publicada) return toast('Publique uma playlist primeiro.');
+  notificarTodos('\uD83D\uDCC5','PLAYLIST DISPONÍVEL','(Teste) A playlist da próxima semana ('+fmtData(DB.playlist.inicio)+' - '+fmtData(DB.playlist.fim)+') já está no app. Você pode estar na escala. Verifique!');
+  atualizaBadge();
+  toast('Aviso de playlist reenviado a '+DB.usuarios.length+' membro(s).'); go('admin');
+}
+function simLimparMarcas(){
+  const seg=segundaDaSemana(new Date()).toISOString().slice(0,10); let n=0;
+  DB.usuarios.forEach(u=>{ const ch=chaveEscala(u.email,seg); if(localStorage.getItem(ch)){ localStorage.removeItem(ch); n++; } });
+  toast('Marcas da semana resetadas ('+n+'). O aviso automático pode disparar de novo ao abrir o app.');
+}
+</script>
+<script>
+/* ============================================================
+   CAMADA DE NUVEM - Supabase (dados + sincronizacao em tempo real)
+   Este bloco REDEFINE funcoes globais (a ultima definicao vence).
+============================================================ */
+const SUPA_URL='https://whtbzermbyuxicswyvsy.supabase.co';
+const SUPA_KEY='sb_publishable_LJNCmi7jUYP9AIAtlMwsnw_q1Wjex5h';
+let sb=null,_sessaoEmail=null,_sessaoId=null,_editando=false,_viewAtual=null,_booted=false,_rtTimer=null;
+
+function getSessao(){ return _sessaoEmail? {email:_sessaoEmail} : null; }
+function setSessao(){}
+async function logout(){ try{ await sb.auth.signOut(); }catch(e){} location.reload(); }
+
+/* ---------- AUTENTICACAO (Supabase Auth) ---------- */
+async function fazerLogin(){
+  const email=$('#liEmail').value.trim().toLowerCase(), senha=$('#liSenha').value;
+  if(!email||!senha) return erro('loginErr','Preencha e-mail e senha.');
+  const {error}=await sb.auth.signInWithPassword({email,password:senha});
+  if(error) return erro('loginErr','E-mail ou senha incorretos.');
+  await bootSessao();
+}
+async function fazerCadastro(){
+  const nome=$('#cNome').value.trim(), nasc=$('#cNasc').value, email=$('#cEmail').value.trim().toLowerCase();
+  const tel=$('#cTel').value.trim(), wpp=$('#cWpp').checked, senha=$('#cSenha').value, senha2=$('#cSenha2').value;
+  const vocal=[...document.querySelectorAll('.cbVocal:checked')].map(c=>c.value);
+  const instr=[...document.querySelectorAll('.cbInstr:checked')].map(c=>c.value);
+  if(!nome) return erro('cadErr','Informe seu nome completo.');
+  if(!nasc) return erro('cadErr','Informe sua data de nascimento.');
+  if(!/^[^@]+@[^@]+\.[^@]+$/.test(email)) return erro('cadErr','E-mail invalido.');
+  if(tel.replace(/\D/g,'').length<10) return erro('cadErr','Telefone incompleto.');
+  if(!vocal.length && !instr.length) return erro('cadErr','Selecione ao menos uma funcao no Ministerio.');
+  if(!senhaValida(senha)) return erro('cadErr','A senha nao cumpre os requisitos.');
+  if(senha!==senha2) return erro('cadErr','As senhas nao conferem.');
+  const {data,error}=await sb.auth.signUp({email,password:senha,options:{data:{nome,nasc,tel,wpp,vocal,instr}}});
+  if(error) return erro('cadErr',error.message);
+  if(!data.session){ $('#cadErr').innerHTML='<div class="ok-msg">Conta criada! Verifique seu e-mail para confirmar e depois entre.</div>'; return; }
+  await bootSessao();
+}
+async function loginGoogle(){
+  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href.split('#')[0]}});
+  if(error) toast('Login Google indisponivel: '+error.message);
+}
+async function enviarRecupera(){
+  const email=$('#recEmail').value.trim().toLowerCase();
+  if(!/^[^@]+@[^@]+\.[^@]+$/.test(email)) return erro('recErr','E-mail invalido.');
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});
+  if(error) return erro('recErr',error.message);
+  $('#recErr').innerHTML='<div class="ok-msg">Enviamos um link de redefinicao para '+esc(email)+'. Verifique seu e-mail.</div>';
+}
+async function salvarSenha(){
+  const nova=$('#tsNova').value;
+  if(!senhaValida(nova)) return $('#tsErr').innerHTML='<div class="err-msg">A nova senha nao cumpre os requisitos.</div>';
+  if(nova!==$('#tsNova2').value) return $('#tsErr').innerHTML='<div class="err-msg">As senhas nao conferem.</div>';
+  const {error}=await sb.auth.updateUser({password:nova});
+  if(error) return $('#tsErr').innerHTML='<div class="err-msg">'+esc(error.message)+'</div>';
+  fecharModal(); toast('Senha alterada com sucesso!');
+}
+/* ---------- BOOT / CARGA ---------- */
+async function bootCloud(){
+  try{ sb=supabase.createClient(SUPA_URL,SUPA_KEY); }
+  catch(e){ telaLogin(); return; }
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){ telaLogin();
+    sb.auth.onAuthStateChange((_e,s)=>{ if(s&&!_booted) bootSessao(); });
+    return; }
+  await bootSessao();
+}
+async function bootSessao(){
+  if(_booted) return;
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){ telaLogin(); return; }
+  _sessaoEmail=(session.user.email||'').toLowerCase();
+  _sessaoId=session.user.id;
+  await garantirPerfil(session.user);
+  await cloudCarregarTudo();
+  _booted=true;
+  iniciarApp();
+  ligarRealtime();
+}
+async function garantirPerfil(user){
+  const {data}=await sb.from('perfis').select('id').eq('id',user.id).maybeSingle();
+  if(data) return;
+  const md=user.user_metadata||{};
+  const {count}=await sb.from('perfis').select('*',{count:'exact',head:true});
+  await sb.from('perfis').insert({id:user.id,email:(user.email||'').toLowerCase(),nome:md.nome||(user.email||'').split('@')[0],nasc:md.nasc||null,tel:md.tel||'',wpp:!!md.wpp,vocal:md.vocal||[],instr:md.instr||[],admin:(count||0)===0});
+}
+async function cloudCarregarTudo(){
+  await Promise.all([cloudPerfis(),cloudMusicas(),cloudPlaylist(),cloudEscala(),cloudNotif(),cloudFav()]);
+}
+async function cloudPerfis(){
+  const {data}=await sb.from('perfis').select('*');
+  DB.usuarios=(data||[]).map(p=>({id:p.id,email:(p.email||'').toLowerCase(),nome:p.nome||'',nasc:p.nasc||'',tel:p.tel||'',wpp:!!p.wpp,vocal:p.vocal||[],instr:p.instr||[],foto:p.foto||'',admin:!!p.admin,origem:'local',senhaHash:''}));
+}
+async function cloudMusicas(){
+  const {data}=await sb.from('musicas').select('*').order('titulo');
+  DB.musicas=(data||[]).map(m=>({id:m.id,titulo:m.titulo||'',artista:m.artista||'',cifra:m.cifra||'',letra:m.letra||'',youtube:m.youtube||'',audios:m.audios||[],publicada:!!(m.dados&&m.dados.publicada)}));
+}
+async function cloudPlaylist(){
+  const {data}=await sb.from('playlist').select('*').eq('publicada',true).order('updated_at',{ascending:false}).limit(1);
+  if(data&&data.length){ const p=data[0]; DB.playlist={inicio:p.inicio,fim:p.fim,musicas:p.musicas||[],publicada:true}; }
+  else DB.playlist={inicio:'',fim:'',musicas:[],publicada:false};
+}
+async function cloudEscala(){
+  const {data}=await sb.from('escala').select('*').eq('id',1).maybeSingle();
+  DB.escala={colunas:(data&&data.colunas)||[],linhas:(data&&data.linhas)||[]};
+}
+async function cloudNotif(){
+  if(!_sessaoEmail) return;
+  const {data}=await sb.from('notificacoes').select('*').eq('destino_email',_sessaoEmail).order('data',{ascending:false});
+  DB.notificacoes[_sessaoEmail]=(data||[]).map(n=>({id:n.id,ic:n.ic,titulo:n.titulo,corpo:n.corpo,data:n.data,lida:!!n.lida}));
+}
+async function cloudFav(){
+  if(!_sessaoId||!_sessaoEmail) return;
+  const {data}=await sb.from('favoritos').select('musica_id').eq('user_id',_sessaoId);
+  DB.favoritos[_sessaoEmail]=(data||[]).map(f=>f.musica_id);
+}
+
+/* ---------- REALTIME ---------- */
+function ligarRealtime(){
+  try{
+    const ch=sb.channel('ibnm-rt');
+    ['perfis','musicas','playlist','escala','notificacoes','favoritos'].forEach(t=>{
+      ch.on('postgres_changes',{event:'*',schema:'public',table:t},()=>agendarReload());
+    });
+    ch.subscribe();
+  }catch(e){}
+}
+function agendarReload(){
+  clearTimeout(_rtTimer);
+  _rtTimer=setTimeout(async()=>{
+    await cloudCarregarTudo();
+    if(!$('#appShell').classList.contains('hidden')){
+      montaMenu(); atualizaBadge();
+      if(!_editando && _viewAtual){ try{ _viewAtual(); }catch(e){} }
+    }
+  },350);
+}
+/* ---------- MUTACOES (gravam no Supabase) ---------- */
+async function salvarPerfil(){ const u=usuarioAtual(); if(!u) return;
+  const nome=$('#ePnome').value.trim()||u.nome, nasc=$('#ePnasc').value||null, tel=$('#ePtel').value, wpp=$('#ePwpp').checked;
+  const vocal=[...document.querySelectorAll('.eVocal:checked')].map(c=>c.value);
+  const instr=[...document.querySelectorAll('.eInstr:checked')].map(c=>c.value);
+  await sb.from('perfis').update({nome,nasc,tel,wpp,vocal,instr}).eq('id',u.id);
+  Object.assign(u,{nome,nasc:nasc||'',tel,wpp,vocal,instr});
+  fecharModal(); montaMenu(); toast('Perfil atualizado!'); go('perfil');
+}
+async function carregarFoto(inp){ const f=inp.files[0]; if(!f) return; const u=usuarioAtual();
+  const ext=((f.name||'').split('.').pop()||'jpg').toLowerCase();
+  const path='perfil/'+u.id+'_'+Date.now()+'.'+ext;
+  const up=await sb.storage.from('fotos').upload(path,f,{upsert:true,contentType:f.type});
+  if(up.error){ toast('Erro ao enviar foto: '+up.error.message); return; }
+  const url=sb.storage.from('fotos').getPublicUrl(path).data.publicUrl;
+  await sb.from('perfis').update({foto:url}).eq('id',u.id);
+  u.foto=url; $('#perfilFoto')&&($('#perfilFoto').src=url); $('#topAvatar').src=url; montaMenu(); toast('Foto atualizada!'); go('perfil');
+}
+async function removerFoto(){ const u=usuarioAtual(); u.foto='';
+  await sb.from('perfis').update({foto:''}).eq('id',u.id);
+  $('#topAvatar').src=AVATAR_PADRAO; montaMenu(); go('perfil');
+}
+async function criarMusica(){ const t=$('#nmTit').value.trim(); if(!t) return toast('Informe o titulo.');
+  const id=crypto.randomUUID(); const art=$('#nmArt').value.trim();
+  const {error}=await sb.from('musicas').insert({id,titulo:t,artista:art,cifra:'',letra:'',youtube:'',audios:[],dados:{publicada:false},created_by:_sessaoId});
+  if(error) return toast('Erro: '+error.message);
+  DB.musicas.push({id,titulo:t,artista:art,cifra:'',letra:'',youtube:'',audios:[],publicada:false});
+  fecharModal(); toast('Musica criada! Edite a cifra e publique.'); editorCifra(id);
+}
+async function addAudio(id){ const m=DB.musicas.find(x=>x.id===id); const nome=$('#edAudNome').value.trim(); let v=$('#edAudUrl').value.trim();
+  if(!nome||!v) return toast('Informe nome e link/ID.');
+  let url=v; const mt=v.match(/[-\w]{25,}/); if(!/^https?:/.test(v)&&mt) url=driveUrl(v); else if(mt&&v.includes('drive.google')) url=driveUrl(mt[0]);
+  m.audios=m.audios||[]; m.audios.push({nome,url});
+  await sb.from('musicas').update({audios:m.audios}).eq('id',id); editorCifra(id);
+}
+async function removerAudio(id,i){ const m=DB.musicas.find(x=>x.id===id); m.audios.splice(i,1);
+  await sb.from('musicas').update({audios:m.audios}).eq('id',id); editorCifra(id);
+}
+async function salvarCifra(id,publicar){ const m=DB.musicas.find(x=>x.id===id); if(!m) return;
+  m.titulo=$('#edTit').value.trim()||m.titulo; m.artista=$('#edArt').value.trim(); m.youtube=$('#edYt').value.trim();
+  m.cifra=$('#edCifra').value; m.letra=$('#edLetra').value;
+  const jaPub=m.publicada; if(publicar) m.publicada=true;
+  await sb.from('musicas').update({titulo:m.titulo,artista:m.artista,youtube:m.youtube,cifra:m.cifra,letra:m.letra,dados:{publicada:!!m.publicada}}).eq('id',id);
+  if(publicar){ if(!jaPub) notificarTodos('\uD83C\uDFBC','Nova musica disponivel','\"'+m.titulo+'\" foi publicada no app. Confira a cifra, letra e audio!');
+    toast('Publicado! Todos foram notificados.'); _editando=false; abrirMusica(id,'cifra'); }
+  else toast('Rascunho salvo.');
+}
+async function publicarPlaylist(){ const ini=$('#plIni').value, fim=$('#plFim').value;
+  if(!ini||!fim) return toast('Informe inicio e fim.');
+  const mus=[...document.querySelectorAll('.plChk:checked')].map(c=>c.value);
+  if(!mus.length) return toast('Selecione ao menos uma musica.');
+  const {error}=await sb.from('playlist').insert({inicio:ini,fim:fim,musicas:mus,publicada:true,updated_at:new Date().toISOString()});
+  if(error) return toast('Erro: '+error.message);
+  DB.playlist={inicio:ini,fim:fim,musicas:mus,publicada:true};
+  notificarTodos('\uD83D\uDCC5','PLAYLIST DISPONIVEL','A playlist ('+fmtData(ini)+' - '+fmtData(fim)+') ja esta no app. Confira!');
+  fecharModal(); toast('Playlist publicada e todos notificados!'); go('playlist');
+}
+async function importarEscala(inp){ const f=inp.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=async e=>{ try{
+    const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+    if(!rows.length) return toast('Planilha vazia.');
+    const colunas=rows[0].map((c,i)=>String(c||('Col'+(i+1))).trim());
+    const linhas=[]; for(let i=1;i<rows.length;i++){ const row=rows[i]; if(row.every(c=>!String(c).trim())) continue;
+      const cel={}; colunas.forEach((c,j)=>cel[c]=String(row[j]||'').trim());
+      const per=detectaPeriodo(colunas,cel); linhas.push({periodoInicio:per.ini,periodoFim:per.fim,celulas:cel}); }
+    DB.escala={colunas,linhas};
+    await sb.from('escala').update({colunas,linhas,updated_at:new Date().toISOString()}).eq('id',1);
+    notificarImportacaoEscala();
+    toast('Escala importada! '+linhas.length+' linha(s).'); go('escala');
+  }catch(err){ toast('Erro ao ler o arquivo: '+err.message); } };
+  r.readAsArrayBuffer(f);
+}
+/* ---------- NOTIFICACOES (gravam no Supabase) ---------- */
+function notificar(email,ic,titulo,corpo){
+  email=(email||'').toLowerCase(); const now=new Date().toISOString();
+  if(!DB.notificacoes[email]) DB.notificacoes[email]=[];
+  DB.notificacoes[email].unshift({id:'tmp'+Date.now()+Math.random(),ic,titulo,corpo,data:now,lida:false});
+  if(sb) sb.from('notificacoes').insert({destino_email:email,ic,titulo,corpo,data:now,lida:false}).then(()=>{});
+}
+function notificarTodos(ic,titulo,corpo,filtro){
+  const alvos=DB.usuarios.filter(u=>!filtro||filtro(u));
+  const now=new Date().toISOString();
+  alvos.forEach(u=>{ const e=(u.email||'').toLowerCase(); if(!DB.notificacoes[e]) DB.notificacoes[e]=[];
+    DB.notificacoes[e].unshift({id:'tmp'+Date.now()+Math.random(),ic,titulo,corpo,data:now,lida:false}); });
+  const rows=alvos.map(u=>({destino_email:(u.email||'').toLowerCase(),ic,titulo,corpo,data:now,lida:false}));
+  if(sb && rows.length) sb.from('notificacoes').insert(rows).then(()=>{});
+}
+async function cloudMarkRead(){
+  if(!sb||!_sessaoEmail) return;
+  await sb.from('notificacoes').update({lida:true}).eq('destino_email',_sessaoEmail).eq('lida',false);
+}
+
+/* ---------- FAVORITOS / ADMIN (gravam no Supabase) ---------- */
+async function toggleFav(id,ev){ if(ev) ev.stopPropagation(); const u=usuarioAtual(); if(!u) return;
+  if(!DB.favoritos[u.email]) DB.favoritos[u.email]=[];
+  const arr=DB.favoritos[u.email], i=arr.indexOf(id);
+  if(i<0){ arr.push(id); await sb.from('favoritos').insert({user_id:_sessaoId,musica_id:id}); toast('Adicionada aos favoritos \u2B50'); }
+  else { arr.splice(i,1); await sb.from('favoritos').delete().eq('user_id',_sessaoId).eq('musica_id',id); toast('Removida dos favoritos'); }
+  if(musicaAberta===id) abrirMusica(id,abaAtual); else go(paginaMusicas);
+}
+async function toggleAdmin(email){ const u=DB.usuarios.find(x=>x.email===email); if(!u) return;
+  const novo=!u.admin;
+  await sb.from('perfis').update({admin:novo}).eq('id',u.id);
+  u.admin=novo; toast(novo?'Agora e ADM.':'ADM removido.'); go('admin');
+}
+
+/* ---------- WRAPPERS DE NAVEGACAO (p/ re-render em tempo real) ---------- */
+const _rotaNotifOrig=ROTAS.notificacoes;
+ROTAS.notificacoes=function(){ cloudMarkRead(); return _rotaNotifOrig(); };
+const _goOrig=go, _abrirOrig=abrirMusica, _editorOrig=editorCifra;
+go=function(page,arg){ _editando=false; _viewAtual=function(){ _goOrig(page,arg); }; return _goOrig(page,arg); };
+abrirMusica=function(id,aba){ _editando=false; _viewAtual=function(){ _abrirOrig(id,aba); }; return _abrirOrig(id,aba); };
+editorCifra=function(id){ _editando=true; _viewAtual=null; return _editorOrig(id); };
+
+/* ---------- INICIAR ---------- */
+bootCloud();
+</script>
+<script id="v2feats">
+/* ============================================================
+   RECURSOS v2 - Confirmacao de presenca, Culto ao vivo, PWA,
+   Notificacoes e Upload direto ao Google Drive.
+   Este bloco roda APOS a camada de nuvem (as redefinicoes vencem).
+============================================================ */
+let APP_CFG={}, AO_VIVO={ativo:false}, _gisTok=null, _gisExp=0, _liveLast='', _lastUnread=-1;
+function semanaISO(){ try{ return segundaDaSemana(new Date()).toISOString().slice(0,10); }catch(e){ return ''; } }
+
+/* ---------- CONFIG (chave/valor na nuvem) ---------- */
+async function cloudConfig(){
+  try{ const {data}=await sb.from('config').select('*'); APP_CFG={}; (data||[]).forEach(r=>APP_CFG[r.chave]=r.valor); }catch(e){}
+}
+async function salvarConfig(chave,valor){
+  APP_CFG[chave]=valor;
+  try{ await sb.from('config').upsert({chave,valor,updated_at:new Date().toISOString()}); }catch(e){ toast('Erro ao salvar: '+(e.message||e)); }
+}
+function driveClientId(){ return (APP_CFG.google_drive && APP_CFG.google_drive.client_id) || localStorage.getItem('ibnm_gcid') || ''; }
+
+/* ---------- CONFIRMACAO DE PRESENCA ---------- */
+async function cloudPresencas(){
+  DB.presencas={};
+  try{ const sem=semanaISO(); if(!sem) return;
+    const {data}=await sb.from('presencas').select('*').eq('semana',sem);
+    (data||[]).forEach(p=>{ DB.presencas[(p.email||'').toLowerCase()]=p; }); }catch(e){}
+}
+function minhaPresenca(){ const u=usuarioAtual(); if(!u) return null; return (DB.presencas||{})[u.email]||null; }
+async function confirmarPresenca(status){
+  const u=usuarioAtual(); if(!u) return;
+  const obs=(($('#presObs')&&$('#presObs').value)||'').trim();
+  const sem=semanaISO();
+  const row={user_id:_sessaoId,semana:sem,email:u.email,nome:u.nome,status,obs,updated_at:new Date().toISOString()};
+  try{ await sb.from('presencas').upsert(row,{onConflict:'user_id,semana'}); }catch(e){ return toast('Erro: '+(e.message||e)); }
+  if(!DB.presencas) DB.presencas={}; DB.presencas[u.email]=row;
+  const txt=u.nome+(status==='confirmado'?' CONFIRMOU presenca na escala':' avisou que NAO podera participar')+(obs?' ('+obs+')':'');
+  notificarTodos('\u2705','Presenca na escala',txt,x=>x.admin);
+  toast(status==='confirmado'?'Presenca confirmada! \uD83D\uDE4C':'Avisamos que voce nao podera. Obrigado por avisar!');
+  go('escala');
+}
+function cardPresenca(p){
+  const st=p&&p.status;
+  const badge = st==='confirmado'?'<span style="color:var(--verde-claro);font-weight:700">\u2705 Presenca confirmada</span>'
+    : st==='ausente'?'<span style="color:#c0392b;font-weight:700">\u274C Voce avisou que nao podera</span>'
+    : '<span style="color:#789">Ainda nao confirmado</span>';
+  return `<div class="card" style="border-left:4px solid var(--verde-claro)">
+    <h3>\u270B Confirmar presenca (esta semana)</h3>
+    <p style="font-size:13px;color:#556;margin-bottom:8px">Status atual: ${badge}</p>
+    <div class="field"><label>Observacao (opcional)</label><input id="presObs" value="${esc((p&&p.obs)||'')}" placeholder="Ex.: chego um pouco atrasado"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="confirmarPresenca('confirmado')">\u2705 Vou participar</button>
+      <button class="btn btn-dark" onclick="confirmarPresenca('ausente')">\u274C Nao poderei</button>
+    </div></div>`;
+}
+function cardConfirmacoesAdm(){
+  const idx=linhaVigenteIdx(); if(idx<0) return '';
+  const escalados=DB.usuarios.filter(u=>usuarioNaEscalaVigente(u));
+  if(!escalados.length) return '';
+  const rows=escalados.map(u=>{ const p=(DB.presencas||{})[u.email]; const st=p&&p.status;
+    const tag=st==='confirmado'?'<span class="admin-tag" style="background:var(--verde-claro)">CONFIRMADO</span>'
+      :st==='ausente'?'<span class="admin-tag" style="background:#c0392b">AUSENTE</span>'
+      :'<span class="admin-tag" style="background:#9aa">PENDENTE</span>';
+    return `<div class="info-row"><span class="v" style="font-weight:600;text-align:left">${esc(u.nome)}${p&&p.obs?'<br><span style=\"font-weight:400;font-size:12px;color:#789\">'+esc(p.obs)+'</span>':''}</span>${tag}</div>`;
+  }).join('');
+  const conf=escalados.filter(u=>{const p=(DB.presencas||{})[u.email];return p&&p.status==='confirmado';}).length;
+  return `<div class="card"><h3>\u2705 Confirmacoes desta semana (${conf}/${escalados.length})</h3>${rows}</div>`;
+}
+/* ---------- MODO CULTO AO VIVO ---------- */
+async function cloudAoVivo(){
+  try{ const {data}=await sb.from('ao_vivo').select('*').eq('id',1).maybeSingle(); AO_VIVO=data||{ativo:false}; }
+  catch(e){ AO_VIVO={ativo:false}; }
+}
+async function iniciarAoVivo(musicaId,aba){
+  if(!ehAdmin()) return; const u=usuarioAtual();
+  const row={id:1,ativo:true,musica_id:musicaId,aba:aba||'cifra',por_nome:u?u.nome:'',updated_at:new Date().toISOString()};
+  try{ await sb.from('ao_vivo').upsert(row); }catch(e){ return toast('Erro: '+(e.message||e)); }
+  AO_VIVO=row;
+  notificarTodos('\uD83D\uDD34','CULTO AO VIVO','A transmissao ao vivo comecou! O app vai acompanhar a musica em tempo real.');
+  toast('Transmissao AO VIVO iniciada!'); atualizaBannerVivo();
+  if(musicaAberta===musicaId) abrirMusica(musicaId,aba||'cifra');
+}
+async function trocarAoVivo(musicaId,aba){
+  if(!ehAdmin()||!AO_VIVO.ativo) return;
+  const row=Object.assign({},AO_VIVO,{musica_id:musicaId||AO_VIVO.musica_id,aba:aba||AO_VIVO.aba,updated_at:new Date().toISOString()});
+  try{ await sb.from('ao_vivo').upsert(row); }catch(e){ return toast('Erro: '+(e.message||e)); }
+  AO_VIVO=row; toast('Ao vivo movido para esta musica.'); atualizaBannerVivo();
+  if(musicaAberta===musicaId) abrirMusica(musicaId,aba||AO_VIVO.aba);
+}
+async function encerrarAoVivo(){
+  if(!ehAdmin()) return;
+  try{ await sb.from('ao_vivo').upsert({id:1,ativo:false,updated_at:new Date().toISOString()}); }catch(e){}
+  AO_VIVO={ativo:false}; _liveLast=''; toast('Transmissao encerrada.'); atualizaBannerVivo(); go('inicio');
+}
+function aplicarAoVivo(force){
+  atualizaBannerVivo();
+  if(!AO_VIVO||!AO_VIVO.ativo||!AO_VIVO.musica_id) return;
+  if(ehAdmin()) return;
+  const key=AO_VIVO.musica_id+'|'+(AO_VIVO.aba||'cifra');
+  if(!force && key===_liveLast) return;
+  _liveLast=key;
+  if(DB.musicas.find(m=>m.id===AO_VIVO.musica_id)) abrirMusica(AO_VIVO.musica_id,AO_VIVO.aba||'cifra');
+}
+function atualizaBannerVivo(){
+  let b=document.getElementById('vivoBanner');
+  if(AO_VIVO&&AO_VIVO.ativo){
+    if(!b){ b=document.createElement('div'); b.id='vivoBanner'; document.body.appendChild(b);
+      b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:9999;background:#c0392b;color:#fff;font-weight:700;font-size:13px;text-align:center;padding:7px 10px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer'; }
+    const m=DB.musicas.find(x=>x.id===AO_VIVO.musica_id);
+    b.innerHTML='\uD83D\uDD34 AO VIVO'+(m?' \u2014 '+esc(m.titulo):'')+(ehAdmin()?' <span style="font-weight:400">(toque p/ encerrar)</span>':' <span style="font-weight:400">(acompanhando)</span>');
+    b.onclick=function(){ if(ehAdmin()){ if(confirm('Encerrar a transmissao ao vivo?')) encerrarAoVivo(); } else if(AO_VIVO.musica_id){ abrirMusica(AO_VIVO.musica_id,AO_VIVO.aba||'cifra'); } };
+    document.body.style.paddingTop='34px';
+  } else { if(b) b.remove(); document.body.style.paddingTop=''; }
+}
+function cardAoVivoAdm(){
+  const on=AO_VIVO&&AO_VIVO.ativo; const m=on&&DB.musicas.find(x=>x.id===AO_VIVO.musica_id);
+  return `<div class="card" style="border-left:4px solid #c0392b"><h3>\uD83D\uDD34 Culto ao vivo</h3>
+    <p style="font-size:13px;color:#556;margin-bottom:8px">${on?('Transmitindo: <b>'+(m?esc(m.titulo):'(musica)')+'</b>. Todos acompanham em tempo real.'):'Nenhuma transmissao ativa. Abra uma musica e toque em \u201cIniciar ao vivo\u201d.'}</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="mini-btn" onclick="go('musicas')">\uD83C\uDFB5 Escolher musica</button>
+      ${on?'<button class="mini-btn sec" onclick="encerrarAoVivo()">\u23F9 Encerrar transmissao</button>':''}
+    </div></div>`;
+}
+/* ---------- UPLOAD DIRETO AO GOOGLE DRIVE (GIS) ---------- */
+function carregarGIS(){
+  if(window.google&&window.google.accounts&&window.google.accounts.oauth2) return Promise.resolve();
+  if(window._gisLoading) return window._gisLoading;
+  window._gisLoading=new Promise((res,rej)=>{
+    const s=document.createElement('script'); s.src='https://accounts.google.com/gsi/client'; s.async=true; s.defer=true;
+    s.onload=()=>res(); s.onerror=()=>rej(new Error('Falha ao carregar o Google.'));
+    document.head.appendChild(s);
+  });
+  return window._gisLoading;
+}
+async function ensureDriveToken(){
+  const cid=driveClientId();
+  if(!cid) throw new Error('Configure o Client ID do Google no Painel do ADM.');
+  await carregarGIS();
+  if(_gisTok && Date.now()<_gisExp-60000) return _gisTok;
+  return new Promise((resolve,reject)=>{
+    try{
+      const tc=google.accounts.oauth2.initTokenClient({
+        client_id:cid, scope:'https://www.googleapis.com/auth/drive.file',
+        callback:(resp)=>{ if(resp&&resp.access_token){ _gisTok=resp.access_token; _gisExp=Date.now()+((resp.expires_in||3600)*1000); resolve(_gisTok); } else reject(new Error('Autorizacao negada.')); }
+      });
+      tc.requestAccessToken({prompt:_gisTok?'':'consent'});
+    }catch(e){ reject(e); }
+  });
+}
+async function uploadParaDrive(file,nome){
+  const token=await ensureDriveToken();
+  const meta={name:nome||file.name};
+  const fd=new FormData();
+  fd.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
+  fd.append('file',file);
+  const up=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{Authorization:'Bearer '+token},body:fd});
+  if(!up.ok) throw new Error('Upload falhou ('+up.status+').');
+  const j=await up.json(); const fid=j.id;
+  try{ await fetch('https://www.googleapis.com/drive/v3/files/'+fid+'/permissions',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({role:'reader',type:'anyone'})}); }catch(e){}
+  return fid;
+}
+async function driveUploadAudio(id,inp){
+  const f=inp.files[0]; if(!f){ return; }
+  const nome=(($('#edAudNome')&&$('#edAudNome').value)||'').trim()||f.name.replace(/\.[^.]+$/,'');
+  toast('Enviando ao Google Drive...');
+  try{
+    const fid=await uploadParaDrive(f,nome); const url=driveUrl(fid);
+    const m=DB.musicas.find(x=>x.id===id); m.audios=m.audios||[]; m.audios.push({nome,url});
+    try{ await sb.from('musicas').update({audios:m.audios}).eq('id',id); }catch(e){}
+    toast('Audio enviado ao Drive! \uD83C\uDF89'); editorCifra(id);
+  }catch(e){ toast('Erro no upload: '+(e.message||e)); }
+  inp.value='';
+}
+function cardDriveCfg(){
+  const cid=driveClientId();
+  return `<div class="card"><h3>\uD83D\uDCC1 Google Drive (upload direto)</h3>
+    <p style="font-size:12.5px;color:#556;margin-bottom:8px">Cole o <b>Client ID OAuth</b> do Google Cloud para enviar audios direto do app para o Drive. Funciona apenas no site publicado (HTTPS) com a origem autorizada no Google Cloud.</p>
+    <div class="field"><label>Client ID OAuth</label><input id="cfgGcid" value="${esc(cid)}" placeholder="xxxx.apps.googleusercontent.com"></div>
+    <button class="mini-btn" onclick="salvarDriveCfg()">\uD83D\uDCBE Salvar Client ID</button>
+    ${cid?'<p style="font-size:11.5px;color:var(--verde-claro);margin-top:8px">\u2705 Client ID configurado.</p>':''}</div>`;
+}
+async function salvarDriveCfg(){
+  const v=(($('#cfgGcid')&&$('#cfgGcid').value)||'').trim();
+  localStorage.setItem('ibnm_gcid',v);
+  await salvarConfig('google_drive',{client_id:v});
+  _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
+}
+/* ---------- PWA + NOTIFICACOES ---------- */
+function registrarSW(){
+  if(!('serviceWorker' in navigator)) return;
+  if(location.protocol!=='https:' && location.hostname!=='localhost') return;
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+function pedirPermissaoNotif(){
+  if(!('Notification' in window)) return toast('Seu dispositivo nao suporta notificacoes.');
+  Notification.requestPermission().then(p=>{ toast(p==='granted'?'Notificacoes ativadas! \uD83D\uDD14':'Permissao negada.'); if($('#appShell')&&!$('#appShell').classList.contains('hidden')) go('perfil'); });
+}
+function notifSistema(titulo,corpo){
+  try{ if(('Notification' in window)&&Notification.permission==='granted'){ new Notification(titulo||'IBNM Musica',{body:corpo||'',icon:'icon-192.png',badge:'icon-192.png'}); } }catch(e){}
+}
+
+/* ---------- WRAPPERS v2 ---------- */
+const _cctPrev=cloudCarregarTudo;
+cloudCarregarTudo=async function(){ await _cctPrev(); try{ await Promise.all([cloudConfig(),cloudPresencas(),cloudAoVivo()]); }catch(e){} };
+
+const _lrPrev=ligarRealtime;
+ligarRealtime=function(){ _lrPrev();
+  try{ const ch=sb.channel('ibnm-rt2'); ['config','presencas','ao_vivo'].forEach(t=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},()=>agendarReload())); ch.subscribe(); }catch(e){}
+};
+
+const _arPrev=agendarReload;
+agendarReload=function(){ _arPrev(); clearTimeout(window._rt2t); window._rt2t=setTimeout(()=>{ try{ atualizaBannerVivo(); aplicarAoVivo(false); }catch(e){} },520); };
+
+const _iniPrev=iniciarApp;
+iniciarApp=function(){ _iniPrev(); try{ registrarSW(); atualizaBannerVivo(); aplicarAoVivo(true); }catch(e){} };
+
+const _badgePrev=atualizaBadge;
+atualizaBadge=function(){ _badgePrev();
+  const u=usuarioAtual(); if(!u){ _lastUnread=-1; return; }
+  const list=(DB.notificacoes[u.email]||[]).filter(n=>!n.lida); const n=list.length;
+  if(_lastUnread>=0 && n>_lastUnread){ const top=list[0]; if(top) notifSistema(top.titulo,top.corpo); }
+  _lastUnread=n;
+};
+
+const _escPrev=ROTAS.escala;
+ROTAS.escala=function(){ let html=_escPrev(); const u=usuarioAtual();
+  if(u && usuarioNaEscalaVigente(u)) html=html.replace('<div class="escala-wrap">', cardPresenca(minhaPresenca())+'<div class="escala-wrap">');
+  if(ehAdmin()) html=html.replace('<div class="escala-wrap">', cardConfirmacoesAdm()+'<div class="escala-wrap">');
+  return html;
+};
+
+const _admPrev=ROTAS.admin;
+ROTAS.admin=function(){ let html=_admPrev(); if(!ehAdmin()) return html;
+  const extra=cardAoVivoAdm()+cardDriveCfg();
+  if(html.indexOf('<div class="card"><h3>Membros')>=0) html=html.replace('<div class="card"><h3>Membros', extra+'<div class="card"><h3>Membros');
+  else html=html.replace('</div></div>', extra+'</div></div>');
+  return html;
+};
+
+const _perfPrev=ROTAS.perfil;
+ROTAS.perfil=function(){ let html=_perfPrev();
+  const perm=('Notification' in window)?Notification.permission:'unsupported';
+  const btn = perm==='granted' ? '<p style="font-size:12.5px;color:var(--verde-claro)">\uD83D\uDD14 Notificacoes ativadas neste dispositivo.</p>'
+    : perm==='unsupported' ? '<p style="font-size:12.5px;color:#9aa">Notificacoes nao suportadas neste navegador.</p>'
+    : '<button class="mini-btn" onclick="pedirPermissaoNotif()">\uD83D\uDD14 Ativar notificacoes neste aparelho</button>';
+  const card='<div class="card"><h3>Notificacoes do app</h3><p style="font-size:12.5px;color:#556;margin-bottom:8px">Receba avisos de nova playlist, escala e culto ao vivo.</p>'+btn+'</div>';
+  const i=html.lastIndexOf('</div>'); return i>=0 ? (html.slice(0,i)+card+html.slice(i)) : (html+card);
+};
+
+const _abrirPrevV2=abrirMusica;
+abrirMusica=function(id,aba){ _abrirPrevV2(id,aba); _viewAtual=function(){ abrirMusica(id,aba); };
+  if(!ehAdmin()) return;
+  const c=document.getElementById('content'); if(!c) return;
+  const page=c.querySelector('.page')||c;
+  const liveHere=AO_VIVO.ativo&&AO_VIVO.musica_id===id;
+  const bar=document.createElement('div'); bar.className='card'; bar.style.cssText='border-left:4px solid #c0392b;margin-top:4px';
+  const acts = !AO_VIVO.ativo
+    ? '<button class="mini-btn" onclick="iniciarAoVivo(\''+id+'\',\''+(aba||'cifra')+'\')">\u25B6 Iniciar ao vivo</button>'
+    : (liveHere ? '<button class="mini-btn sec" onclick="encerrarAoVivo()">\u23F9 Encerrar</button>'
+                : '<button class="mini-btn" onclick="trocarAoVivo(\''+id+'\',\''+(aba||'cifra')+'\')">\uD83D\uDD04 Trazer p/ esta</button> <button class="mini-btn sec" onclick="encerrarAoVivo()">\u23F9 Encerrar</button>');
+  bar.innerHTML='<h3>\uD83D\uDD34 Culto ao vivo</h3><p style="font-size:13px;color:#556;margin-bottom:8px">'+(AO_VIVO.ativo?(liveHere?'Transmitindo ESTA musica.':'Ao vivo em outra musica.'):'Transmita esta musica para todos acompanharem.')+'</p><div style="display:flex;gap:8px;flex-wrap:wrap">'+acts+'</div>';
+  page.appendChild(bar);
+};
+
+const _edPrevV2=editorCifra;
+editorCifra=function(id){ _edPrevV2(id);
+  const c=document.getElementById('content'); if(!c) return;
+  let addBtn=null; c.querySelectorAll('button').forEach(b=>{ const oc=b.getAttribute('onclick')||''; if(oc.indexOf("addAudio('"+id)>=0) addBtn=b; });
+  if(!addBtn) return;
+  const cid=driveClientId(); const wrap=document.createElement('div'); wrap.style.marginTop='10px';
+  wrap.innerHTML = cid
+    ? '<button class="mini-btn" onclick="document.getElementById(\'edDriveFile\').click()">\u2601\uFE0F Enviar arquivo ao Drive</button>'+
+      '<input type="file" id="edDriveFile" accept="audio/*" class="hidden" onchange="driveUploadAudio(\''+id+'\',this)">'+
+      '<p style="font-size:11.5px;color:#9aa;margin-top:6px">Envia direto ao Google Drive e ja adiciona o link.</p>'
+    : '<p style="font-size:11.5px;color:#c0392b;margin-top:6px">Para enviar arquivos direto ao Drive, configure o Client ID no Painel do ADM.</p>';
+  addBtn.parentNode.insertBefore(wrap, addBtn.nextSibling);
+};
+/*__V2_END__*/
+</script>
+</body>
+</html>
