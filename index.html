@@ -1813,6 +1813,8 @@ editorCifra=function(id){ _edPrevV2(id);
 .st-pos{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--verde-med);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
 .st-nome{flex:1;min-width:0;font-size:13px;color:#2b2b2b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .st-n{flex-shrink:0;font-size:12px;font-weight:800;color:var(--verde-escuro);background:#eef7f0;border-radius:20px;padding:2px 9px}
+.st-when{flex-shrink:0;text-align:right;font-size:11px;font-weight:700;color:var(--verde-escuro);line-height:1.25}
+.st-when small{font-weight:600;color:#c0392b;font-size:10px}
 .st-chart{display:flex;flex-direction:column;gap:9px;margin-top:4px}
 .st-bar-row{display:flex;align-items:center;gap:8px}
 .st-bar-nome{flex:0 0 42%;font-size:12px;color:#2b2b2b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1841,6 +1843,31 @@ function _contarCantadas(){
   MUSICAS_CANTADAS.forEach(m=>{ const nome=(m.m||'').trim(); if(!nome) return; const k=norm(nome); if(!mapa[k]) mapa[k]={nome:nome,n:0}; mapa[k].n++; });
   return Object.values(mapa).sort((a,b)=> b.n-a.n || a.nome.localeCompare(b.nome));
 }
+function _parseDataBR(s){
+  if(!s) return null;
+  const partes=(''+s).replace(/\n/g,' ').match(/(\d{2})\/(\d{2})\/(\d{4})/g);
+  if(!partes||!partes.length) return null;
+  const ult=partes[partes.length-1].split('/').map(Number);
+  return new Date(ult[2], ult[1]-1, ult[0]);
+}
+function _fmtDataBR(dt){ const p=n=>(''+n).padStart(2,'0'); return p(dt.getDate())+'/'+p(dt.getMonth()+1)+'/'+dt.getFullYear(); }
+function _tempoDecorrido(dt){
+  const dias=Math.floor((Date.now()-dt.getTime())/86400000);
+  if(dias<0) return 'ainda será cantada';
+  if(dias===0) return 'hoje';
+  if(dias<30) return 'há '+dias+' dia'+(dias>1?'s':'');
+  const meses=Math.floor(dias/30);
+  if(meses<12) return 'há '+meses+(meses>1?' meses':' mês');
+  const anos=Math.floor(dias/365);
+  return 'há '+anos+(anos>1?' anos':' ano');
+}
+function _naoCantadasHaTempo(){
+  const mapa={};
+  MUSICAS_CANTADAS.forEach(m=>{ const nome=(m.m||'').trim(); if(!nome) return; const k=norm(nome); const dt=_parseDataBR(m.d); if(!mapa[k]) mapa[k]={nome:nome,ult:dt}; else if(dt && (!mapa[k].ult || dt>mapa[k].ult)) mapa[k].ult=dt; });
+  const arr=Object.values(mapa).filter(x=>x.ult);
+  arr.sort((a,b)=> a.ult-b.ult);
+  return arr;
+}
 function estatisticasCantadasHTML(){
   const arr=_contarCantadas();
   if(!arr.length) return '<p style="font-size:13px;color:#789">Sem dados ainda.</p>';
@@ -1850,12 +1877,16 @@ function estatisticasCantadasHTML(){
   const cores=['#f1c40f','#e67e22','#e74c3c','#e84393','#9b59b6','#3498db','#1abc9c','#16a085','#27ae60','#2ecc71'];
   const bar=(x,i)=>`<div class="st-bar-row"><span class="st-bar-nome" title="${esc(x.nome)}">${i+1}. ${esc(x.nome)}</span><span class="st-bar-track"><span class="st-bar-fill" style="width:${Math.max(4,Math.round(x.n/max*100))}%;background:${cores[i]||'var(--verde-med)'}"></span></span><span class="st-bar-val">${x.n}</span></div>`;
   const li=(x,i)=>`<div class="st-row"><span class="st-pos">${i+1}</span><span class="st-nome">${esc(x.nome)}</span><span class="st-n">${x.n}x</span></div>`;
+  const antigas=_naoCantadasHaTempo().slice(0,15);
+  const liA=(x,i)=>`<div class="st-row"><span class="st-pos">${i+1}</span><span class="st-nome">${esc(x.nome)}</span><span class="st-when">${_fmtDataBR(x.ult)}<br><small>${_tempoDecorrido(x.ult)}</small></span></div>`;
+  const colAntigas=`<div class="st-col"><div class="st-ttl">\u23F3 Sem cantar há mais tempo</div>${antigas.length? antigas.map(liA).join('') : '<p style=\"font-size:13px;color:#789\">Sem dados de data.</p>'}</div>`;
   const _cultos=new Set(MUSICAS_CANTADAS.map(m=>(m.d||'')+'|'+(m.e||''))).size;
   const _media=_cultos? Math.round(MUSICAS_CANTADAS.length/_cultos*10)/10 : 0;
   const resumo=`<div class="st-sum"><div class="st-sum-c"><div class="st-sum-n">${MUSICAS_CANTADAS.length}</div><div class="st-sum-l">Músicas cantadas (total)</div></div><div class="st-sum-c"><div class="st-sum-n">${arr.length}</div><div class="st-sum-l">Músicas diferentes</div></div><div class="st-sum-c"><div class="st-sum-n">${_cultos}</div><div class="st-sum-l">Cultos diferentes</div></div><div class="st-sum-c"><div class="st-sum-n">${_media}</div><div class="st-sum-l">Média de músicas por culto</div></div></div>`;
   return `${resumo}<div class="st-box">
     <div class="st-col"><div class="st-ttl">\uD83D\uDCCA Top 10 músicas mais cantadas</div><div class="st-chart">${mais.map(bar).join('')}</div></div>
     <div class="st-col"><div class="st-ttl">\uD83C\uDF31 Menos cantadas</div>${menos.map(li).join('')}</div>
+    ${colAntigas}
   </div>`;
 }
 function toggleStatsCantadas(){
@@ -2058,6 +2089,57 @@ if(typeof ligarRealtime==='function'){
     }catch(e){}
   };
 }
+</script>
+
+<script>
+/* ===== Botão VOLTAR do Android / navegador ===== */
+(function(){
+  if(window.__ibnmBack) return; window.__ibnmBack=true;
+  function _el(id){ return document.getElementById(id); }
+  function _menuAberto(){ var s=_el('sidemenu'); return !!(s && s.classList.contains('show')); }
+  function _modalAberto(){ var m=_el('modalBg'); return !!(m && m.classList.contains('show')); }
+  function _bvAberto(){ var b=_el('bvScreen'); return !!(b && b.innerHTML.trim()!==''); }
+  function _overlayAberto(){ return _menuAberto()||_modalAberto()||_bvAberto(); }
+  function _fecharOverlay(){
+    if(_modalAberto() && typeof fecharModal==='function'){ fecharModal(); return; }
+    if(_menuAberto() && typeof toggleMenu==='function'){ toggleMenu(false); return; }
+    if(_bvAberto() && typeof fecharBoasVindas==='function'){ fecharBoasVindas(); return; }
+  }
+  var navStack=[];
+  function _topo(){ return navStack.length? navStack[navStack.length-1] : null; }
+  function _registra(screen){
+    var top=_topo();
+    if(top===screen) return;
+    if(top && screen.indexOf('mus|')===0 && top.indexOf('mus|')===0){
+      if(top.split('|')[1]===screen.split('|')[1]){ navStack[navStack.length-1]=screen; return; }
+    }
+    navStack.push(screen);
+  }
+  if(typeof window.go==='function'){
+    var _goOrig=window.go;
+    window.__goOrig=_goOrig;
+    window.go=function(page,arg){ _goOrig(page,arg); _registra('go|'+page+'|'+(arg==null?'':arg)); };
+  }
+  if(typeof window.abrirMusica==='function'){
+    var _amOrig=window.abrirMusica;
+    window.__amOrig=_amOrig;
+    window.abrirMusica=function(id,aba){ _amOrig(id,aba); _registra('mus|'+id+'|'+(aba||'cifra')); };
+  }
+  function _irPara(entry){
+    var p=entry.split('|');
+    if(p[0]==='mus'){ (window.__amOrig||window.abrirMusica)(p[1], p[2]||'cifra'); }
+    else if(p[0]==='go'){ (window.__goOrig||window.go)(p[1], p[2]===''?undefined:p[2]); }
+  }
+  function _arma(){ try{ history.pushState({ibnm:1}, ''); }catch(e){} }
+  try{ history.replaceState({ibnm:1,root:1}, ''); }catch(e){}
+  _arma();
+  window.addEventListener('popstate', function(){
+    if(_overlayAberto()){ _fecharOverlay(); _arma(); return; }
+    if(navStack.length>1){ navStack.pop(); _irPara(navStack[navStack.length-1]); _arma(); return; }
+    if(confirm('Deseja sair do aplicativo?')){ history.back(); }
+    else { _arma(); }
+  });
+})();
 </script>
 </body>
 </html>
