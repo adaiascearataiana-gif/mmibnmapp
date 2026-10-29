@@ -1844,6 +1844,9 @@ editorCifra=function(id){ _edPrevV2(id);
 .st-sum-c{flex:1 1 calc(50% - 5px);min-width:120px;background:#fff;border:1px solid #eef0f3;border-top:3px solid var(--verde-med);border-radius:12px;padding:12px 10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.05)}
 .st-sum-n{font-size:26px;font-weight:800;color:var(--verde-escuro);line-height:1}
 .st-sum-l{font-size:12px;color:#789;margin-top:5px}
+.st-row[data-n]:hover,.st-bar-row[data-n]:hover{background:#f3faf5}
+.st-row[data-n]:active,.st-bar-row[data-n]:active{opacity:.75}
+.fc-item[data-n]:active{opacity:.75}
 </style>
 <script>
 /* === DADOS INJETADOS === */
@@ -1854,12 +1857,70 @@ var MUSICAS_CANTADAS=[{"d": "31/12\n01/01/2026", "di": "QUARTA / QUINTA", "e": "
 /* ---- Músicas que já cantamos ---- */
 var fcBusca='', fcDia='TODOS', fcEvento='TODOS', fcStats=false;
 function acharCifraApp(titulo){ const n=norm(titulo); const hit=DB.musicas.find(x=>norm(x.titulo)===n && x.cifra); return hit? hit.id : null; }
+/* ---- abrir música a partir do nome (Músicas ou Cantor Cristão) ---- */
+function nomeLimpo(s){ return norm(s).replace(/[^a-z0-9]+/g,' ').replace(/(^|\s)\d+(\s|$)/g,' ').replace(/\s+/g,' ').trim(); }
+function acharMusicaApp(titulo){ // qualquer música do app; prefere a que tem cifra/letra
+  const n=norm(titulo), nl=nomeLimpo(titulo); if(!n && !nl) return null;
+  const bate=x=>{ const t=norm(x.titulo), tl=nomeLimpo(x.titulo); return t===n || (nl&&(t===nl||tl===nl||tl===n)); };
+  const todas=(DB.musicas||[]).filter(bate);
+  if(!todas.length) return null;
+  const melhor=todas.find(x=>x.cifra)||todas.find(x=>x.letra)||todas[0];
+  return melhor.id;
+}
+function acharHinoApp(titulo){ // hino do Cantor Cristão (por título ou número citado no nome)
+  if(typeof window.HINOS==='undefined'||!window.HINOS) return null;
+  const nl=nomeLimpo(titulo); if(!nl) return null;
+  const porTitulo=window.HINOS.find(h=>nomeLimpo(h.titulo)===nl);
+  if(porTitulo) return porTitulo.n;
+  const nums=(String(titulo).match(/\d+/g)||[]).map(Number).filter(x=>x>=1&&x<=581);
+  for(const num of nums){
+    const h=window.HINOS.find(x=>x.n===num);
+    if(h){ const ht=nomeLimpo(h.titulo);
+      if(ht===nl||(ht.length>6 && (ht.includes(nl)||nl.includes(ht)))) return h.n; }
+  }
+  return null;
+}
+/* cria a música no app (Músicas) para o ADM preencher cifra e letra */
+async function garantirMusicaApp(nome, artista){
+  const id=acharMusicaApp(nome);
+  if(id) return id;
+  if(!ehAdmin()) return null;
+  const titulo=String(nome||'').trim(); if(!titulo) return null;
+  const idn=(typeof crypto!=='undefined'&&crypto.randomUUID)?crypto.randomUUID():uid();
+  const art=String(artista||'').trim();
+  try{
+    if(typeof sb!=='undefined'&&sb){
+      const {error}=await sb.from('musicas').insert({id:idn,titulo,artista:art,cifra:'',letra:'',youtube:'',audios:[],dados:{publicada:false},created_by:(typeof _sessaoId!=='undefined'?_sessaoId:null)});
+      if(error){ toast('Erro: '+error.message); return null; }
+    }
+  }catch(e){ return null; }
+  DB.musicas.push({id:idn,titulo,artista:art,cifra:'',letra:'',youtube:'',audios:[],publicada:false});
+  return idn;
+}
+/* fluxo do toque: ADM abre o card para preencher; usuário visualiza */
+async function abrirPorTitulo(nome, artista){
+  const id=acharMusicaApp(nome);
+  if(id){
+    const m=DB.musicas.find(x=>x.id===id);
+    const vazio=m && !m.cifra && !m.letra;
+    if(ehAdmin() && vazio){ editorCifra(id); toast('Card aberto: coloque a cifra e a letra e publique.'); return; }
+    abrirMusica(id,'cifra'); return;
+  }
+  const hn=acharHinoApp(nome);
+  if(hn){ if(typeof cantorAbrir==='function') cantorAbrir(hn); else go('cantor'); return; }
+  if(ehAdmin()){
+    const novo=await garantirMusicaApp(nome, artista);
+    if(novo){ toast('Música criada! Coloque a cifra e a letra e publique.'); editorCifra(novo); return; }
+    return;
+  }
+  toast('Esta música ainda não tem cifra/letra — o ADM ainda não cadastrou.');
+}
 function buscarCantadas(v){ fcBusca=v; const c=document.getElementById('fcLista'); if(c) c.innerHTML=listaCantadasHTML(); }
 function filtroCantadasDia(sel){ fcDia=sel.value; const c=document.getElementById('fcLista'); if(c) c.innerHTML=listaCantadasHTML(); }
 function filtroCantadasEvento(sel){ fcEvento=sel.value; const c=document.getElementById('fcLista'); if(c) c.innerHTML=listaCantadasHTML(); }
 function _contarCantadas(){
   const mapa={};
-  MUSICAS_CANTADAS.forEach(m=>{ const nome=(m.m||'').trim(); if(!nome) return; const k=norm(nome); if(!mapa[k]) mapa[k]={nome:nome,n:0}; mapa[k].n++; });
+  MUSICAS_CANTADAS.forEach(m=>{ const nome=(m.m||'').trim(); if(!nome) return; const k=norm(nome); if(!mapa[k]) mapa[k]={nome:nome,n:0,a:(m.a||'')}; mapa[k].n++; });
   return Object.values(mapa).sort((a,b)=> b.n-a.n || a.nome.localeCompare(b.nome));
 }
 function _parseDataBR(s){
@@ -1882,7 +1943,7 @@ function _tempoDecorrido(dt){
 }
 function _naoCantadasHaTempo(){
   const mapa={};
-  MUSICAS_CANTADAS.forEach(m=>{ const nome=(m.m||'').trim(); if(!nome) return; const k=norm(nome); const dt=_parseDataBR(m.d); if(!mapa[k]) mapa[k]={nome:nome,ult:dt}; else if(dt && (!mapa[k].ult || dt>mapa[k].ult)) mapa[k].ult=dt; });
+  MUSICAS_CANTADAS.forEach(m=>{ const nome=(m.m||'').trim(); if(!nome) return; const k=norm(nome); const dt=_parseDataBR(m.d); if(!mapa[k]) mapa[k]={nome:nome,ult:dt,a:(m.a||'')}; else if(dt && (!mapa[k].ult || dt>mapa[k].ult)) mapa[k].ult=dt; });
   const arr=Object.values(mapa).filter(x=>x.ult);
   arr.sort((a,b)=> a.ult-b.ult);
   return arr;
@@ -1894,10 +1955,10 @@ function estatisticasCantadasHTML(){
   const menos=arr.slice().reverse().slice(0,10);
   const max=mais.length?mais[0].n:1;
   const cores=['#f1c40f','#e67e22','#e74c3c','#e84393','#9b59b6','#3498db','#1abc9c','#16a085','#27ae60','#2ecc71'];
-  const bar=(x,i)=>`<div class="st-bar-row"><span class="st-bar-nome" title="${esc(x.nome)}">${i+1}. ${esc(x.nome)}</span><span class="st-bar-track"><span class="st-bar-fill" style="width:${Math.max(4,Math.round(x.n/max*100))}%;background:${cores[i]||'var(--verde-med)'}"></span></span><span class="st-bar-val">${x.n}</span></div>`;
-  const li=(x,i)=>`<div class="st-row"><span class="st-pos">${i+1}</span><span class="st-nome">${esc(x.nome)}</span><span class="st-n">${x.n}x</span></div>`;
+  const bar=(x,i)=>`<div class="st-bar-row" style="cursor:pointer" data-n="${esc(x.nome)}" data-a="${esc(x.a||'')}" onclick="abrirPorTitulo(this.dataset.n,this.dataset.a)"><span class="st-bar-nome" title="${esc(x.nome)}">${i+1}. ${esc(x.nome)}</span><span class="st-bar-track"><span class="st-bar-fill" style="width:${Math.max(4,Math.round(x.n/max*100))}%;background:${cores[i]||'var(--verde-med)'}"></span></span><span class="st-bar-val">${x.n}</span></div>`;
+  const li=(x,i)=>`<div class="st-row" style="cursor:pointer" data-n="${esc(x.nome)}" data-a="${esc(x.a||'')}" onclick="abrirPorTitulo(this.dataset.n,this.dataset.a)"><span class="st-pos">${i+1}</span><span class="st-nome">${esc(x.nome)}</span><span class="st-n">${x.n}x</span></div>`;
   const antigas=_naoCantadasHaTempo().slice(0,15);
-  const liA=(x,i)=>`<div class="st-row"><span class="st-pos">${i+1}</span><span class="st-nome">${esc(x.nome)}</span><span class="st-when">${_fmtDataBR(x.ult)}<br><small>${_tempoDecorrido(x.ult)}</small></span></div>`;
+  const liA=(x,i)=>`<div class="st-row" style="cursor:pointer" data-n="${esc(x.nome)}" data-a="${esc(x.a||'')}" onclick="abrirPorTitulo(this.dataset.n,this.dataset.a)"><span class="st-pos">${i+1}</span><span class="st-nome">${esc(x.nome)}</span><span class="st-when">${_fmtDataBR(x.ult)}<br><small>${_tempoDecorrido(x.ult)}</small></span></div>`;
   const colAntigas=`<div class="st-col"><div class="st-ttl">\u23F3 Sem cantar há mais tempo</div>${antigas.length? antigas.map(liA).join('') : '<p style=\"font-size:13px;color:#789\">Sem dados de data.</p>'}</div>`;
   const _cultos=new Set(MUSICAS_CANTADAS.map(m=>(m.d||'')+'|'+(m.e||''))).size;
   const _media=_cultos? Math.round(MUSICAS_CANTADAS.length/_cultos*10)/10 : 0;
@@ -1924,14 +1985,17 @@ function listaCantadasHTML(){
   });
   if(!arr.length) return '<div class="empty"><div class="big">\uD83C\uDFB6</div>Nenhuma música encontrada.</div>';
   return arr.map(m=>{
-    const cifraId=acharCifraApp(m.m);
+    const idMus=acharMusicaApp(m.m)||acharCifraApp(m.m);
+    const hinoN=acharHinoApp(m.m);
+    const mm2=idMus?DB.musicas.find(x=>x.id===idMus):null;
     const yt = m.w? `<a class="fc-yt" href="${esc(m.w)}" target="_blank" onclick="event.stopPropagation()">\u25B6 YouTube</a>`:'';
-    const abrir = cifraId? `onclick="abrirMusica('${cifraId}','cifra')" style="cursor:pointer"`:'';
+    const abrir = `data-n="${esc(m.m)}" data-a="${esc(m.a||'')}" onclick="abrirPorTitulo(this.dataset.n,this.dataset.a)" style="cursor:pointer"`;
+    const badge = (mm2&&mm2.cifra)?'<span class="fc-badge">cifra \u2713</span>':(hinoN?'<span class="fc-badge">\uD83D\uDCD6 hino</span>':(mm2?'<span class="fc-badge">sem cifra</span>':''));
     return `<div class="fc-item" ${abrir}>
       <div class="fc-main"><div class="fc-t">${esc(m.m)}</div>
         <div class="fc-a">${esc(m.a||'\u2014')}${m.t?' \u00b7 Tom '+esc(m.t):''}</div>
         <div class="fc-meta">${esc((m.d||'').replace(/\n/g,' '))}${m.e?' \u00b7 '+esc(m.e):''}</div></div>
-      <div class="fc-side">${cifraId?'<span class="fc-badge">cifra \u2713</span>':''}${yt}</div></div>`;
+      <div class="fc-side">${badge}${yt}</div></div>`;
   }).join('');
 }
 ROTAS.cantadas = function(){
@@ -1940,7 +2004,7 @@ ROTAS.cantadas = function(){
   const eventos=[...new Set(MUSICAS_CANTADAS.map(m=>m.e).filter(Boolean))].sort();
   const optsEv=eventos.map(x=>`<option value="${esc(x)}" ${fcEvento===x?'selected':''}>${esc((x||'').replace(/\n/g,' '))}</option>`).join('');
   return `<div class="page"><div class="page-ttl">\uD83C\uDFB6 Músicas que já cantamos</div>
-    <p style="font-size:13px;color:#789;margin-bottom:12px">${MUSICAS_CANTADAS.length} músicas no histórico do ministério. Toque numa música com cifra cadastrada para abri-la.</p>
+    <p style="font-size:13px;color:#789;margin-bottom:12px">${MUSICAS_CANTADAS.length} músicas no histórico do ministério. Toque em qualquer música — nas listas ou nas estatísticas — para abri-la com letra e cifra (em Músicas ou no Cantor Cristão).</p>
     <button id="fcStatsBtn" class="st-btn" onclick="toggleStatsCantadas()">\uD83D\uDCCA Ver estatísticas</button>
     <div id="fcStats" class="st-wrap" style="display:none"></div>
     <div class="cant-filtros">
