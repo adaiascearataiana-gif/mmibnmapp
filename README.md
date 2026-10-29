@@ -28,11 +28,24 @@ cifras, playlist, escala e links do YouTube (do app e do Cantor Cristão).
 | `index.html` | App principal (Supabase, telas, editor de cifra) |
 | `hinos.js` | Base dos 581 hinos do Cantor Cristão |
 | `cantor.js` | Módulo do Cantor Cristão (tema verde/dourado) |
+| `academia.js` | Academia de Música (materiais gerenciados pelo ADM) |
 | `cc-intro/` | Imagens de introdução dos hinos |
-| `sw.js` | Service worker (offline) — `mmibnm-v2` |
+| `sw.js` | Service worker (offline) — `mmibnm-v3` |
 | `MMIBNM-GOOGLE-LOGIN.md` | Guia do login com Google |
 | `MMIBNM-SQL-completo.sql` | SQL aplicado no Supabase (backup) |
 | `SUGESTOES.md` | Análise e melhorias sugeridas |
+
+## Menu
+
+- **Músicas** ▸ Todas as músicas · Cantor Cristão (581 hinos)
+- **⭐ Favoritos** — músicas e hinos favoritos, juntos
+- **Academia de Música** ▸ Técnicas vocais · Instrumentos
+  (Bateria, Piano, Guitarra, Baixo, Violão) · Teoria musical —
+  o ADM adiciona links, vídeos do YouTube e PDFs (com upload
+  direto ao Google Drive); os usuários visualizam e baixam.
+
+O botão **VOLTAR** do Android funciona em todo o app (fecha
+menus e folhas, volta entre telas e pergunta antes de sair).
 
 ## Banco (Supabase)
 

@@ -70,6 +70,30 @@ DO $$ BEGIN
 END $$;
 
 -- ------------------------------------------------------------
+-- 4b) Academia de Música — materiais (links, YouTube, PDFs)
+--     Escrita também restrita ao ADM (is_admin()).
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS materiais (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  secao text NOT NULL,               -- tecnicas-vocais, bateria, piano, guitarra, baixo, violao, teoria-musical
+  tipo text NOT NULL DEFAULT 'link', -- youtube | pdf | link
+  titulo text NOT NULL,
+  descricao text DEFAULT '',
+  url text NOT NULL,
+  ordem integer DEFAULT 0,
+  created_by uuid,
+  created_at timestamptz DEFAULT now()
+);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.materiais'::regclass AND polname='mat_sel') THEN
+    CREATE POLICY mat_sel ON materiais FOR SELECT USING (true);
+    CREATE POLICY mat_ins ON materiais FOR INSERT WITH CHECK (is_admin());
+    CREATE POLICY mat_upd ON materiais FOR UPDATE USING (is_admin()) WITH CHECK (is_admin());
+    CREATE POLICY mat_del ON materiais FOR DELETE USING (is_admin());
+  END IF;
+END $$;
+
+-- ------------------------------------------------------------
 -- 5) Tempo real (as telas atualizam sozinhas)
 --    Tabelas novas entram na publicação do Supabase Realtime.
 -- ------------------------------------------------------------
@@ -80,6 +104,10 @@ DO $$ BEGIN
   END;
   BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE cantor_links;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE materiais;
   EXCEPTION WHEN duplicate_object THEN NULL;
   END;
 END $$;

@@ -1,11 +1,12 @@
 /* Service Worker - Ministerio de Musica IBNM */
-const CACHE = 'mmibnm-v2';
+const CACHE = 'mmibnm-v3';
 const CORE = [
   './',
   './index.html',
   './manifest.webmanifest',
   './hinos.js',
   './cantor.js',
+  './academia.js',
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',

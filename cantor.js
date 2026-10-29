@@ -346,8 +346,6 @@ function listaHtml(){
   const q=lastQuery;
   const r=search(q);
   let html='';
-  const favList=HINOS.filter(h=>favs.has(h.n));
-  if(favList.length && !q.trim()) html+='<p class="cc-sec cc-fav-head">⭐ Favoritos</p><ul class="cc-list">'+favList.map(itemHtml).join('')+'</ul>';
   if(r.titulo.length) html+='<ul class="cc-list">'+r.titulo.map(itemHtml).join('')+'</ul>';
   if(r.letra.length) html+='<p class="cc-sec">Encontrado na letra</p><ul class="cc-list">'+r.letra.map(itemHtml).join('')+'</ul>';
   if(!html) html='<p class="cc-empty">Nenhum hino encontrado.</p>';
@@ -360,6 +358,7 @@ function abrirHino(n, keepScroll){
   const h=byN.get(n); if(!h) return cantorVoltar();
   cantorNum=n;
   try{ _viewAtual=function(){ abrirHino(n); }; }catch(e){}
+  try{ if(window.__navReg) window.__navReg('cc|'+n); }catch(e){}
   const adm=ehAdm();
   const st=prefs.tr[n]||0; const {key,flats}=keyInfo(h,st);
   let ei=0;
@@ -601,6 +600,33 @@ try{
     ROTAS.cantor=function(){ editMode=false; return renderLista(); };
   }
 }catch(e){}
+
+/* ---------- FAVORITOS UNIFICADOS (músicas + hinos) ----------
+   A seção "Favoritos" do menu lateral reúne tudo o que o usuário
+   marcou com ⭐ — músicas do ministério e hinos do Cantor Cristão. */
+function renderFavoritosUnificado(){
+  if(typeof paginaMusicas!=='undefined') paginaMusicas='favoritos';
+  loadFavs();
+  const u=(typeof usuarioAtual==='function')?usuarioAtual():null;
+  const favIds=(u&&typeof DB!=='undefined'&&DB.favoritos&&DB.favoritos[u.email])||[];
+  const musicas=(typeof DB!=='undefined'&&DB.musicas?DB.musicas:[]).filter(m=>favIds.indexOf(m.id)>=0);
+  const hinos=HINOS.filter(h=>favs.has(h.n));
+  const rowMusica=m=>'<div class="song-row" onclick="abrirMusica(\''+m.id+'\')"><div class="s-ic">🎵</div><div style="flex:1"><div class="s-nm">'+esc(m.titulo)+'</div><div class="s-ar">'+esc(m.artista||'')+'</div></div><span class="star on" onclick="toggleFav(\''+m.id+'\',event)">★</span></div>';
+  const rowHino=h=>'<div class="song-row" onclick="cantorAbrir('+h.n+')"><div class="s-ic">📖</div><div style="flex:1"><div class="s-nm">'+h.n+' · '+esc(h.titulo)+'</div><div class="s-ar">Cantor Cristão'+(h.ritmo?' · '+esc(h.ritmo):'')+'</div></div><span class="star on" onclick="cantorFavUnificado('+h.n+',event)">★</span></div>';
+  const vazio=(!musicas.length && !hinos.length)
+    ? '<div class="empty"><div class="big">⭐</div>Você ainda não tem favoritos.<br>Toque na estrela ★ de uma música ou de um hino para salvá-los aqui.</div>'
+    : '';
+  return '<div class="page"><div class="page-ttl">⭐ Favoritos</div>'+
+    '<p style="font-size:13px;color:#789;margin-bottom:12px">Tudo o que você marcou com ★ — músicas do ministério e hinos do Cantor Cristão, juntos aqui.</p>'+
+    vazio+
+    (musicas.length?'<div class="cc-sec" style="margin-top:6px">🎵 Músicas ('+musicas.length+')</div>'+musicas.map(rowMusica).join(''):'')+
+    (hinos.length?'<div class="cc-sec" style="margin-top:18px">📖 Cantor Cristão ('+hinos.length+')</div>'+hinos.map(rowHino).join(''):'')+
+    '</div>';
+}
+try{
+  if(typeof ROTAS!=='undefined'){ ROTAS.favoritos=renderFavoritosUnificado; }
+}catch(e){}
+window.cantorFavUnificado=function(n,ev){ if(ev){ ev.preventDefault(); ev.stopPropagation(); } toggleFav(+n); if(typeof go==='function') go('favoritos'); else renderLista(); };
 
 /* carrega links da nuvem na abertura */
 cloudLoadLinks();
