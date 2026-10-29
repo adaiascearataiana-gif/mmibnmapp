@@ -498,6 +498,7 @@ const MENU = [
      {id:'favoritos', ic:'\u2B50', nm:'Favoritos'} ]},
   {id:'escala', ic:'\uD83D\uDCCB', nm:'Escala do Ministério'},
   {id:'cantadas', ic:'\uD83C\uDFB6', nm:'Músicas que já cantamos'},
+  {id:'cantor', ic:'\uD83D\uDCD6', nm:'Cantor Cristão'},
   {id:'perfil', ic:'\uD83D\uDC64', nm:'Meu Perfil'},
   {id:'notificacoes', ic:'\uD83D\uDD14', nm:'Notificações'},
   {id:'ajuda', ic:'\u2753', nm:'Como usar o app'},
@@ -1294,8 +1295,16 @@ async function fazerCadastro(){
   await bootSessao();
 }
 async function loginGoogle(){
-  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href.split('#')[0]}});
-  if(error) toast('Login Google indisponivel: '+error.message);
+  try{
+    toast('Abrindo o login com Google...');
+    const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href.split('#')[0],queryParams:{prompt:'select_account'}}});
+    if(error){
+      const msg=/provider|external|not enabled|disabled/i.test(error.message||'')
+        ? 'Login Google ainda nao esta ativado no servidor. O administrador precisa ativar Authentication > Providers > Google no Supabase (guia GOOGLE-LOGIN.md).'
+        : 'Login Google indisponivel: '+error.message;
+      toast(msg);
+    }
+  }catch(e){ toast('Login Google indisponivel: '+(e.message||e)); }
 }
 async function enviarRecupera(){
   const email=$('#recEmail').value.trim().toLowerCase();
@@ -1335,18 +1344,19 @@ async function bootSessao(){
   ligarRealtime();
 }
 async function garantirPerfil(user){
-  const {data}=await sb.from('perfis').select('id').eq('id',user.id).maybeSingle();
-  if(data) return;
   const md=user.user_metadata||{};
+  const origem=((user.app_metadata&&user.app_metadata.provider==='google')?'google':'local');
+  const {data}=await sb.from('perfis').select('id').eq('id',user.id).maybeSingle();
+  if(data){ await sb.from('perfis').update({origem}).eq('id',user.id).then(()=>{},()=>{}); return; }
   const {count}=await sb.from('perfis').select('*',{count:'exact',head:true});
-  await sb.from('perfis').insert({id:user.id,email:(user.email||'').toLowerCase(),nome:md.nome||(user.email||'').split('@')[0],nasc:md.nasc||null,tel:md.tel||'',wpp:!!md.wpp,vocal:md.vocal||[],instr:md.instr||[],admin:(count||0)===0});
+  await sb.from('perfis').insert({id:user.id,email:(user.email||'').toLowerCase(),nome:md.nome||md.full_name||md.name||(user.email||'').split('@')[0],nasc:md.nasc||null,tel:md.tel||'',wpp:!!md.wpp,vocal:md.vocal||[],instr:md.instr||[],foto:md.avatar_url||md.picture||'',origem,admin:(count||0)===0});
 }
 async function cloudCarregarTudo(){
   await Promise.all([cloudPerfis(),cloudMusicas(),cloudPlaylist(),cloudEscala(),cloudNotif(),cloudFav()]);
 }
 async function cloudPerfis(){
   const {data}=await sb.from('perfis').select('*');
-  DB.usuarios=(data||[]).map(p=>({id:p.id,email:(p.email||'').toLowerCase(),nome:p.nome||'',nasc:p.nasc||'',tel:p.tel||'',wpp:!!p.wpp,vocal:p.vocal||[],instr:p.instr||[],foto:p.foto||'',admin:!!p.admin,origem:'local',senhaHash:''}));
+  DB.usuarios=(data||[]).map(p=>({id:p.id,email:(p.email||'').toLowerCase(),nome:p.nome||'',nasc:p.nasc||'',tel:p.tel||'',wpp:!!p.wpp,vocal:p.vocal||[],instr:p.instr||[],foto:p.foto||'',admin:!!p.admin,origem:p.origem||'local',senhaHash:''}));
 }
 async function cloudMusicas(){
   const {data}=await sb.from('musicas').select('*').order('titulo');
@@ -2141,5 +2151,7 @@ if(typeof ligarRealtime==='function'){
   });
 })();
 </script>
+<script src="hinos.js"></script>
+<script src="cantor.js"></script>
 </body>
 </html>

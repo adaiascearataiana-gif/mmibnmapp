@@ -1,9 +1,11 @@
 /* Service Worker - Ministerio de Musica IBNM */
-const CACHE = 'mmibnm-v1';
+const CACHE = 'mmibnm-v2';
 const CORE = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './hinos.js',
+  './cantor.js',
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',
@@ -42,7 +44,8 @@ self.addEventListener('fetch', function (e) {
     return;
   }
 
-  // Demais arquivos locais (icones, manifest): cache primeiro.
+  // Demais arquivos locais (icones, manifest, hinos.js, cantor.js, intros do Cantor):
+  // cache primeiro (nao quebra offline), atualiza em segundo plano.
   e.respondWith(
     caches.match(req).then(function (hit) {
       return hit || fetch(req).then(function (r) {
