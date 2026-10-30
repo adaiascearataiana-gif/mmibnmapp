@@ -61,6 +61,20 @@ function indiceVigente(E){
   if(i<0){ const hj=inicioDoDia(new Date()); i=ds.findIndex(d=>d && d>=hj); if(i>=0 && ds[i]-hj>14*864e5) i=-1; }
   return i;
 }
+/* usados pelos avisos: linha de uma semana (0 = esta, 1 = próxima) e dados da linha */
+window.__escIdxSemana=function(off){
+  try{ const E=escalaAtiva(); if(!E||!E.linhas||!E.linhas.length) return -1;
+    if(!off) return linhaVigenteIdx();
+    const ds=datasDasLinhas(E); const s=segunda(new Date()); s.setDate(s.getDate()+7*off); const f=new Date(s); f.setDate(s.getDate()+7);
+    return ds.findIndex(d=>d && d>=s && d<f);
+  }catch(_){ return -1; }
+};
+window.__escLinhaInfo=function(i){
+  try{ const E=escalaAtiva(); const l=E.linhas[i]; if(!l) return null; const C=acharColunas(E.colunas); const dt=datasDasLinhas(E)[i];
+    const ev=C.evento>=0? l.celulas[E.colunas[C.evento]] : '';
+    return {dt, data: dt? String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0') : (l.celulas[E.colunas[C.data]]||''), dia: dt? DIAS_PT[dt.getDay()] : '', evento: titulo(ev||'Culto'), linha:l};
+  }catch(_){ return null; }
+};
 /* corrige a semana vigente usada em todo o app (aviso, presença, "você está na escala") */
 if(typeof linhaVigenteIdx==='function'){
   const _orig=linhaVigenteIdx;

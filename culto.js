@@ -73,6 +73,14 @@ const css=`
 .afin .med .p{position:absolute;top:4px;bottom:4px;width:6px;margin-left:-3px;border-radius:3px;background:#c0392b;left:50%;transition:left .08s}
 .afin .med .p.ok{background:var(--verde-med)}
 .afin .info{text-align:center;font-size:13px;color:#667;min-height:1.4em}
+.afin-inst{width:100%;height:42px;border-radius:10px;border:1px solid #cfdad4;background:#fff;font-size:14.5px;font-weight:700;color:var(--verde-escuro);padding:0 10px;margin-bottom:8px}
+.afin-cordas{display:flex;gap:6px;justify-content:center}
+.afin-cordas button{flex:1;max-width:62px;border:2px solid #cfdad4;background:#fff;border-radius:12px;padding:4px 0 6px;font-size:20px;font-weight:900;color:var(--verde-escuro);line-height:1.05;display:flex;flex-direction:column;align-items:center}
+.afin-cordas button small{font-size:10px;font-weight:800;color:#8a9}
+.afin-cordas button i{font-style:normal;font-size:10px;color:#8a9;font-weight:700}
+.afin-cordas button.alvo{border-color:var(--dourado-esc)}
+.afin-cordas button.on{background:#fde4df;border-color:#c0392b}
+.afin-cordas button.ok{background:#d9f2e4;border-color:var(--verde-med)}
 .metro-pill{position:fixed;right:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:9998;display:flex;align-items:center;gap:6px;background:var(--verde-escuro);color:#fff;border-radius:999px;padding:6px 6px 6px 12px;box-shadow:0 6px 18px rgba(0,0,0,.3);font-weight:800;font-size:14px}
 .metro-pill .lt{width:10px;height:10px;border-radius:50%;background:#2a4}
 .metro-pill .lt.on{background:#f1c40f}
@@ -361,6 +369,19 @@ function pilula(){
 /* afinador */
 const AF={on:false,stream:null,an:null,buf:null,raf:0,ref:+(localStorage.getItem('ibnm_a4')||440)};
 const NOMES=['Dó','Dó#','Ré','Ré#','Mi','Fá','Fá#','Sol','Sol#','Lá','Lá#','Si'], CIF=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+/* instrumentos do afinador: cordas da mais grave para a mais aguda (número MIDI) */
+const INSTRUMENTOS={
+  cromatico:{nm:'Cromático (qualquer nota)',cordas:[]},
+  violao:{nm:'Violão',cordas:[40,45,50,55,59,64]},
+  baixo4:{nm:'Contrabaixo · 4 cordas',cordas:[28,33,38,43]},
+  baixo5:{nm:'Contrabaixo · 5 cordas',cordas:[23,28,33,38,43]}
+};
+AF.inst=localStorage.getItem('ibnm_afin_inst')||'violao';
+const nomeMidi=m=>CIF[((m%12)+12)%12]+(Math.floor(m/12)-1);
+const freqMidi=m=>AF.ref*Math.pow(2,(m-69)/12);
+function tocarReferencia(m){ const c=ctx(); if(!c) return; const t=c.currentTime+.02, f=freqMidi(m);
+  [[1,.5],[2,.25],[3,.12]].forEach(([k,a])=>{ const o=c.createOscillator(), g=c.createGain(); o.type='triangle'; o.frequency.value=f*k; g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(a*.6,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+2.2); o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+2.3); }); }
+window.afinTocar=function(m){ AF.alvo=m; tocarReferencia(m); document.querySelectorAll('.afin-cordas button').forEach(b=>b.classList.toggle('alvo',+b.dataset.m===m)); };
 function autoCorr(b,sr){
   let rms=0; for(let i=0;i<b.length;i++) rms+=b[i]*b[i]; rms=Math.sqrt(rms/b.length); if(rms<.012) return -1;
   let r1=0,r2=b.length-1; const th=.2; for(let i=0;i<b.length/2;i++) if(Math.abs(b[i])<th){ r1=i; break; } for(let i=1;i<b.length/2;i++) if(Math.abs(b[b.length-i])<th){ r2=b.length-i; break; }
@@ -375,22 +396,30 @@ async function afinLiga(){
   if(AF.on) return; const c=ctx(); if(!c) return toast('Seu navegador não tem áudio.');
   try{ AF.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }
   catch(_){ const i=document.querySelector('.afin .info'); if(i) i.textContent='Permita o uso do microfone para afinar.'; return; }
-  const src=c.createMediaStreamSource(AF.stream); AF.an=c.createAnalyser(); AF.an.fftSize=2048; src.connect(AF.an); AF.buf=new Float32Array(AF.an.fftSize); AF.on=true; loopAfin();
+  const src=c.createMediaStreamSource(AF.stream); AF.an=c.createAnalyser(); AF.an.fftSize=8192; src.connect(AF.an); AF.buf=new Float32Array(AF.an.fftSize); AF.red=new Float32Array(AF.an.fftSize/4); AF.on=true; loopAfin();
   const b=document.getElementById('afBtn'); if(b){ b.textContent='■ Parar'; }
 }
-function afinDesliga(){ AF.on=false; cancelAnimationFrame(AF.raf); try{ AF.stream&&AF.stream.getTracks().forEach(t=>t.stop()); }catch(_){} AF.stream=null; const b=document.getElementById('afBtn'); if(b) b.textContent='🎤 Começar'; }
+function afinDesliga(){ AF.on=false; clearTimeout(AF.raf); try{ AF.stream&&AF.stream.getTracks().forEach(t=>t.stop()); }catch(_){} AF.stream=null; const b=document.getElementById('afBtn'); if(b) b.textContent='🎤 Começar'; }
 let _ultFreq=[];
 function loopAfin(){
   if(!AF.on) return;
   const box=document.querySelector('.afin'); if(!box){ afinDesliga(); return; }
-  AF.an.getFloatTimeDomainData(AF.buf); const f=autoCorr(AF.buf,MT.ctx.sampleRate);
-  if(f>40&&f<1500){ _ultFreq.push(f); if(_ultFreq.length>5) _ultFreq.shift(); const fm=_ultFreq.slice().sort((a,b)=>a-b)[Math.floor(_ultFreq.length/2)];
-    const n=12*Math.log2(fm/AF.ref)+69, r=Math.round(n), cents=Math.round((n-r)*100), nome=((r%12)+12)%12, oit=Math.floor(r/12)-1;
+  AF.an.getFloatTimeDomainData(AF.buf);
+  for(let i=0;i<AF.red.length;i++){ const j=i*4; AF.red[i]=(AF.buf[j]+AF.buf[j+1]+AF.buf[j+2]+AF.buf[j+3])/4; }
+  const f=autoCorr(AF.red,MT.ctx.sampleRate/4);
+  if(f>25&&f<1500){ _ultFreq.push(f); if(_ultFreq.length>5) _ultFreq.shift(); const fm=_ultFreq.slice().sort((a,b)=>a-b)[Math.floor(_ultFreq.length/2)];
+    const n=12*Math.log2(fm/AF.ref)+69; const cordas=(INSTRUMENTOS[AF.inst]||{}).cordas||[];
+    /* com instrumento escolhido: compara com a corda mais próxima (ou a corda tocada no botão) */
+    let r=Math.round(n);
+    if(cordas.length){ r = (AF.alvo!=null && Math.abs(n-AF.alvo)<3.5) ? AF.alvo : cordas.reduce((a,b)=>Math.abs(b-n)<Math.abs(a-n)?b:a); }
+    const cents=Math.round((n-r)*100), nome=((r%12)+12)%12, oit=Math.floor(r/12)-1;
+    document.querySelectorAll('.afin-cordas button').forEach(b=>{ const on=+b.dataset.m===r; b.classList.toggle('on',on); b.classList.toggle('ok',on&&Math.abs(cents)<=5); });
     box.querySelector('.nota').innerHTML=CIF[nome]+'<small>'+oit+'</small>';
-    box.querySelector('.info').textContent=NOMES[nome]+' · '+fm.toFixed(1)+' Hz · '+(cents>0?'+':'')+cents+' cents'+(Math.abs(cents)<=5?' ✔ afinado':(cents<0?' (suba)':' (desça)'));
+    const longe=Math.abs(n-r)>1.5;
+    box.querySelector('.info').textContent=(cordas.length?'Corda '+(cordas.length-cordas.indexOf(r))+' · ':'')+NOMES[nome]+' · '+fm.toFixed(1)+' Hz · '+(longe?'muito longe: ':'')+(cents>0?'+':'')+Math.max(-999,Math.min(999,cents))+' cents'+(Math.abs(cents)<=5?' ✔ afinado':(cents<0?' (aperte / suba)':' (afrouxe / desça)'));
     const p=box.querySelector('.med .p'); p.style.left=(50+Math.max(-50,Math.min(50,cents)))+'%'; p.classList.toggle('ok',Math.abs(cents)<=5);
   }
-  AF.raf=requestAnimationFrame(loopAfin);
+  AF.raf=setTimeout(loopAfin,70);
 }
 let abaFerr='metro';
 window.abrirFerramentas=function(aba){
@@ -404,10 +433,13 @@ window.abrirFerramentas=function(aba){
     '<div class="linha">'+[2,3,4,6].map(c=>'<button class="cp '+(MT.comp===c?'on':'')+'" data-c="'+c+'">'+c+'/'+(c===6?8:4)+'</button>').join('')+'</div>'+
     '<div class="linha"><button class="play" id="mtPlay">'+(MT.on?'■ Parar':'▶ Tocar')+'</button></div>'+
     '<p class="sub">Toque TAP no ritmo da música para achar o andamento. O metrônomo continua tocando com esta janela fechada.</p>';
-  const afin='<div class="afin"><div class="nota">—</div><div class="med"><span class="c"></span><span class="p"></span></div><div class="info">Toque em Começar e toque uma corda ou cante uma nota.</div></div>'+
+  const inst=INSTRUMENTOS[AF.inst]||INSTRUMENTOS.cromatico;
+  const selInst='<select id="afInst" class="afin-inst">'+Object.keys(INSTRUMENTOS).map(k=>'<option value="'+k+'" '+(AF.inst===k?'selected':'')+'>'+INSTRUMENTOS[k].nm+'</option>').join('')+'</select>';
+  const cordasHtml=inst.cordas.length? '<div class="afin-cordas">'+inst.cordas.map((m,i)=>'<button type="button" data-m="'+m+'" onclick="afinTocar('+m+')"><small>'+(inst.cordas.length-i)+'ª</small>'+nomeMidi(m).replace(/\d+$/,'')+'<i>'+nomeMidi(m).replace(/^\D+/,'')+'</i></button>').join('')+'</div><p class="sub" style="margin:4px 0 0">Toque numa corda para ouvir a nota de referência.</p>' : '';
+  const afin=selInst+cordasHtml+'<div class="afin"><div class="nota">—</div><div class="med"><span class="c"></span><span class="p"></span></div><div class="info">Toque em Começar e toque uma corda ou cante uma nota.</div></div>'+
     '<div class="linha"><button class="play" id="afBtn">'+(AF.on?'■ Parar':'🎤 Começar')+'</button></div>'+
     '<div class="linha"><button id="afM">−</button><button disabled style="opacity:1">Lá = '+AF.ref+' Hz</button><button id="afP">+</button></div>'+
-    '<p class="sub">Violão: Mi Lá Ré Sol Si Mi (E A D G B E) · Baixo: Mi Lá Ré Sol</p>';
+    '<p class="sub">Violão: Mi Lá Ré Sol Si Mi (E A D G B E) · Contrabaixo 4: Mi Lá Ré Sol (E A D G) · Contrabaixo 5: Si Mi Lá Ré Sol (B E A D G)</p>';
   bg.innerHTML='<div class="cc-sheet ferr" role="dialog" aria-modal="true"><h3>🎛 Ferramentas do músico</h3><div class="tabs"><button class="'+(abaFerr==='metro'?'on':'')+'" data-a="metro">Metrônomo</button><button class="'+(abaFerr==='afin'?'on':'')+'" data-a="afin">Afinador</button></div>'+(abaFerr==='metro'?metro:afin)+'<div class="row"><button class="pri" id="ferrX">Fechar</button></div></div>';
   document.body.appendChild(bg);
   const fechar=()=>{ afinDesliga(); bg.remove(); pilula(); };
@@ -422,6 +454,7 @@ window.abrirFerramentas=function(aba){
     bg.querySelector('#mtPlay').onclick=()=>{ MT.on?metroStop():metroPlay(); bg.querySelector('#mtPlay').textContent=MT.on?'■ Parar':'▶ Tocar'; };
   } else {
     bg.querySelector('#afBtn').onclick=()=>{ AF.on?afinDesliga():afinLiga(); };
+    bg.querySelector('#afInst').onchange=ev=>{ AF.inst=ev.target.value; AF.alvo=null; localStorage.setItem('ibnm_afin_inst',AF.inst); const ligado=AF.on; abrirFerramentas('afin'); if(ligado) setTimeout(afinLiga,50); };
     bg.querySelector('#afM').onclick=()=>{ AF.ref=Math.max(430,AF.ref-1); localStorage.setItem('ibnm_a4',AF.ref); abrirFerramentas(); };
     bg.querySelector('#afP').onclick=()=>{ AF.ref=Math.min(450,AF.ref+1); localStorage.setItem('ibnm_a4',AF.ref); abrirFerramentas(); };
   }

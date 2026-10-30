@@ -318,7 +318,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
    Persistencia local (localStorage). Pontos de integracao
    para Google Login / Google Drive marcados com [INTEGRACAO].
 ============================================================ */
-const VERSION = 'v0.5.0';
+const VERSION = 'v0.6.1';
 const DB_KEY = 'ibnm_mm_db_v1';
 const SES_KEY = 'ibnm_mm_sessao';
 const LOGO = document.getElementById('logoTpl').innerHTML;
@@ -2216,9 +2216,11 @@ if(typeof ligarRealtime==='function'){
   function _bvAberto(){ var b=_el('bvScreen'); return !!(b && b.innerHTML.trim()!==''); }
   function _sheetAberto(){ return !!document.querySelector('.cc-sheet-bg'); }
   function _projAberto(){ return !!document.querySelector('.proj'); }
+  function _avisoAberto(){ return !!document.querySelector('.av-bg'); }
   function _popAberto(){ return !!document.querySelector('.cor-pop.show'); }
-  function _overlayAberto(){ return _projAberto()||_sheetAberto()||_modalAberto()||_popAberto()||_menuAberto()||_bvAberto(); }
+  function _overlayAberto(){ return _avisoAberto()||_projAberto()||_sheetAberto()||_modalAberto()||_popAberto()||_menuAberto()||_bvAberto(); }
   function _fecharOverlay(){
+    if(_avisoAberto()){ var av=document.querySelectorAll('.av-bg'); av[av.length-1].remove(); return; }
     if(_projAberto()){ if(window.fecharProjetor) window.fecharProjetor(); else document.querySelectorAll('.proj').forEach(function(b){ b.remove(); }); return; }
     if(_sheetAberto()){ var bs=document.querySelectorAll('.cc-sheet-bg'); bs[bs.length-1].remove(); return; }
     if(_modalAberto() && typeof fecharModal==='function'){ fecharModal(); return; }
@@ -2296,5 +2298,7 @@ if(typeof ligarRealtime==='function'){
 <script src="culto.js"></script>
 <script src="escala.js"></script>
 <script src="membros.js"></script>
+<script src="cantadas.js"></script>
+<script src="avisos.js"></script>
 </body>
 </html>

@@ -273,3 +273,69 @@ addEventListener('hashchange',()=>{ if(/^#hino-\d+/.test(location.hash) && !$('#
 if(typeof _booted!=='undefined' && _booted) setTimeout(()=>{ medirTopo(); try{ atualizaBannerVivo(); aplicarAoVivo(true); }catch(e){} abrirLinkDireto(); },50);
 medirTopo();
 })();
+
+/* ============================================================
+   (v0.6.1) ADM: editar/excluir LETRA e excluir a MÚSICA inteira
+============================================================ */
+(function(){
+'use strict';
+if(typeof renderMusica!=='function') return;
+const e = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const _rm=renderMusica;
+window.renderMusica=renderMusica=function(){
+  let h=_rm.apply(this,arguments);
+  try{
+    if(!ehAdmin() || typeof h!=='string') return h;
+    const m=DB.musicas.find(x=>x.id===musicaAberta); if(!m) return h;
+    const btMus='<button class="mini-btn sec mm-del" style="margin-bottom:10px;margin-left:6px" onclick="excluirMusicaInteira(\''+m.id+'\')">🗑️ Excluir música</button>';
+    if(abaAtual==='cifra'){
+      const k=h.indexOf('<div class="zoom-bar">'); if(k>=0) h=h.slice(0,k)+btMus+h.slice(k);
+    } else if(abaAtual==='letra'){
+      const bts='<button class="mini-btn" style="margin-bottom:10px" onclick="editarLetra(\''+m.id+'\')">✏️ '+(m.letra?'Editar letra':'Cadastrar letra')+'</button>'+
+        (m.letra?'<button class="mini-btn sec" style="margin-bottom:10px;margin-left:6px" onclick="excluirLetra(\''+m.id+'\')">🗑️ Excluir letra</button>':'')+btMus;
+      const k=h.indexOf('<div class="zoom-bar">'); if(k>=0) h=h.slice(0,k)+bts+h.slice(k);
+    }
+  }catch(_){}
+  return h;
+};
+window.editarLetra=function(id){
+  const m=DB.musicas.find(x=>x.id===id); if(!m||!ehAdmin()) return;
+  abrirModal('<h3>Letra — '+e(m.titulo)+'</h3>'+
+    '<div class="field"><label>Letra (deixe uma linha em branco entre as estrofes)</label><textarea id="lrTxt" rows="14" style="width:100%;font-size:15px;line-height:1.45">'+e(m.letra||'')+'</textarea></div>'+
+    '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarLetra(\''+id+'\')">Salvar</button></div>');
+};
+window.salvarLetra=async function(id){
+  const m=DB.musicas.find(x=>x.id===id); if(!m) return;
+  const letra=document.getElementById('lrTxt').value.replace(/\r/g,'').replace(/\n{3,}/g,'\n\n').trim();
+  if(typeof sb!=='undefined'&&sb){ const {error}=await sb.from('musicas').update({letra}).eq('id',id); if(error) return toast('Erro ao salvar: '+error.message); }
+  m.letra=letra; try{ saveDB(); }catch(_){} fecharModal(); toast('Letra salva.'); abrirMusica(id,'letra');
+};
+window.excluirLetra=async function(id){
+  const m=DB.musicas.find(x=>x.id===id); if(!m||!ehAdmin()) return;
+  if(!confirm('Excluir a letra de "'+m.titulo+'"? A cifra e o áudio continuam salvos. Esta ação não pode ser desfeita.')) return;
+  if(typeof sb!=='undefined'&&sb){ const {error}=await sb.from('musicas').update({letra:''}).eq('id',id); if(error) return toast('Erro: '+error.message); }
+  m.letra=''; try{ saveDB(); }catch(_){} toast('Letra excluída.'); abrirMusica(id,'letra');
+};
+window.excluirMusicaInteira=async function(id){
+  const m=DB.musicas.find(x=>x.id===id); if(!m||!ehAdmin()) return;
+  if(!confirm('Excluir a música "'+m.titulo+'" inteira (cifra, letra e áudios)?\n\nEla sai da lista de músicas, dos favoritos e da playlist.')) return;
+  if(!confirm('Tem certeza? Esta ação não pode ser desfeita.')) return;
+  if(typeof sb!=='undefined'&&sb){
+    const r=await sb.rpc('excluir_musica',{p_id:String(id)});
+    if(r.error){
+      const {error}=await sb.from('musicas').delete().eq('id',id);
+      if(error) return toast('Não foi possível excluir: '+error.message+' (rode a seção 12 do SQL).');
+    }
+    const ok=await sb.from('musicas').select('id').eq('id',id).maybeSingle();
+    if(ok&&ok.data) return toast('O banco não permitiu excluir. Rode a seção 12 do SQL no Supabase.');
+    /* tira da ordem do culto, se estiver lá */
+    try{ const s=APP_CFG&&APP_CFG.setlist; if(s&&Array.isArray(s.itens)&&s.itens.includes(id)){ const tons=Object.assign({},s.tons); delete tons[id]; await salvarConfig('setlist',Object.assign({},s,{itens:s.itens.filter(x=>x!==id),tons})); } }catch(_){}
+  }
+  DB.musicas=DB.musicas.filter(x=>x.id!==id);
+  if(DB.playlist&&Array.isArray(DB.playlist.musicas)) DB.playlist.musicas=DB.playlist.musicas.filter(x=>x!==id);
+  Object.keys(DB.favoritos||{}).forEach(k=>{ DB.favoritos[k]=(DB.favoritos[k]||[]).filter(x=>x!==id); });
+  try{ saveDB(); }catch(_){}
+  toast('Música excluída.'); go(typeof paginaMusicas!=='undefined'?paginaMusicas:'musicas');
+};
+const st=document.createElement('style'); st.textContent='.mini-btn.mm-del{color:#b3261e!important;border-color:#efc2ba!important;background:#fff5f3!important}'; document.head.appendChild(st);
+})();

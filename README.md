@@ -32,9 +32,11 @@ cifras, playlist, escala e links do YouTube (do app e do Cantor Cristão).
 | `culto.js` | Ordem do culto, tom do culto, projetor, metrônomo/afinador e modo escuro (v0.4.0) |
 | `escala.js` | Escala em cartões (nomes em destaque, filtros) e semana vigente corrigida (v0.4.1) |
 | `membros.js` | Modo ADM/usuário, cadastro obrigatório e tabela de membros (v0.5.0) |
+| `avisos.js` | Notificações com link, popups, sons, aniversários e avisos de escala (v0.6.0) |
+| `cantadas.js` | Filtros de Músicas que já cantamos (v0.6.0) |
 | `melhorias.js` | Correções e recursos da v0.3.0 (tom/rolagem nas músicas, ao vivo com hinos, links diretos) |
 | `cc-intro/` | Imagens de introdução dos hinos |
-| `sw.js` | Service worker (offline) — `mmibnm-v9`, atualiza os arquivos sozinho |
+| `sw.js` | Service worker (offline) — `mmibnm-v10`, atualiza os arquivos sozinho |
 | `MMIBNM-GOOGLE-LOGIN.md` | Guia do login com Google |
 | `MMIBNM-SQL-completo.sql` | SQL aplicado no Supabase (backup) |
 | `SUGESTOES.md` | Análise e melhorias sugeridas |
@@ -123,3 +125,26 @@ edições do Cantor aparecerem para todos.
   editar, tornar/tirar ADM, WhatsApp e exportar para Excel.
 
 ⚠️ Rode a seção **10** do `MMIBNM-SQL-completo.sql`.
+
+## v0.6.0
+- **Membros:** botão 🗑️ Excluir na tabela (apaga cadastro, dados e o login).
+- **Aniversários:** no dia, todos recebem aviso; o aniversariante recebe
+  uma mensagem especial em janela. O Início mostra os aniversariantes dos
+  próximos 7 dias, com botão "Dar parabéns" no WhatsApp.
+- **Escala:** a partir de segunda 00:01, quem está escalado vê uma janela
+  prioritária ao abrir o app (Vou participar / Não poderei) até responder;
+  e recebe aviso 1 semana antes ("Você está na escala da próxima semana").
+- **Confirmação de presença:** a notificação vai só para os ADM.
+- **Tocar na notificação** abre a página dela (escala, playlist, música…).
+- **Avisos do ADM** em janela (popup) com X, para todos ou um grupo.
+- **Sons de notificação:** 8 sons + sem som, com volume (Notificações e Perfil).
+- **Músicas que já cantamos:** A–Z, cantor/artista, culto, evento, mês,
+  data, dia da semana; ordenar por data, A–Z ou mais cantadas.
+- **Afinador:** Violão, Contrabaixo 4 cordas e 5 cordas (com notas de referência).
+
+⚠️ Rode a seção **11** do `MMIBNM-SQL-completo.sql`.
+
+## v0.6.1
+- ADM: na aba **Letra**, botões ✏️ Editar/Cadastrar letra e 🗑️ Excluir letra;
+  nas abas Cifra e Letra, 🗑️ **Excluir música** (inteira: cifra, letra e áudios;
+  sai também dos favoritos e da playlist). Rode a seção **12** do SQL.

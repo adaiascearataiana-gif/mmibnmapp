@@ -218,7 +218,7 @@ function tabela(){
         '<td>'+((u.vocal||[]).map(v=>'<span class="mb-ch">'+e(v)+'</span>').join('')||'<span class="mb-x">—</span>')+'</td>'+
         '<td>'+((u.instr||[]).map(v=>'<span class="mb-ch i">'+e(v)+'</span>').join('')||'<span class="mb-x">—</span>')+'</td>'+
         '<td>'+(u.admin?'Administrador':'Membro')+'</td>'+
-        '<td class="ac"><button onclick="membroEditar(\''+e(u.id)+'\')">✏️ Editar</button>'+(u.email!==eu?'<button onclick="membroAdm(\''+e(u.id)+'\')">'+(u.admin?'Tirar ADM':'Tornar ADM')+'</button>':'')+'</td></tr>'; }).join('')+
+        '<td class="ac"><button onclick="membroEditar(\''+e(u.id)+'\')">✏️ Editar</button>'+(u.email!==eu?'<button onclick="membroAdm(\''+e(u.id)+'\')">'+(u.admin?'Tirar ADM':'Tornar ADM')+'</button><button class="del" onclick="membroExcluir(\''+e(u.id)+'\')">🗑️ Excluir</button>':'')+'</td></tr>'; }).join('')+
     '</tbody></table>';
 }
 function resumo(){
@@ -244,6 +244,23 @@ if(typeof ROTAS!=='undefined'){
 window.membroAdm=function(id){ const u=(DB.usuarios||[]).find(x=>x.id===id); if(!u) return;
   if(!confirm((u.admin?'Tirar o acesso de ADM de ':'Dar acesso de ADM para ')+u.nome+'?')) return;
   toggleAdmin(u.email).then(()=>{ go('membros'); }); };
+window.membroExcluir=async function(id){
+  const u=(DB.usuarios||[]).find(x=>x.id===id); if(!u) return;
+  if(u.email===(usuarioAtual()||{}).email) return toast('Você não pode excluir a si mesmo.');
+  if(!confirm('Excluir '+u.nome+' do app?\n\nOs dados do cadastro, favoritos, presenças e notificações dessa pessoa serão apagados.')) return;
+  if(!confirm('Tem certeza? Esta ação não pode ser desfeita.')) return;
+  /* 1º: função do banco que apaga também o login (a pessoa não consegue mais entrar com essa conta) */
+  const rpc=await sb.rpc('excluir_membro',{p_id:u.id});
+  if(rpc.error){
+    const {error}=await sb.from('perfis').delete().eq('id',u.id);
+    if(error) return toast('Não foi possível excluir: '+error.message+' (rode a seção 11 do SQL).');
+  }
+  const chk=await sb.from('perfis').select('id').eq('id',u.id).maybeSingle();
+  if(chk && chk.data) return toast('O banco não permitiu excluir. Rode a seção 11 do SQL no Supabase.');
+  try{ await Promise.all([sb.from('notificacoes').delete().eq('destino_email',u.email), sb.from('presencas').delete().eq('email',u.email), sb.from('favoritos').delete().eq('user_id',u.id), sb.from('cantor_favoritos').delete().eq('user_id',u.id)]); }catch(_){}
+  DB.usuarios=(DB.usuarios||[]).filter(x=>x.id!==u.id);
+  toast(u.nome.split(' ')[0]+' foi excluído(a).'); go('membros');
+};
 window.membroEditar=function(id){
   const u=(DB.usuarios||[]).find(x=>x.id===id); if(!u) return;
   const ck=(lista,cls,marc)=>lista.map(v=>'<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" class="'+cls+'" value="'+e(v)+'" '+(marc.includes(v)?'checked':'')+'> '+e(v)+'</label>').join('');
@@ -344,6 +361,7 @@ const css=`
 .mb-tab a.lg{font-size:12px;margin-left:4px}
 .mb-tab .em a{color:#1f6f50;font-size:13px}
 .mb-tab .ac{white-space:nowrap}
+.mb-tab .ac button.del{color:#b3261e;border-color:#efc2ba;background:#fff5f3}
 .mb-tab .ac button{border:1px solid #c9d6cf;background:#f4f7f5;border-radius:8px;height:32px;padding:0 10px;font-size:12.5px;font-weight:700;color:var(--verde-escuro);margin:0 4px 4px 0}
 .mb-vazio{padding:30px;text-align:center;color:#8a9}
 @media (max-width:420px){ .mb-kpi b{font-size:17px} .mb-kpi span{font-size:9px} }
