@@ -148,3 +148,10 @@ edições do Cantor aparecerem para todos.
 - ADM: na aba **Letra**, botões ✏️ Editar/Cadastrar letra e 🗑️ Excluir letra;
   nas abas Cifra e Letra, 🗑️ **Excluir música** (inteira: cifra, letra e áudios;
   sai também dos favoritos e da playlist). Rode a seção **12** do SQL.
+
+## v0.6.2
+- Nome: primeira letra de cada palavra sempre maiúscula (cadastro, completar
+  cadastro, editar perfil e edição do ADM).
+- WhatsApp: ao marcar **Não**, abre o campo "Número do WhatsApp" (obrigatório),
+  com a opção "Não tenho WhatsApp". A tabela de membros mostra esse número.
+  Rode a seção **13** do SQL.

@@ -276,3 +276,8 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION excluir_musica(text) FROM public, anon;
 GRANT EXECUTE ON FUNCTION excluir_musica(text) TO authenticated;
+
+-- ------------------------------------------------------------
+-- 13) (v0.6.2) Número do WhatsApp quando o telefone não é WhatsApp
+-- ------------------------------------------------------------
+ALTER TABLE perfis ADD COLUMN IF NOT EXISTS wpp_num text DEFAULT '';

@@ -93,16 +93,46 @@ function validar(d){
   if(!nascOk(d.nasc)) return 'Data de nascimento inválida.';
   if(!telOk(d.tel)) return 'Telefone incompleto (DDD + número).';
   if(d.wpp!==true && d.wpp!==false) return 'Diga se o telefone é WhatsApp.';
+  if(d.wpp===false && !d.sem_wpp && !telOk(d.wpp_num)) return 'Digite o número do WhatsApp (ou marque "Não tenho WhatsApp").';
   if(!(d.vocal.length+d.instr.length)) return 'Selecione ao menos uma função no Ministério.';
   return '';
 }
-function radiosWpp(nome,valor,claro){
-  const c=claro?'':' style="color:var(--verde-escuro)"';
+function radiosWpp(nome,valor,claro,num){
+  const c=claro?'':' style="color:var(--verde-escuro)"'; num=num||'';
+  const sem = valor===false && num==='nao'; if(num==='nao') num='';
   return '<div class="wpp-q"'+c+'>Este telefone é WhatsApp? <span class="req">*</span>'+
-    '<label class="check-inline"'+c+'><input type="radio" name="'+nome+'" value="1" '+(valor===true?'checked':'')+'> Sim</label>'+
-    '<label class="check-inline"'+c+'><input type="radio" name="'+nome+'" value="0" '+(valor===false?'checked':'')+'> Não</label></div>';
+    '<label class="check-inline"'+c+'><input type="radio" name="'+nome+'" value="1" '+(valor===true?'checked':'')+' onchange="wppMostra(\''+nome+'\')"> Sim</label>'+
+    '<label class="check-inline"'+c+'><input type="radio" name="'+nome+'" value="0" '+(valor===false?'checked':'')+' onchange="wppMostra(\''+nome+'\')"> Não</label></div>'+
+    '<div class="wpp-num" id="'+nome+'Box" style="'+(valor===false?'':'display:none')+'">'+
+      '<label'+c+'>Número do WhatsApp <span class="req">*</span></label>'+
+      '<input id="'+nome+'Num" inputmode="numeric" placeholder="( 00 ) 00000-0000" value="'+e(num)+'" oninput="maskTel(this)" '+(sem?'disabled':'')+'>'+
+      '<label class="check-inline"'+c+'><input type="checkbox" id="'+nome+'Sem" '+(sem&&valor===false?'checked':'')+' onchange="wppMostra(\''+nome+'\')"> Não tenho WhatsApp</label></div>';
 }
+window.wppMostra=function(nome){
+  const r=document.querySelector('input[name="'+nome+'"]:checked'); const box=$id(nome+'Box'); if(!box) return;
+  const nao = r && r.value==='0'; box.style.display = nao? '' : 'none';
+  const sem=$id(nome+'Sem'), inp=$id(nome+'Num'); if(inp && sem){ inp.disabled=sem.checked; if(sem.checked) inp.value=''; else if(nao) setTimeout(()=>inp.focus(),30); }
+};
 const lerWpp = nome => { const r=document.querySelector('input[name="'+nome+'"]:checked'); return r? r.value==='1' : null; };
+/* lê Sim/Não + número do WhatsApp e junta no objeto d */
+function comWpp(d,nome){
+  d.wpp=lerWpp(nome); const sem=$id(nome+'Sem'), inp=$id(nome+'Num');
+  d.sem_wpp=!!(sem&&sem.checked); d.wpp_num = d.wpp===false ? (d.sem_wpp? 'nao' : (inp? inp.value.trim() : '')) : '';
+  return d;
+}
+/* grava no banco; se a coluna wpp_num ainda não existir, grava o resto e avisa */
+async function gravaPerfil(id,d){
+  const dados=Object.assign({},d); delete dados.sem_wpp;
+  let r=await sb.from('perfis').update(dados).eq('id',id);
+  if(r.error && /wpp_num/i.test(r.error.message||'')){ delete dados.wpp_num; r=await sb.from('perfis').update(dados).eq('id',id); if(!r.error && d.wpp_num && d.wpp_num!=='nao') toast('Número do WhatsApp não salvo: rode a seção 13 do SQL.'); }
+  return r;
+}
+/* ---- nomes: primeira letra de cada palavra maiúscula ---- */
+const capNome = s => String(s||'').replace(/(^|[\s'’\-])(\p{L})/gu,(m,a,b)=>a+b.toLocaleUpperCase('pt-BR'));
+const limpaNome = s => capNome(String(s||'').replace(/\s+/g,' ').trim());
+window.capNomeInput=function(el){ const p=el.selectionStart, v=capNome(el.value); if(v!==el.value){ el.value=v; try{ el.setSelectionRange(p,p); }catch(_){} } };
+function ligaCap(ids){ ids.forEach(id=>{ const el=$id(id); if(el && !el.dataset.cap){ el.dataset.cap='1'; el.setAttribute('autocapitalize','words'); el.addEventListener('input',()=>capNomeInput(el)); el.addEventListener('blur',()=>{ el.value=limpaNome(el.value); }); } }); }
+window.__capNome=capNome;
 function marcaObrigatorios(raiz){
   (raiz||document).querySelectorAll('.field > label:first-child').forEach(l=>{ if(!l.querySelector('.req') && !/opcional/i.test(l.textContent)) l.insertAdjacentHTML('beforeend',' <span class="req">*</span>'); });
 }
@@ -112,19 +142,28 @@ if(typeof telaCadastro==='function'){
   window.telaCadastro=telaCadastro=function(){
     _tc.apply(this,arguments);
     const cb=$id('cWpp'); if(cb){ const lab=cb.closest('label'); if(lab){ lab.style.display='none'; lab.insertAdjacentHTML('afterend',radiosWpp('cWppR',null,true)); } }
-    marcaObrigatorios($id('authScreens'));
+    marcaObrigatorios($id('authScreens')); ligaCap(['cNome']);
     const sub=document.querySelector('#authScreens .sub'); if(sub) sub.textContent='Todos os campos com * são obrigatórios';
   };
 }
 if(typeof fazerCadastro==='function'){
   const _fc=fazerCadastro;
   window.fazerCadastro=fazerCadastro=function(){
-    const nome=($id('cNome')||{}).value||'', w=lerWpp('cWppR');
+    const ne=$id('cNome'); if(ne) ne.value=limpaNome(ne.value);
+    const nome=(ne||{}).value||'', w=lerWpp('cWppR');
     if(!nomeCompleto(nome)) return erro('cadErr','Informe nome e sobrenome.');
     const n=($id('cNasc')||{}).value; if(n && !nascOk(n)) return erro('cadErr','Data de nascimento inválida.');
     if(w===null && document.querySelector('input[name="cWppR"]')) return erro('cadErr','Diga se o telefone é WhatsApp.');
+    const dw=comWpp({},'cWppR');
+    if(dw.wpp===false && !dw.sem_wpp && !telOk(dw.wpp_num)) return erro('cadErr','Digite o número do WhatsApp (ou marque "Não tenho WhatsApp").');
     const cb=$id('cWpp'); if(cb) cb.checked=!!w;
-    return _fc.apply(this,arguments);
+    /* envia o número do WhatsApp junto com o cadastro */
+    let restaura=null;
+    try{ if(dw.wpp_num && sb && sb.auth && sb.auth.signUp){ const orig=sb.auth.signUp; restaura=()=>{ sb.auth.signUp=orig; };
+      sb.auth.signUp=function(args){ try{ args.options=args.options||{}; args.options.data=Object.assign({},args.options.data,{wpp_num:dw.wpp_num}); }catch(_){} return orig.call(sb.auth,args); }; } }catch(_){}
+    const r=_fc.apply(this,arguments);
+    Promise.resolve(r).finally(()=>{ if(restaura) restaura(); });
+    return r;
   };
 }
 /* editar o próprio perfil: mesmas regras */
@@ -132,19 +171,20 @@ if(typeof modalEditarPerfil==='function'){
   const _me=modalEditarPerfil;
   window.modalEditarPerfil=modalEditarPerfil=function(){
     _me.apply(this,arguments);
-    const u=usuarioAtual(); const cb=$id('ePwpp'); if(cb){ const lab=cb.closest('label'); if(lab){ lab.style.display='none'; lab.insertAdjacentHTML('afterend',radiosWpp('ePwppR',!!u.wpp)); } }
+    const u=usuarioAtual(); const cb=$id('ePwpp'); if(cb){ const lab=cb.closest('label'); if(lab){ lab.style.display='none'; lab.insertAdjacentHTML('afterend',radiosWpp('ePwppR',!!u.wpp,false,u.wpp_num)); } }
+    ligaCap(['ePnome']);
     marcaObrigatorios($id('modalBox')); const h=document.querySelector('#modalBox h3'); if(h) h.insertAdjacentHTML('afterend','<div id="ePerr"></div>');
   };
 }
 window.salvarPerfil=salvarPerfil=async function(){
   const u=usuarioAtual(); if(!u) return;
-  const d={nome:$id('ePnome').value.trim(),nasc:$id('ePnasc').value,tel:$id('ePtel').value.trim(),wpp:lerWpp('ePwppR'),
-    vocal:[...document.querySelectorAll('.eVocal:checked')].map(c=>c.value),instr:[...document.querySelectorAll('.eInstr:checked')].map(c=>c.value)};
+  const d=comWpp({nome:limpaNome($id('ePnome').value),nasc:$id('ePnasc').value,tel:$id('ePtel').value.trim(),
+    vocal:[...document.querySelectorAll('.eVocal:checked')].map(c=>c.value),instr:[...document.querySelectorAll('.eInstr:checked')].map(c=>c.value)},'ePwppR');
   if(d.wpp===null && $id('ePwpp')) d.wpp=$id('ePwpp').checked;
   const msg=validar(d); if(msg){ const b=$id('ePerr'); if(b) b.innerHTML='<div class="err-msg">'+e(msg)+'</div>'; else toast(msg); return; }
-  const {error}=await sb.from('perfis').update(d).eq('id',u.id);
+  const {error}=await gravaPerfil(u.id,d);
   if(error) return toast('Erro ao salvar: '+error.message);
-  Object.assign(u,d); fecharModal(); montaMenu(); toast('Perfil atualizado!'); go('perfil');
+  delete d.sem_wpp; Object.assign(u,d); fecharModal(); montaMenu(); toast('Perfil atualizado!'); go('perfil');
 };
 /* trava: cadastro incompleto precisa ser completado antes de usar o app */
 function gate(){
@@ -159,18 +199,18 @@ function gate(){
     '<p>Para usar o app do Ministério, preencha todos os dados abaixo. Faltando: <b>'+e(falta.join(', '))+'</b>.</p><div id="cgErr"></div>'+
     '<div class="field"><label>Nome completo <span class="req">*</span></label><input id="cgNome" value="'+e(u.nome)+'" placeholder="Nome e sobrenome"></div>'+
     '<div class="field"><label>Data de nascimento <span class="req">*</span></label><input type="date" id="cgNasc" value="'+e(u.nasc||'')+'"></div>'+
-    '<div class="field"><label>Telefone <span class="req">*</span></label><input id="cgTel" inputmode="numeric" value="'+e(u.tel||'')+'" placeholder="( 00 ) 00000-0000" oninput="maskTel(this)">'+radiosWpp('cgWpp',telOk(u.tel)?!!u.wpp:null)+'</div>'+
+    '<div class="field"><label>Telefone <span class="req">*</span></label><input id="cgTel" inputmode="numeric" value="'+e(u.tel||'')+'" placeholder="( 00 ) 00000-0000" oninput="maskTel(this)">'+radiosWpp('cgWpp',telOk(u.tel)?!!u.wpp:null,false,u.wpp_num)+'</div>'+
     '<div class="field"><label>Função no Ministério <span class="req">*</span></label><div class="cg-box"><b>🎤 Vocalista</b>'+ck(VOCAL,'cgVocal',u.vocal||[])+'<b>🎸 Instrumentista</b>'+ck(INSTR,'cgInstr',u.instr||[])+'</div></div>'+
     '<button class="btn btn-primary" id="cgOk">Salvar e continuar</button><button class="btn btn-dark" style="margin-top:8px" onclick="logout()">Sair</button></div>';
-  document.body.appendChild(g);
+  document.body.appendChild(g); ligaCap(['cgNome']);
   $id('cgOk').onclick=async()=>{
-    const d={nome:$id('cgNome').value.trim(),nasc:$id('cgNasc').value,tel:$id('cgTel').value.trim(),wpp:lerWpp('cgWpp'),
-      vocal:[...document.querySelectorAll('.cgVocal:checked')].map(c=>c.value),instr:[...document.querySelectorAll('.cgInstr:checked')].map(c=>c.value)};
+    const d=comWpp({nome:limpaNome($id('cgNome').value),nasc:$id('cgNasc').value,tel:$id('cgTel').value.trim(),
+      vocal:[...document.querySelectorAll('.cgVocal:checked')].map(c=>c.value),instr:[...document.querySelectorAll('.cgInstr:checked')].map(c=>c.value)},'cgWpp');
     const msg=validar(d); if(msg){ $id('cgErr').innerHTML='<div class="err-msg">'+e(msg)+'</div>'; g.scrollTop=0; return; }
     $id('cgOk').disabled=true; $id('cgOk').textContent='Salvando…';
-    const {error}=await sb.from('perfis').update(d).eq('id',u.id);
+    const {error}=await gravaPerfil(u.id,d);
     if(error){ $id('cgOk').disabled=false; $id('cgOk').textContent='Salvar e continuar'; $id('cgErr').innerHTML='<div class="err-msg">Erro ao salvar: '+e(error.message)+'</div>'; return; }
-    Object.assign(u,d); g.remove(); montaMenu(); toast('Cadastro completo. Bem-vindo(a)!');
+    delete d.sem_wpp; Object.assign(u,d); g.remove(); montaMenu(); toast('Cadastro completo. Bem-vindo(a)!');
   };
 }
 window.verificarCadastro=gate;
@@ -179,6 +219,24 @@ if(typeof iniciarApp==='function'){
   window.iniciarApp=iniciarApp=function(){ _ia.apply(this,arguments); setTimeout(gate,80); };
 }
 if(typeof _booted!=='undefined' && _booted) setTimeout(()=>{ try{ montaMenu(); }catch(_){} gate(); },60);
+
+/* número do WhatsApp: carregar com os perfis e trazer do cadastro (metadados) */
+if(typeof cloudPerfis==='function'){
+  window.cloudPerfis=cloudPerfis=async function(){
+    const {data}=await sb.from('perfis').select('*');
+    DB.usuarios=(data||[]).map(p=>({id:p.id,email:(p.email||'').toLowerCase(),nome:p.nome||'',nasc:p.nasc||'',tel:p.tel||'',wpp:!!p.wpp,wpp_num:p.wpp_num||'',vocal:p.vocal||[],instr:p.instr||[],foto:p.foto||'',admin:!!p.admin,origem:p.origem||'local',senhaHash:''}));
+  };
+}
+if(typeof garantirPerfil==='function'){
+  const _gp=garantirPerfil;
+  window.garantirPerfil=garantirPerfil=async function(user){
+    await _gp.apply(this,arguments);
+    try{ const md=(user&&user.user_metadata)||{};
+      if(md.wpp_num){ const {data}=await sb.from('perfis').select('wpp_num').eq('id',user.id).maybeSingle(); if(data && !data.wpp_num) await sb.from('perfis').update({wpp_num:md.wpp_num}).eq('id',user.id); }
+      if(md.nome){ const n=limpaNome(md.nome); if(n!==md.nome) await sb.from('perfis').update({nome:n}).eq('id',user.id).eq('nome',md.nome); }
+    }catch(_){}
+  };
+}
 
 /* ================= 3) TABELA DE MEMBROS (ADM) ================= */
 const F={q:'',filtro:'todos',ord:'nome',asc:true};
@@ -213,7 +271,7 @@ function tabela(){
         '<td class="nm"><div class="mb-pes">'+foto+'<div><b>'+e(u.nome||'(sem nome)')+'</b>'+(u.admin?' <span class="admin-tag">ADM</span>':'')+(aniversMes(u)?' <span title="Aniversariante do mês">🎂</span>':'')+'<small>'+(u.origem==='google'?'Google':'E-mail')+'</small></div></div></td>'+
         '<td>'+(f.length?'<span class="mb-st no" title="'+e(f.join(', '))+'">Falta: '+e(f.join(', '))+'</span>':'<span class="mb-st ok">Completo</span>')+'</td>'+
         '<td>'+(u.nasc?fmtNasc(u.nasc)+(id!=null?'<small>'+id+' anos</small>':''):'<span class="mb-x">—</span>')+'</td>'+
-        '<td class="tel">'+(t?e(u.tel)+(u.wpp?' <a class="wa" href="https://wa.me/55'+t+'" target="_blank" rel="noopener" title="Abrir WhatsApp">WhatsApp</a>':' <a class="lg" href="tel:'+t+'">ligar</a>'):'<span class="mb-x">—</span>')+'</td>'+
+        '<td class="tel">'+(t?e(u.tel)+(u.wpp?' <a class="wa" href="https://wa.me/55'+t+'" target="_blank" rel="noopener" title="Abrir WhatsApp">WhatsApp</a>':' <a class="lg" href="tel:'+t+'">ligar</a>'+(soDig(u.wpp_num)?'<small>WhatsApp: '+e(u.wpp_num)+' <a class="wa" href="https://wa.me/55'+soDig(u.wpp_num)+'" target="_blank" rel="noopener">abrir</a></small>':(u.wpp_num==='nao'?'<small>não tem WhatsApp</small>':'<small>WhatsApp não informado</small>'))):'<span class="mb-x">—</span>')+'</td>'+
         '<td class="em"><a href="mailto:'+e(u.email)+'">'+e(u.email)+'</a></td>'+
         '<td>'+((u.vocal||[]).map(v=>'<span class="mb-ch">'+e(v)+'</span>').join('')||'<span class="mb-x">—</span>')+'</td>'+
         '<td>'+((u.instr||[]).map(v=>'<span class="mb-ch i">'+e(v)+'</span>').join('')||'<span class="mb-x">—</span>')+'</td>'+
@@ -268,22 +326,23 @@ window.membroEditar=function(id){
     '<div class="field"><label>E-mail (login)</label><input value="'+e(u.email)+'" disabled></div>'+
     '<div class="field"><label>Nome completo <span class="req">*</span></label><input id="mbNome" value="'+e(u.nome)+'"></div>'+
     '<div class="field"><label>Data de nascimento <span class="req">*</span></label><input type="date" id="mbNasc" value="'+e(String(u.nasc||'').slice(0,10))+'"></div>'+
-    '<div class="field"><label>Telefone <span class="req">*</span></label><input id="mbTel" value="'+e(u.tel||'')+'" oninput="maskTel(this)">'+radiosWpp('mbWpp',telOk(u.tel)?!!u.wpp:null)+'</div>'+
+    '<div class="field"><label>Telefone <span class="req">*</span></label><input id="mbTel" value="'+e(u.tel||'')+'" oninput="maskTel(this)">'+radiosWpp('mbWpp',telOk(u.tel)?!!u.wpp:null,false,u.wpp_num)+'</div>'+
     '<div class="field"><label>Função no Ministério <span class="req">*</span></label><div style="font-size:12px;font-weight:700;margin-top:4px">🎤 Vocalista</div>'+ck(VOCAL,'mbVocal',u.vocal||[])+'<div style="font-size:12px;font-weight:700;margin-top:8px">🎸 Instrumentista</div>'+ck(INSTR,'mbInstr',u.instr||[])+'</div>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="membroSalvar(\''+e(u.id)+'\')">Salvar</button></div>');
+  ligaCap(['mbNome']);
 };
 window.membroSalvar=async function(id){
   const u=(DB.usuarios||[]).find(x=>x.id===id); if(!u) return;
-  const d={nome:$id('mbNome').value.trim(),nasc:$id('mbNasc').value,tel:$id('mbTel').value.trim(),wpp:lerWpp('mbWpp'),
-    vocal:[...document.querySelectorAll('.mbVocal:checked')].map(c=>c.value),instr:[...document.querySelectorAll('.mbInstr:checked')].map(c=>c.value)};
+  const d=comWpp({nome:limpaNome($id('mbNome').value),nasc:$id('mbNasc').value,tel:$id('mbTel').value.trim(),
+    vocal:[...document.querySelectorAll('.mbVocal:checked')].map(c=>c.value),instr:[...document.querySelectorAll('.mbInstr:checked')].map(c=>c.value)},'mbWpp');
   const msg=validar(d); if(msg){ $id('mbErr').innerHTML='<div class="err-msg">'+e(msg)+'</div>'; return; }
-  const {error}=await sb.from('perfis').update(d).eq('id',u.id);
+  const {error}=await gravaPerfil(u.id,d);
   if(error){ $id('mbErr').innerHTML='<div class="err-msg">Não foi possível salvar: '+e(error.message)+'<br>Rode a seção 10 do SQL (permite o ADM editar membros).</div>'; return; }
-  Object.assign(u,d); fecharModal(); toast('Dados de '+u.nome.split(' ')[0]+' atualizados.'); go('membros');
+  delete d.sem_wpp; Object.assign(u,d); fecharModal(); toast('Dados de '+u.nome.split(' ')[0]+' atualizados.'); go('membros');
 };
 window.membrosExcel=function(){
   const us=lista();
-  const linhas=us.map(u=>({'Nome':u.nome,'E-mail':u.email,'Nascimento':fmtNasc(u.nasc),'Idade':idade(u.nasc)??'','Telefone':u.tel||'','WhatsApp':u.wpp?'Sim':'Não',
+  const linhas=us.map(u=>({'Nome':u.nome,'E-mail':u.email,'Nascimento':fmtNasc(u.nasc),'Idade':idade(u.nasc)??'','Telefone':u.tel||'','WhatsApp':u.wpp?(u.tel||'Sim'):(u.wpp_num==='nao'?'Não tem':(u.wpp_num||'Não informado')),
     'Vocal':(u.vocal||[]).join(', '),'Instrumentos':(u.instr||[]).join(', '),'Acesso':u.admin?'Administrador':'Membro','Cadastro':camposFaltando(u).length?'Incompleto: '+camposFaltando(u).join(', '):'Completo','Entrou por':u.origem==='google'?'Google':'E-mail'}));
   const nome='membros-mmibnm-'+new Date().toISOString().slice(0,10);
   if(window.XLSX && XLSX.utils && XLSX.utils.json_to_sheet){
@@ -309,6 +368,12 @@ if(typeof ROTAS!=='undefined' && ROTAS.admin){
 /* ---------------- estilos ---------------- */
 const css=`
 .req{color:#d64545;font-weight:800}
+#authScreens .wpp-q,#authScreens .wpp-q .check-inline,#authScreens .wpp-num label{color:#fff}
+.wpp-q .check-inline{display:inline-flex;align-items:center;gap:4px;margin:0}
+.ver-foot{position:static;padding:14px 0 18px}
+.wpp-num{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.wpp-num>label:first-child{font-size:13px;font-weight:700}
+.wpp-num input:disabled{opacity:.45}
 .wpp-q{font-size:13px;font-weight:600;margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px}
 .sm-modo{margin:4px 10px 10px;padding:10px;border-radius:12px;background:rgba(255,255,255,.08)}
 .sm-modo .lb{font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#9fc4b4;margin:0 0 6px 2px}
@@ -322,7 +387,13 @@ const css=`
 .cg-card .cg-ic{font-size:40px;text-align:center}
 .cg-card h2{text-align:center;margin:4px 0 6px;font-size:21px}
 .cg-card p{font-size:13.5px;color:#556;text-align:center;margin-bottom:14px}
-.cg-card .field label,.cg-card .check-inline,.cg-card .wpp-q{color:var(--verde-escuro)}
+.cg-card .field label,.cg-card .check-inline,.cg-card #authScreens .wpp-q,#authScreens .wpp-q .check-inline,#authScreens .wpp-num label{color:#fff}
+.wpp-q .check-inline{display:inline-flex;align-items:center;gap:4px;margin:0}
+.ver-foot{position:static;padding:14px 0 18px}
+.wpp-num{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.wpp-num>label:first-child{font-size:13px;font-weight:700}
+.wpp-num input:disabled{opacity:.45}
+.wpp-q{color:var(--verde-escuro)}
 .cg-card input:not([type=checkbox]):not([type=radio]){background:#f4f7f5;color:var(--verde-escuro);border:1px solid #cfdad4}
 .cg-box{background:#f4f7f5;border-radius:10px;padding:10px 12px;margin-top:4px}
 .cg-box b{display:block;font-size:13px;margin:6px 0 2px}
