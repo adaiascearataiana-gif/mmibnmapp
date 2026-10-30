@@ -155,3 +155,11 @@ edições do Cantor aparecerem para todos.
 - WhatsApp: ao marcar **Não**, abre o campo "Número do WhatsApp" (obrigatório),
   com a opção "Não tenho WhatsApp". A tabela de membros mostra esse número.
   Rode a seção **13** do SQL.
+
+## v0.6.3
+- Playlist / ordem do culto: busca com prévia em "🎵 Músicas do ministério"
+  (título ou artista) e "📖 Hinos do Cantor Cristão" (número ou nome);
+  toque para adicionar. Campo para o link da **playlist do YouTube**
+  (aparece como botão na Playlist e no Início).
+- Corrigido o erro "duplicate key value violates unique constraint
+  playlist_pkey" ao publicar (agora atualiza a playlist existente).
