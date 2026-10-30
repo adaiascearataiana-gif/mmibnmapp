@@ -30,9 +30,10 @@ cifras, playlist, escala e links do YouTube (do app e do Cantor Cristão).
 | `cantor.js` | Módulo do Cantor Cristão (tema verde/dourado) |
 | `academia.js` | Academia de Música (materiais gerenciados pelo ADM) |
 | `culto.js` | Ordem do culto, tom do culto, projetor, metrônomo/afinador e modo escuro (v0.4.0) |
+| `escala.js` | Escala em cartões (nomes em destaque, filtros) e semana vigente corrigida (v0.4.1) |
 | `melhorias.js` | Correções e recursos da v0.3.0 (tom/rolagem nas músicas, ao vivo com hinos, links diretos) |
 | `cc-intro/` | Imagens de introdução dos hinos |
-| `sw.js` | Service worker (offline) — `mmibnm-v5`, atualiza os arquivos sozinho |
+| `sw.js` | Service worker (offline) — `mmibnm-v6`, atualiza os arquivos sozinho |
 | `MMIBNM-GOOGLE-LOGIN.md` | Guia do login com Google |
 | `MMIBNM-SQL-completo.sql` | SQL aplicado no Supabase (backup) |
 | `SUGESTOES.md` | Análise e melhorias sugeridas |
@@ -85,3 +86,12 @@ edições do Cantor aparecerem para todos.
 - **Favoritos do Cantor na nuvem** (não somem ao trocar de celular).
 
 ⚠️ Rode as seções **8** e **9** do `MMIBNM-SQL-completo.sql` no Supabase.
+
+## Novidades da v0.4.1
+
+- **Escala em cartões:** um cartão por culto, data grande, cada função
+  com os nomes em etiquetas; o seu nome aparece em dourado e o culto da
+  semana em destaque. Filtros **Próximas · Todas · Minhas** e botão
+  **▦ Tabela** para quem preferir a tabela.
+- Campos com "XXXXXXXXX" aparecem como "a definir".
+- A semana vigente agora reconhece datas como 7-Jun, 2-Aug, 07/06.

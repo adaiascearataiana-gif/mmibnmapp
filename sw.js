@@ -1,5 +1,5 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v5';
+const CACHE = 'mmibnm-v6';
 const CORE = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ const CORE = [
   './academia.js',
   './melhorias.js',
   './culto.js',
+  './escala.js',
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',
