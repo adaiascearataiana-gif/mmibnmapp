@@ -32,7 +32,7 @@ const clean = l => strip(l).replace(/(\S)\s*-\s+(?=\S)/g,'$1').replace(/(\S)\s+-
 .cc-favstar{flex-shrink:0;border:none;background:none;font-size:21px;cursor:pointer;color:#c9a200;padding:2px 4px;line-height:1}
 .cc-empty{color:#9aa;font-size:14px;text-align:center;padding:26px 0}
 .ed-mark{font-size:10px;font-weight:800;color:#fff;background:#b8860b;border-radius:20px;padding:2px 8px;margin-left:8px;vertical-align:middle;letter-spacing:.5px}
-.cc-hbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:6px;background:var(--verde-escuro);margin:-14px -14px 10px;padding:10px 12px;box-shadow:0 2px 10px rgba(0,0,0,.22)}
+.cc-hbar{position:sticky;top:var(--ibnm-topbar,64px);z-index:40;display:flex;align-items:center;gap:6px;background:var(--verde-escuro);margin:-14px -14px 10px;padding:10px 12px;box-shadow:0 2px 10px rgba(0,0,0,.22)}
 .cc-hbar .ib{border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);color:#fff;font-weight:700;font-size:13.5px;border-radius:9px;padding:7px 11px;cursor:pointer}
 .cc-hbar .ib:active{opacity:.8}
 .cc-hbar .ib.fav-on{color:#f1c40f;border-color:#f1c40f}
@@ -57,19 +57,21 @@ const clean = l => strip(l).replace(/(\S)\s*-\s+(?=\S)/g,'$1').replace(/(\S)\s+-
 .cc-tools .chip .lbl{font-size:13px;color:#556}
 .cc-tools .chip .lbl b{color:var(--verde-escuro)}
 .cc-hint{background:#fffbea;border:1px dashed var(--dourado-esc);border-radius:10px;padding:11px 13px;font-size:12.5px;color:#7a5c00;line-height:1.55;margin:4px 0 10px}
-.cc-song{background:#fff;border:1px solid #eef0f3;border-radius:14px;padding:18px 16px 22px;box-shadow:0 1px 5px rgba(0,0,0,.05);font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif;font-size:var(--cc-fs,19px);line-height:2.5}
-.cc-part{position:relative;margin:0 0 12px}
-.cc-part .pn{position:absolute;left:-4px;top:2px;font-size:10.5px;font-weight:800;color:var(--verde-med);background:#eef7f0;border-radius:20px;padding:2px 8px;letter-spacing:.5px}
-.cc-part.coro{background:#fffbea;border-left:3px solid var(--dourado);border-radius:8px;padding:8px 10px 2px 22px;margin-top:14px}
-.cc-part.coro .pn{background:var(--dourado);color:var(--verde-escuro);left:2px}
-.cc-part.estrofe{padding-left:22px}
-.cc-song .ln{margin:0 0 2px;position:relative;line-height:2.6;min-height:2.6em}
+.cc-song{background:#fff;border:1px solid #eef0f3;border-radius:14px;padding:16px 16px 20px;box-shadow:0 1px 5px rgba(0,0,0,.05);font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif;font-size:var(--cc-fs,19px);line-height:1.35}
+.cc-part{position:relative;margin:0 0 16px}
+.cc-part .pn{display:inline-block;font-family:'Segoe UI',system-ui,sans-serif;font-size:11px;line-height:1.5;font-weight:800;color:var(--verde-med);background:#eef7f0;border-radius:20px;padding:1px 9px;letter-spacing:.5px;margin:0 0 4px}
+.cc-part.coro{background:#fffbea;border-left:3px solid var(--dourado);border-radius:8px;padding:8px 10px 4px 12px;margin-top:14px}
+.cc-part.coro .pn{background:var(--dourado);color:var(--verde-escuro)}
+.cc-part.estrofe{padding-left:0}
+.cc-song .ln{margin:0 0 .45em;position:relative}
 .cc-song .w{display:inline-flex;white-space:pre;vertical-align:top}
 .cc-song .p{display:inline-flex;flex-direction:column;align-items:flex-start;vertical-align:top}
-.cc-song .p.gap{padding-right:.32em}
-.cc-song .c{display:block;height:1.42em;line-height:1.42em;font-weight:800;color:#a67c00;font-family:'Courier New',ui-monospace,monospace;font-size:.86em;letter-spacing:-.2px;cursor:pointer;user-select:none}
+.cc-song .p.gap .t::after{content:'-';color:#9aa;padding-left:.1em}
+.cc-song.nochords .p.gap .t::after{content:none}
+.cc-song .c{display:block;min-height:1.3em;line-height:1.3em;padding-right:.35em;font-weight:800;color:#a67c00;font-family:'Courier New',ui-monospace,monospace;font-size:.86em;letter-spacing:-.2px;cursor:pointer;user-select:none}
 .cc-song .t{display:block;white-space:pre;color:#12281f}
-.cc-song.nochords .c{visibility:hidden}
+.cc-song.nochords .c{display:none}
+.cc-song.nochords .ln{margin-bottom:.2em}
 .cc-song.editing .ln{outline:1px dashed transparent;border-radius:6px}
 .cc-song.editing .ln:hover{outline:1px dashed #c9a200;background:#fffdf3}
 .cc-song.editing .c{color:#b8860b;background:#fff6d8;border-radius:4px;padding:0 2px}
@@ -103,10 +105,13 @@ const clean = l => strip(l).replace(/(\S)\s*-\s+(?=\S)/g,'$1').replace(/(\S)\s+-
 .cc-scrollbar button{border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.1);color:#fff;font-size:16px;font-weight:800;border-radius:9px;width:40px;height:38px;cursor:pointer}
 .cc-scrollbar .spd{color:#f1c40f;font-weight:800;font-size:14px;min-width:44px;text-align:center}
 .cc-scrollbar .sp{flex:1}
+.cc-scrollbar .lbl{color:#cfe;font-size:12px;font-weight:600}
+.cc-scrollbar #sb-pause{width:auto;padding:0 14px;font-size:14px}
+.cc-main{padding-bottom:70px}
+.cc-tools .tog.cc-live{border-color:#c0392b;color:#c0392b;background:#fff}
+.cc-tools .tog.cc-live.on{background:#c0392b;color:#fff}
 @media (max-width:480px){
   .cc-song{padding:14px 11px 18px}
-  .cc-part.coro{padding-left:18px}
-  .cc-part.estrofe{padding-left:18px}
   .cc-head .n{width:40px;height:40px;font-size:15px}
   .cc-head h2{font-size:18px}
   .cc-list .fl{max-width:44vw}
@@ -137,16 +142,73 @@ function setLine(h,pi,li,val){
   if(!edits[h.n]) edits[h.n]={};
   if(val===orig) delete edits[h.n][k]; else edits[h.n][k]=val;
   if(!Object.keys(edits[h.n]).length) delete edits[h.n];
-  saveEdits(); rebuildIndex();
+  saveEdits(); rebuildIndex(); cloudSaveEdit(h.n);
 }
-const isEdited = n => !!edits[n];
+const isEdited = n => !!edits[n] && ehAdm();
+
+/* ---------- edições na nuvem: o ADM edita, TODOS veem ----------
+   Tabela cantor_edits (num, linhas jsonb). Sem a tabela, continua
+   funcionando só no aparelho do ADM (e avisa uma vez). */
+let _edNuvemOk=null, _edAvisou=false;
+function _avisaSemNuvem(){ if(!_edAvisou && ehAdm()){ _edAvisou=true; toast2('Edição salva só neste aparelho. Para todos verem, rode o SQL da tabela cantor_edits (veja LEIA-ME).'); } }
+async function cloudLoadEdits(){
+  try{
+    if(typeof sb==='undefined'||!sb) return;
+    const {data,error}=await sb.from('cantor_edits').select('num,linhas');
+    if(error){ _edNuvemOk=false; return; }
+    _edNuvemOk=true;
+    const nuvem={};
+    (data||[]).forEach(r=>{ if(byN.has(+r.num) && r.linhas && typeof r.linhas==='object' && Object.keys(r.linhas).length) nuvem[+r.num]=r.linhas; });
+    /* ADM com edições antigas só no aparelho: sobe para a nuvem uma vez */
+    if(ehAdm()){ for(const n of Object.keys(edits)){ if(!nuvem[+n]){ nuvem[+n]=edits[n]; cloudSaveEdit(+n); } } }
+    edits=nuvem; saveEdits(); rebuildIndex();
+    if(cantorNum && document.querySelector('.cc-song') && !editMode) abrirHino(cantorNum,true);
+    else if(document.getElementById('ccRes')) redesenharLista();
+  }catch(e){ _edNuvemOk=false; }
+}
+async function cloudSaveEdit(n){
+  if(!ehAdm()) return;
+  try{
+    if(typeof sb==='undefined'||!sb){ _avisaSemNuvem(); return; }
+    const linhas=edits[n];
+    const r = linhas
+      ? await sb.from('cantor_edits').upsert({num:n,linhas,updated_at:new Date().toISOString()})
+      : await sb.from('cantor_edits').delete().eq('num',n);
+    if(r && r.error){ _edNuvemOk=false; _avisaSemNuvem(); }
+  }catch(e){ _avisaSemNuvem(); }
+}
 
 /* ---------- favoritos (por usuário) ---------- */
 function favKey(){ return 'ibnm_cc_favs_'+userEmail(); }
 let favs=new Set();
-function loadFavs(){ favs=new Set(); try{ (JSON.parse(localStorage.getItem(favKey())||'[]')||[]).forEach(n=>{ if(byN.has(+n)) favs.add(+n); }); }catch(e){} }
+function loadFavs(){ favs=new Set(); try{ (JSON.parse(localStorage.getItem(favKey())||'[]')||[]).forEach(n=>{ if(byN.has(+n)) favs.add(+n); }); }catch(e){}  sincronizaFavs(); }
 function saveFavs(){ try{ localStorage.setItem(favKey(), JSON.stringify([...favs])); }catch(e){} }
-function toggleFav(n){ if(favs.has(n)) favs.delete(n); else favs.add(n); saveFavs(); }
+function toggleFav(n){ const tinha=favs.has(n); if(tinha) favs.delete(n); else favs.add(n); saveFavs(); cloudFav(n,!tinha); }
+/* favoritos do Cantor na nuvem (tabela cantor_favoritos): não somem ao trocar de celular */
+let _favSync=null;
+function meuId(){ try{ return (typeof _sessaoId!=='undefined')? _sessaoId : null; }catch(e){ return null; } }
+function sincronizaFavs(){ const id=meuId(); if(!id || _favSync===id) return; _favSync=id; cloudFavs(id); }
+async function cloudFavs(uid){
+  try{
+    if(typeof sb==='undefined'||!sb) return;
+    const {data,error}=await sb.from('cantor_favoritos').select('num').eq('user_id',uid);
+    if(error) return;
+    const nuvem=new Set((data||[]).map(r=>+r.num).filter(n=>byN.has(n)));
+    const soLocais=[...favs].filter(n=>!nuvem.has(n));
+    if(soLocais.length) await sb.from('cantor_favoritos').insert(soLocais.map(num=>({user_id:uid,num})));
+    soLocais.forEach(n=>nuvem.add(n));
+    favs=nuvem; saveFavs();
+    if(document.getElementById('ccRes')) redesenharLista();
+  }catch(e){}
+}
+async function cloudFav(n,on){
+  const uid=meuId(); if(!uid) return;
+  try{
+    if(typeof sb==='undefined'||!sb) return;
+    if(on) await sb.from('cantor_favoritos').upsert({user_id:uid,num:n});
+    else await sb.from('cantor_favoritos').delete().eq('user_id',uid).eq('num',n);
+  }catch(e){}
+}
 loadFavs();
 
 /* ---------- links do YouTube (ADM grava; todos veem) ---------- */
@@ -180,6 +242,7 @@ async function cloudSaveLink(n,id){
   try{
     if(typeof sb==='undefined'||!sb||!sb.channel) return;
     const ch=sb.channel('cantor-rt');
+    ch.on('postgres_changes',{event:'*',schema:'public',table:'cantor_edits'},()=>{ if(!editMode) cloudLoadEdits(); });
     ch.on('postgres_changes',{event:'*',schema:'public',table:'cantor_links'},()=>{ cloudLoadLinks().then(()=>{ const b=document.querySelector('.cc-yt-chip'); if(b&&cantorNum) abrirHino(cantorNum); }); });
     ch.subscribe();
   }catch(e){}
@@ -276,27 +339,35 @@ function setSpeed(v){
 function scrollStep(ts){
   if(!scrollOn) return;
   const dt=Math.min((ts-scrollLast)/1000,.1); scrollLast=ts;
-  window.scrollBy(0, SCROLL_BASE*prefs.scrollSpeed*dt);
-  if(window.innerHeight+window.scrollY>=document.documentElement.scrollHeight-2){ stopScroll(); return; }
+  scrollAcc+=SCROLL_BASE*prefs.scrollSpeed*dt;
+  const px=Math.floor(scrollAcc); if(px>=1){ scrollAcc-=px; window.scrollBy(0,px); }
+  if(window.innerHeight+window.scrollY>=document.documentElement.scrollHeight-2){ pauseScroll(true); return; }
   scrollRaf=requestAnimationFrame(scrollStep);
 }
+let scrollAcc=0, wakeLock=null;
+async function pedirTelaLigada(){ try{ if('wakeLock' in navigator && !wakeLock){ wakeLock=await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release',()=>{ wakeLock=null; }); } }catch(e){} }
+function liberarTela(){ try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(e){} }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && scrollOn) pedirTelaLigada(); });
 function renderScrollBar(){
   let bar=document.querySelector('.cc-scrollbar');
   if(!bar){
     bar=document.createElement('div'); bar.className='cc-scrollbar';
-    bar.innerHTML='<button id="sb-pause" aria-label="Pausar rolagem">⏸</button>'+
+    bar.innerHTML='<button id="sb-pause" aria-label="Pausar ou continuar a rolagem"></button>'+
       '<button id="sb-slow" aria-label="Diminuir velocidade">−</button>'+
-      '<span class="spd">'+spdLabel()+'</span>'+
+      '<span class="spd"></span>'+
       '<button id="sb-fast" aria-label="Aumentar velocidade">+</button>'+
       '<span class="sp"></span>'+
-      '<button id="sb-stop" aria-label="Parar rolagem">✕</button>';
+      '<button id="sb-top" aria-label="Voltar ao início do hino">⤒</button>'+
+      '<button id="sb-stop" aria-label="Fechar a rolagem">✕</button>';
     document.body.appendChild(bar);
-    bar.querySelector('#sb-pause').onclick=()=>{ stopScroll(); };
+    bar.querySelector('#sb-pause').onclick=()=>{ scrollOn?pauseScroll():startScroll(); };
     bar.querySelector('#sb-stop').onclick=()=>{ stopScroll(); };
+    bar.querySelector('#sb-top').onclick=()=>{ const m=document.querySelector('.cc-head'); window.scrollTo(0, m? Math.max(0,m.getBoundingClientRect().top+scrollY-130):0); };
     bar.querySelector('#sb-slow').onclick=()=>setSpeed(prefs.scrollSpeed-0.2);
     bar.querySelector('#sb-fast').onclick=()=>setSpeed(prefs.scrollSpeed+0.2);
   }
   bar.querySelector('.spd').textContent=spdLabel();
+  bar.querySelector('#sb-pause').textContent=scrollOn?'⏸ Pausar':'▶ Rolar';
 }
 function syncScrollBtn(){
   const b=document.getElementById('tsc');
@@ -304,17 +375,25 @@ function syncScrollBtn(){
 }
 function startScroll(){
   if(scrollOn) return;
-  scrollOn=true; scrollLast=performance.now();
-  renderScrollBar(); syncScrollBtn();
+  if(window.innerHeight+window.scrollY>=document.documentElement.scrollHeight-2){ const m=document.querySelector('.cc-song'); if(m) window.scrollTo(0, Math.max(0,m.getBoundingClientRect().top+scrollY-130)); }
+  scrollOn=true; scrollLast=performance.now(); scrollAcc=0;
+  renderScrollBar(); syncScrollBtn(); pedirTelaLigada();
   scrollRaf=requestAnimationFrame(scrollStep);
+}
+function pauseScroll(fim){
+  scrollOn=false;
+  if(scrollRaf) cancelAnimationFrame(scrollRaf), scrollRaf=null;
+  liberarTela(); renderScrollBar(); syncScrollBtn();
+  if(fim) toast2('Fim do hino');
 }
 function stopScroll(){
   scrollOn=false;
   if(scrollRaf) cancelAnimationFrame(scrollRaf), scrollRaf=null;
+  liberarTela();
   const bar=document.querySelector('.cc-scrollbar'); if(bar) bar.remove();
   syncScrollBtn();
 }
-function toggleScroll(){ scrollOn?stopScroll():startScroll(); }
+function toggleScroll(){ scrollOn?pauseScroll():startScroll(); }
 
 /* ---------- folhas (sheets) ---------- */
 function sheet(html){
@@ -357,10 +436,12 @@ function redesenharLista(){ const el=document.getElementById('ccRes'); if(el) el
 function abrirHino(n, keepScroll){
   const h=byN.get(n); if(!h) return cantorVoltar();
   cantorNum=n;
-  try{ _viewAtual=function(){ abrirHino(n); }; }catch(e){}
+  try{ _viewAtual=function(){ abrirHino(n,true); }; }catch(e){}
   try{ if(window.__navReg) window.__navReg('cc|'+n); }catch(e){}
   const adm=ehAdm();
-  const st=prefs.tr[n]||0; const {key,flats}=keyInfo(h,st);
+  const tc=(window.tomCulto?(+window.tomCulto('cc:'+n)||0):0);
+  const pessoal=Object.prototype.hasOwnProperty.call(prefs.tr,n);
+  const st=pessoal?(prefs.tr[n]||0):tc; const {key,flats}=keyInfo(h,st);
   let ei=0;
   const partes=h.partes.map((p,pi)=>{
     const lab = p.tipo==='coro' ? 'Coro' : String(++ei);
@@ -370,6 +451,7 @@ function abrirHino(n, keepScroll){
   const introImg = introExiste(h.n) ? '<div class="cc-intro"><span class="tag">Intro</span><img loading="lazy" src="cc-intro/p'+String(h.n).padStart(3,'0')+'.jpg" alt="Introdução do hino '+h.n+'"></div>' : '';
   const missingBox = h.missing ? '<div class="cc-missing">⚠️ '+(h.creditos&&h.creditos[0]?esc(h.creditos[0]):'Página não incluída no PDF de origem.')+'</div>' : '';
   const ytl=ytLinks[n];
+  let vivoAqui=false, vivoOutro=false; try{ vivoAqui=!!(AO_VIVO&&AO_VIVO.ativo&&AO_VIVO.musica_id==='cc:'+n); vivoOutro=!!(AO_VIVO&&AO_VIVO.ativo)&&!vivoAqui; }catch(e){}
   const html=''+
   '<div class="cc-hbar">'+
     '<button class="ib" onclick="cantorVoltar()">‹ Hinos</button>'+
@@ -377,13 +459,14 @@ function abrirHino(n, keepScroll){
     '<span class="sp"></span>'+
     '<button class="ib" onclick="cantorFs(-2)" aria-label="Diminuir letra">A−</button>'+
     '<button class="ib" onclick="cantorFs(2)" aria-label="Aumentar letra">A+</button>'+
+    '<button class="ib" onclick="ccCompartilhar('+n+')" aria-label="Compartilhar hino">↗</button>'+
     '<button class="ib" onclick="cantorCfg()" aria-label="Configurações">⚙</button>'+
   '</div>'+
   '<main class="cc-main">'+
     '<div class="cc-head">'+
       '<div class="n">'+h.n+'</div>'+
       '<h2>'+esc(h.titulo)+(isEdited(n)?'<span class="ed-mark">editado</span>':'')+'</h2>'+
-      '<div class="cc-meta"><span>Tom <b>'+esc(key)+'</b>'+(st?' (original '+esc(h.tom)+')':'')+'</span>'+(h.ritmo?'<span>Ritmo <b>'+esc(h.ritmo)+'</b></span>':'')+'</div>'+
+      '<div class="cc-meta"><span>Tom <b>'+esc(key)+'</b>'+(!pessoal&&tc?'<span class="tom-culto">tom do culto</span>':'')+(st?' (original '+esc(h.tom)+')':'')+'</span>'+(h.ritmo?'<span>Ritmo <b>'+esc(h.ritmo)+'</b></span>':'')+'</div>'+
       (h.creditos&&h.creditos.length?'<p class="cc-cred">'+h.creditos.map(esc).join('<br>')+'</p>':'')+
     '</div>'+
     introImg + missingBox +
@@ -394,6 +477,7 @@ function abrirHino(n, keepScroll){
       '<button class="tog" id="tsc" aria-pressed="'+(scrollOn?'true':'false')+'" onclick="cantorScroll()">'+(scrollOn?'⏸ Pausar rolagem':'▶ Rolagem')+'</button>'+
       (ytl?'<a class="tog cc-yt-chip" href="'+ytUrl(ytl)+'" target="_blank" rel="noopener">▶ Ouvir no YouTube</a>':'')+
       (adm?'<button class="tog" onclick="cantorYtSheet('+n+')">'+(ytl?'✎ Link do YouTube':'🔗 Link do YouTube')+'</button>':'')+
+      (adm&&window.ccAoVivo?'<button class="tog cc-live'+(vivoAqui?' on':'')+'" onclick="ccAoVivo('+n+')">'+(vivoAqui?'⏹ Encerrar ao vivo':(vivoOutro?'🔴 Trazer ao vivo p/ este':'🔴 Ao vivo'))+'</button>':'')+
       (adm?'<button class="tog cc-edit" id="ted" aria-pressed="'+editMode+'" onclick="cantorEditToggle('+n+')">'+(editMode?'Concluir edição':'Editar cifras')+'</button>':'')+
     '</div>'+
     (editMode?'<div class="cc-hint">Toque numa sílaba para pôr ou trocar o acorde. Toque em ✎ para editar a linha inteira.'+(isEdited(n)?'<br><button class="tog" onclick="cantorRst('+n+')">Restaurar cifras originais deste hino</button>':'')+'</div>':'')+
@@ -406,6 +490,7 @@ function abrirHino(n, keepScroll){
   if(!keepScroll) window.scrollTo(0,0);
   fixGaps();
   if(editMode) bindEdicao(h,st,flats,()=>abrirHino(n,true));
+  try{ if(window.ccPosHino) window.ccPosHino(n); }catch(e){}
 }
 function bindEdicao(h,st,flats,redraw){
   const song=document.querySelector('.cc-song'); if(!song) return;
@@ -586,13 +671,14 @@ window.cantorFav=function(n,ev){ if(ev){ ev.preventDefault(); ev.stopPropagation
 window.cantorFavHino=function(n){ toggleFav(+n); abrirHino(+n,true); };
 window.cantorFs=function(d){ prefs.fs=Math.min(34,Math.max(14,prefs.fs+d)); savePrefs(); abrirHino(cantorNum,true); };
 window.cantorCifras=function(n){ prefs.cifras=!prefs.cifras; savePrefs(); abrirHino(+n,true); };
-window.cantorTransp=function(n,d){ const st=(prefs.tr[n]||0)+d; if(st===0) delete prefs.tr[n]; else prefs.tr[n]=st; savePrefs(); abrirHino(+n,true); };
-window.cantorTomOriginal=function(n){ delete prefs.tr[n]; savePrefs(); abrirHino(+n,true); };
+window.cantorTransp=function(n,d){ const tc=(window.tomCulto?(+window.tomCulto('cc:'+n)||0):0); const atual=Object.prototype.hasOwnProperty.call(prefs.tr,n)?(prefs.tr[n]||0):tc; let st=((atual+d)%12+12)%12; if(st>6) st-=12; if(st===tc) delete prefs.tr[n]; else prefs.tr[n]=st; savePrefs(); abrirHino(+n,true); };
+window.cantorTomOriginal=function(n){ const tc=(window.tomCulto?(+window.tomCulto('cc:'+n)||0):0); if(tc) prefs.tr[n]=0; else delete prefs.tr[n]; savePrefs(); abrirHino(+n,true); };
 window.cantorScroll=function(){ toggleScroll(); };
 window.cantorEditToggle=function(n){ if(!ehAdm()) return; editMode=!editMode; abrirHino(+n,true); };
-window.cantorRst=function(n){ if(!ehAdm()) return; if(confirm('Apagar todas as edições deste hino e voltar às cifras do livro?')){ delete edits[n]; saveEdits(); rebuildIndex(); abrirHino(+n,true); } };
+window.cantorRst=function(n){ if(!ehAdm()) return; if(confirm('Apagar todas as edições deste hino e voltar às cifras do livro?')){ delete edits[n]; saveEdits(); rebuildIndex(); cloudSaveEdit(+n); abrirHino(+n,true); } };
 window.cantorYtSheet=function(n){ openYtSheet(+n,()=>abrirHino(+n,true)); };
 window.cantorCfg=function(){ openCfgSheet(); };
+window.cantorRedesenhar=function(){ if(cantorNum && document.querySelector('.cc-song')) abrirHino(cantorNum,true); };
 
 /* ---------- registro como rota do MM ---------- */
 try{
@@ -628,6 +714,6 @@ try{
 }catch(e){}
 window.cantorFavUnificado=function(n,ev){ if(ev){ ev.preventDefault(); ev.stopPropagation(); } toggleFav(+n); if(typeof go==='function') go('favoritos'); else renderLista(); };
 
-/* carrega links da nuvem na abertura */
-cloudLoadLinks();
+/* carrega links e edições da nuvem na abertura */
+cloudLoadLinks(); cloudLoadEdits();
 })();

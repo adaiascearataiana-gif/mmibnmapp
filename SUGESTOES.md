@@ -1,98 +1,54 @@
-# Sugestões e melhorias — MM IBNM (mmibnmapp)
+# Sugestões e melhorias — MM IBNM (v0.3.0)
 
-Análise completa do app (index.html + Supabase + PWA) com o que já
-foi corrigido nesta entrega e o que vale implementar a seguir.
+## ✅ Corrigido nesta versão
 
----
+**Cantor Cristão**
+1. Número da estrofe e rótulo "Coro" ficavam por cima do primeiro acorde.
+2. Palavras divididas entre acordes apareciam com buraco ("to   das") — agora "to-das".
+3. Espaço exagerado entre as linhas; com "Cifras" desligado o espaço dos acordes continuava ocupado.
+4. Barra do hino (‹ Hinos, ☆, A−, A+, ⚙) sumia atrás do topo ao rolar.
+5. "Pausar" fechava a barra de rolagem; agora pausa/continua, volta ao início e avisa o fim.
+6. Tela apagava no meio da rolagem — agora fica ligada enquanto rola.
+7. Qualquer atualização da nuvem jogava o hino de volta ao topo no meio do louvor.
+8. Transposição acumulava ("+14"); agora fica entre −6 e +6.
+9. **Edições do ADM ficavam só no aparelho dele** — agora vão para a nuvem (tabela `cantor_edits`).
+10. Marca "editado" aparecia para membros; agora só o ADM vê.
 
-## ✅ Corrigido nesta entrega (bugs reais)
+**App**
+11. Transposição do editor de cifras não mudava bemóis (Bb, Eb), nem o baixo (D/F#), nem C7M.
+12. Tempo real jogava qualquer tela (cifra, escala...) para o topo.
+13. Faixa "AO VIVO" cobria a barra verde (menu e sino inacessíveis).
+14. Sombra do menu lateral aparecia na borda esquerda mesmo fechado.
+15. Rodapé da versão ficava por cima do conteúdo e duplicado no menu.
+16. Botão "Tudo" do A–Z vazava; títulos com letra acentuada ("Ó…") não entravam no A–Z.
+17. Busca de músicas dependia de acento.
+18. Ícones errados no menu da Academia (Violão com bateria, Baixo com saxofone).
+19. Dezenas de textos sem acento ("Confirmacoes", "Nao poderei", "transmissao"...).
+20. Service worker nunca atualizava `hinos.js`/`cantor.js` para quem já tinha instalado.
+21. Zoom da cifra voltava ao normal a cada abertura — agora é lembrado.
 
-1. **Login travava para usuários novos.** O RLS de `perfis` não tinha
-   política de INSERT → o perfil nunca era gravado → `usuarioAtual()`
-   não achava ninguém → o app voltava para a tela de login para sempre.
-   *Corrigido no banco (`perfis_ins`).*
-2. **Login com Google não funcionava** porque o provedor está desligado
-   no Supabase. O código já estava certo; faltava a configuração.
-   *Guia pronto: `MMIBNM-GOOGLE-LOGIN.md` (5 minutos).*
-3. **Nome/foto do Google ignorados.** O cadastro usava só `user_metadata.nome`
-   (que o Google não envia). Agora usa `full_name`/`name`/`avatar_url` —
-   quem entra com Google já aparece com nome e foto corretos.
-4. **Conta Google não era identificada** ("Trocar senha" aparecia para
-   contas sem senha). Agora o campo `perfis.origem` distingue `google` × `local`.
-5. **Tabela `musicas_cantadas` não existia** — o app consultava e caía
-   silenciosamente no histórico embutido. *Tabela criada com RLS.*
-6. **Sequência do Cantor Cristão incompleta** — faltavam os hinos
-   377, 410, 411 e 579 (páginas ausentes no PDF). Agora aparecem como
-   marcadores honestos ("página não incluída no PDF de origem").
-7. **Service worker desatualizado** — agora em `mmibnm-v2`, com
-   `hinos.js`, `cantor.js` e as intros na cache (funciona offline).
+## 🆕 Novos recursos
+- Tom −/+ e rolagem automática nas músicas do ministério.
+- 🔴 Ao vivo com hinos do Cantor Cristão (membros acompanham automaticamente).
+- ↗ Compartilhar hino: link `…/#hino-214` abre direto no hino.
+- Atalhos no ícone do app instalado (Cantor, Escala, Playlist).
+- Busca de músicas também por trecho da letra.
 
-## 🎵 O que foi integrado (Cantor Cristão)
+## ✅ Feito na v0.4.0
+- Ordem do culto com músicas + hinos e "Próxima ▶".
+- Tom do culto definido pelo ADM (todos abrem já transpostos).
+- Modo projetor (letra grande por estrofe, coro repetido).
+- Metrônomo com TAP e afinador pelo microfone.
+- Modo escuro.
+- Favoritos do Cantor na nuvem.
+- Versão do supabase-js fixada (2.45.4).
+- SQL para só usuários logados criarem notificações.
 
-- Seção **📖 Cantor Cristão** no menu: 581 hinos em sequência, busca por
-  número/título/letra, transposição (todos), tamanho de letra, rolagem
-  automática padrão Cifra Club (30 px/s em 1×, 0,4×–3×), favoritos ⭐
-  e **Intro destacada em imagem** em todos os hinos que têm intro.
-- **Somente o ADM edita** — regra ligada ao `admin` do ministério
-  (sem senha local; vale para cifras E links do YouTube) e reforçada
-  no banco (RLS `is_admin()`).
-- Links do YouTube por hino: ADM cadastra; **todos veem** o chip
-  "▶ Ouvir no YouTube"; sincroniza na nuvem em tempo real
-  (tabela `cantor_links`).
-- Tema verde/dourado do MM em todo o módulo.
-
----
-
-## 💡 Sugestões de melhoria (em ordem de prioridade)
-
-### Segurança / estabilidade
-1. **Restringir INSERT de `notificações`** — hoje `with_check: true`
-   (qualquer pessoa, até anônima, insere). Sugestão de SQL no
-   `MMIBNM-SQL-completo.sql`, seção 6 (basta descomentar).
-2. **Exigir senha atual ao trocar senha** — no Supabase:
-   *Authentication → Settings → Passwords*: ligue
-   "Require current password when changing password".
-3. **Fixar versões dos CDNs** (`supabase-js@2.x.y` e `xlsx@0.x.y`
-   exatos) com `integrity=` (SRI), para o app não mudar sozinho.
-4. **Backup automático sem Drive** — hoje o backup depende do
-   Client ID do Google Drive. Sugestão: rotina de backup gravando o
-   JSON numa tabela `backups` do Supabase (ADM), 1× por dia.
-
-### Dados / conteúdo
-5. **Interface para o histórico "cantadas"** — a tabela
-   `musicas_cantadas` agora existe, mas o app só lê o seed embutido.
-   Um painel ADM (colar CSV / importar XLSX) tornaria o histórico
-   atualizável pelo celular.
-6. **Sincronizar edições e favoritos do Cantor Cristão na nuvem**
-   (`cantor_edits` / `cantor_favoritos`) — hoje ficam no aparelho
-   (com exportar/importar). Como só o ADM edita, seria pequeno.
-7. **Deep link dos hinos** (`#/hino/123`) para o ministério compartilhar
-   "olhe o hino 214" em grupo e abrir direto.
-
-### Experiência
-8. **Web Push de verdade** (VAPID) — hoje a notificação só aparece
-   com o app aberto. Com push, o aviso de escala chega com o app fechado.
-9. **Player de áudio melhorado** — barra fixa de "tocando agora" e
-   continuação automática da playlist.
-10. **Atalhos do app instalado** (manifest `shortcuts`) para
-    Escala, Playlist e Cantor Cristão.
-11. **Pré-cache das intros em segundo plano** — hoje elas entram na
-    cache na primeira visita de cada hino; um `prefetch` dos próximos
-    3 hinos deixaria a rolagem sem esperas.
-12. **Acessibilidade** — aumentar contraste do dourado em texto pequeno
-    e revisar foco de teclado nas folhas (sheets) do Cantor.
-
-### Código / organização
-13. **Extrair o `index.html` em módulos** (auth, musicas, escala,
-    cantor...) — hoje são ~236 KB num arquivo só com várias
-    redefinições de função; funciona, mas dificulta manutenção.
-14. **Testes automatizados** — as funções puras (norm, busca,
-    transposição, `detectaPeriodo`) já são testáveis; um
-    `npm test` simples evitaria regressões.
-15. **Padronizar textos** dos toasts/mensagens (com/sem acento) e
-    adicionar `aria-label` nos botões sem texto.
-
----
-
-*Entrega de 29/10/2026 — integração Cantor Cristão + login Google +
-correções de RLS/realtime.*
+## 💡 Ainda pendentes (precisam de algo fora do app)
+1. **Web Push com o app fechado** — precisa gerar chaves VAPID e criar uma
+   Edge Function no Supabase que envie os avisos. Dá para fazer junto, com
+   acesso ao painel.
+2. **SRI (integrity) nos CDNs** — precisa calcular o hash do arquivo exato
+   publicado; faça após confirmar que a versão 2.45.4 roda bem.
+3. **Separar o `index.html` em módulos** — mudança grande de organização;
+   melhor fazer com calma, depois de as novidades estarem testadas no culto.

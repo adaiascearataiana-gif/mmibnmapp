@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="IBNM Música">
 <title>Ministério de Música IBNM</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{
   --verde-escuro:#0b3d2e; --verde:#145c43; --verde-med:#1f7a5a; --verde-claro:#2fa377;
@@ -256,6 +256,31 @@ table.escala tr.vigente td{font-weight:700}
 .bv-nav .btn{flex:1}
 .bv-skip{position:absolute;top:18px;right:20px;font-size:13px;color:rgba(255,255,255,.85);background:none;font-weight:600}
 </style>
+
+<style id="ibnmCorrecoes">
+/* menu lateral fechado não deixa sombra na borda da tela */
+.sidemenu{box-shadow:none}
+.sidemenu.show{box-shadow:6px 0 24px rgba(0,0,0,.3)}
+/* versão: só na tela de login (no app ela já aparece no rodapé do menu) */
+#appShell:not(.hidden) ~ .ver-foot{display:none}
+/* faixa AO VIVO empurra a barra verde em vez de cobri-la */
+body.ao-vivo .topbar{top:var(--ibnm-vivo,34px)}
+body.ao-vivo #appShell{padding-top:var(--ibnm-vivo,34px)}
+/* filtro A–Z: o botão "Tudo" cabe inteiro */
+.alpha-bar button{min-width:32px;width:auto;padding:0 6px}
+/* nomes longos de música não estouram a linha */
+.song-row .s-nm,.song-row .s-ar{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* barra de tom e rolagem das músicas */
+.zoom-bar .mm-tom{display:inline-flex;align-items:center;gap:2px;height:34px;padding:0 4px;border:1px solid var(--dourado-esc);background:#fffbea;border-radius:8px;font-size:13px;color:var(--verde-escuro)}
+.zoom-bar .mm-tom button{border:0;background:none;min-width:30px;height:30px;font-size:17px}
+.zoom-bar .mm-tom b{color:#8a6a00}
+.zoom-bar .mm-tom small{color:#789}
+.zoom-bar .mm-rol{background:var(--verde-med)!important;color:#fff!important;border-color:var(--verde-med)!important;font-size:13px!important}
+.cc-scrollbar .pp{width:auto!important;padding:0 14px!important;font-size:14px!important}
+/* foco visível para quem usa teclado */
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--dourado);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
 </head>
 <body>
 <div class="watermark" id="wm"></div>
@@ -293,7 +318,7 @@ table.escala tr.vigente td{font-weight:700}
    Persistencia local (localStorage). Pontos de integracao
    para Google Login / Google Drive marcados com [INTEGRACAO].
 ============================================================ */
-const VERSION = 'v0.2.0 (beta)';
+const VERSION = 'v0.4.0';
 const DB_KEY = 'ibnm_mm_db_v1';
 const SES_KEY = 'ibnm_mm_sessao';
 const LOGO = document.getElementById('logoTpl').innerHTML;
@@ -504,8 +529,8 @@ const MENU = [
      {id:'academia', arg:'bateria', ic:'\uD83E\uDD41', nm:'Bateria', grupo:'Instrumentos'},
      {id:'academia', arg:'piano', ic:'\uD83C\uDFB9', nm:'Piano'},
      {id:'academia', arg:'guitarra', ic:'\uD83C\uDFB8', nm:'Guitarra'},
-     {id:'academia', arg:'baixo', ic:'\uD83C\uDFB7', nm:'Baixo'},
-     {id:'academia', arg:'violao', ic:'\uD83E\uDD41', nm:'Violão'},
+     {id:'academia', arg:'baixo', ic:'\uD83C\uDFB8', nm:'Baixo'},
+     {id:'academia', arg:'violao', ic:'\uD83E\uDE95', nm:'Violão'},
      {id:'academia', arg:'teoria-musical', ic:'\uD83D\uDCD6', nm:'Teoria musical'} ]},
   {id:'perfil', ic:'\uD83D\uDC64', nm:'Meu Perfil'},
   {id:'notificacoes', ic:'\uD83D\uDD14', nm:'Notificações'},
@@ -1293,11 +1318,11 @@ async function fazerCadastro(){
   const instr=[...document.querySelectorAll('.cbInstr:checked')].map(c=>c.value);
   if(!nome) return erro('cadErr','Informe seu nome completo.');
   if(!nasc) return erro('cadErr','Informe sua data de nascimento.');
-  if(!/^[^@]+@[^@]+\.[^@]+$/.test(email)) return erro('cadErr','E-mail invalido.');
+  if(!/^[^@]+@[^@]+\.[^@]+$/.test(email)) return erro('cadErr','E-mail inválido.');
   if(tel.replace(/\D/g,'').length<10) return erro('cadErr','Telefone incompleto.');
-  if(!vocal.length && !instr.length) return erro('cadErr','Selecione ao menos uma funcao no Ministerio.');
-  if(!senhaValida(senha)) return erro('cadErr','A senha nao cumpre os requisitos.');
-  if(senha!==senha2) return erro('cadErr','As senhas nao conferem.');
+  if(!vocal.length && !instr.length) return erro('cadErr','Selecione ao menos uma função no Ministério.');
+  if(!senhaValida(senha)) return erro('cadErr','A senha não cumpre os requisitos.');
+  if(senha!==senha2) return erro('cadErr','As senhas não conferem.');
   const {data,error}=await sb.auth.signUp({email,password:senha,options:{data:{nome,nasc,tel,wpp,vocal,instr}}});
   if(error) return erro('cadErr',error.message);
   if(!data.session){ $('#cadErr').innerHTML='<div class="ok-msg">Conta criada! Verifique seu e-mail para confirmar e depois entre.</div>'; return; }
@@ -1309,23 +1334,23 @@ async function loginGoogle(){
     const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href.split('#')[0],queryParams:{prompt:'select_account'}}});
     if(error){
       const msg=/provider|external|not enabled|disabled/i.test(error.message||'')
-        ? 'Login Google ainda nao esta ativado no servidor. O administrador precisa ativar Authentication > Providers > Google no Supabase (guia GOOGLE-LOGIN.md).'
-        : 'Login Google indisponivel: '+error.message;
+        ? 'Login com Google ainda não está ativado no servidor. O administrador precisa ativar Authentication > Providers > Google no Supabase (guia GOOGLE-LOGIN.md).'
+        : 'Login com Google indisponível: '+error.message;
       toast(msg);
     }
-  }catch(e){ toast('Login Google indisponivel: '+(e.message||e)); }
+  }catch(e){ toast('Login com Google indisponível: '+(e.message||e)); }
 }
 async function enviarRecupera(){
   const email=$('#recEmail').value.trim().toLowerCase();
-  if(!/^[^@]+@[^@]+\.[^@]+$/.test(email)) return erro('recErr','E-mail invalido.');
+  if(!/^[^@]+@[^@]+\.[^@]+$/.test(email)) return erro('recErr','E-mail inválido.');
   const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});
   if(error) return erro('recErr',error.message);
-  $('#recErr').innerHTML='<div class="ok-msg">Enviamos um link de redefinicao para '+esc(email)+'. Verifique seu e-mail.</div>';
+  $('#recErr').innerHTML='<div class="ok-msg">Enviamos um link de redefinição para '+esc(email)+'. Verifique seu e-mail.</div>';
 }
 async function salvarSenha(){
   const nova=$('#tsNova').value;
-  if(!senhaValida(nova)) return $('#tsErr').innerHTML='<div class="err-msg">A nova senha nao cumpre os requisitos.</div>';
-  if(nova!==$('#tsNova2').value) return $('#tsErr').innerHTML='<div class="err-msg">As senhas nao conferem.</div>';
+  if(!senhaValida(nova)) return $('#tsErr').innerHTML='<div class="err-msg">A nova senha não cumpre os requisitos.</div>';
+  if(nova!==$('#tsNova2').value) return $('#tsErr').innerHTML='<div class="err-msg">As senhas não conferem.</div>';
   const {error}=await sb.auth.updateUser({password:nova});
   if(error) return $('#tsErr').innerHTML='<div class="err-msg">'+esc(error.message)+'</div>';
   fecharModal(); toast('Senha alterada com sucesso!');
@@ -1438,7 +1463,7 @@ async function criarMusica(){ const t=$('#nmTit').value.trim(); if(!t) return to
   const {error}=await sb.from('musicas').insert({id,titulo:t,artista:art,cifra:'',letra:'',youtube:'',audios:[],dados:{publicada:false},created_by:_sessaoId});
   if(error) return toast('Erro: '+error.message);
   DB.musicas.push({id,titulo:t,artista:art,cifra:'',letra:'',youtube:'',audios:[],publicada:false});
-  fecharModal(); toast('Musica criada! Edite a cifra e publique.'); editorCifra(id);
+  fecharModal(); toast('Música criada! Edite a cifra e publique.'); editorCifra(id);
 }
 async function addAudio(id){ const m=DB.musicas.find(x=>x.id===id); const nome=$('#edAudNome').value.trim(); let v=$('#edAudUrl').value.trim();
   if(!nome||!v) return toast('Informe nome e link/ID.');
@@ -1454,7 +1479,7 @@ async function salvarCifra(id,publicar){ const m=DB.musicas.find(x=>x.id===id); 
   m.cifra=getCifraHtml(); m.letra=$('#edLetra').value;
   const jaPub=m.publicada; if(publicar) m.publicada=true;
   await sb.from('musicas').update({titulo:m.titulo,artista:m.artista,youtube:m.youtube,cifra:m.cifra,letra:m.letra,dados:{publicada:!!m.publicada}}).eq('id',id);
-  if(publicar){ if(!jaPub) notificarTodos('\uD83C\uDFBC','Nova musica disponivel','\"'+m.titulo+'\" foi publicada no app. Confira a cifra, letra e audio!');
+  if(publicar){ if(!jaPub) notificarTodos('\uD83C\uDFBC','Nova música disponível','\"'+m.titulo+'\" foi publicada no app. Confira a cifra, letra e audio!');
     toast('Publicado! Todos foram notificados.'); _editando=false; abrirMusica(id,'cifra'); }
   else toast('Rascunho salvo.');
 }
@@ -1465,7 +1490,7 @@ async function publicarPlaylist(){ const ini=$('#plIni').value, fim=$('#plFim').
   const {error}=await sb.from('playlist').insert({inicio:ini,fim:fim,musicas:mus,publicada:true,updated_at:new Date().toISOString()});
   if(error) return toast('Erro: '+error.message);
   DB.playlist={inicio:ini,fim:fim,musicas:mus,publicada:true};
-  notificarTodos('\uD83D\uDCC5','PLAYLIST DISPONIVEL','A playlist ('+fmtData(ini)+' - '+fmtData(fim)+') ja esta no app. Confira!');
+  notificarTodos('\uD83D\uDCC5','PLAYLIST DISPONIVEL','A playlist ('+fmtData(ini)+' - '+fmtData(fim)+') já está no app. Confira!');
   fecharModal(); toast('Playlist publicada e todos notificados!'); go('playlist');
 }
 async function importarEscala(inp){ const f=inp.files[0]; if(!f) return;
@@ -1564,23 +1589,23 @@ async function confirmarPresenca(status){
   const row={user_id:_sessaoId,semana:sem,email:u.email,nome:u.nome,status,obs,updated_at:new Date().toISOString()};
   try{ await sb.from('presencas').upsert(row,{onConflict:'user_id,semana'}); }catch(e){ return toast('Erro: '+(e.message||e)); }
   if(!DB.presencas) DB.presencas={}; DB.presencas[u.email]=row;
-  const txt=u.nome+(status==='confirmado'?' CONFIRMOU presenca na escala':' avisou que NAO podera participar')+(obs?' ('+obs+')':'');
-  notificarTodos('\u2705','Presenca na escala',txt,x=>x.admin);
-  toast(status==='confirmado'?'Presenca confirmada! \uD83D\uDE4C':'Avisamos que voce nao podera. Obrigado por avisar!');
+  const txt=u.nome+(status==='confirmado'?' CONFIRMOU presença na escala':' avisou que NAO podera participar')+(obs?' ('+obs+')':'');
+  notificarTodos('\u2705','Presença na escala',txt,x=>x.admin);
+  toast(status==='confirmado'?'Presença confirmada! \uD83D\uDE4C':'Avisamos que você não poderá. Obrigado por avisar!');
   go('escala');
 }
 function cardPresenca(p){
   const st=p&&p.status;
-  const badge = st==='confirmado'?'<span style="color:var(--verde-claro);font-weight:700">\u2705 Presenca confirmada</span>'
-    : st==='ausente'?'<span style="color:#c0392b;font-weight:700">\u274C Voce avisou que nao podera</span>'
-    : '<span style="color:#789">Ainda nao confirmado</span>';
+  const badge = st==='confirmado'?'<span style="color:var(--verde-claro);font-weight:700">\u2705 Presença confirmada</span>'
+    : st==='ausente'?'<span style="color:#c0392b;font-weight:700">\u274C Você avisou que não poderá</span>'
+    : '<span style="color:#789">Ainda não confirmado</span>';
   return `<div class="card" style="border-left:4px solid var(--verde-claro)">
-    <h3>\u270B Confirmar presenca (esta semana)</h3>
+    <h3>\u270B Confirmar presença (esta semana)</h3>
     <p style="font-size:13px;color:#556;margin-bottom:8px">Status atual: ${badge}</p>
-    <div class="field"><label>Observacao (opcional)</label><input id="presObs" value="${esc((p&&p.obs)||'')}" placeholder="Ex.: chego um pouco atrasado"></div>
+    <div class="field"><label>Observação (opcional)</label><input id="presObs" value="${esc((p&&p.obs)||'')}" placeholder="Ex.: chego um pouco atrasado"></div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-primary" onclick="confirmarPresenca('confirmado')">\u2705 Vou participar</button>
-      <button class="btn btn-dark" onclick="confirmarPresenca('ausente')">\u274C Nao poderei</button>
+      <button class="btn btn-dark" onclick="confirmarPresenca('ausente')">\u274C Não poderei</button>
     </div></div>`;
 }
 function cardConfirmacoesAdm(){
@@ -1594,7 +1619,7 @@ function cardConfirmacoesAdm(){
     return `<div class="info-row"><span class="v" style="font-weight:600;text-align:left">${esc(u.nome)}${p&&p.obs?'<br><span style=\"font-weight:400;font-size:12px;color:#789\">'+esc(p.obs)+'</span>':''}</span>${tag}</div>`;
   }).join('');
   const conf=escalados.filter(u=>{const p=(DB.presencas||{})[u.email];return p&&p.status==='confirmado';}).length;
-  return `<div class="card"><h3>\u2705 Confirmacoes desta semana (${conf}/${escalados.length})</h3>${rows}</div>`;
+  return `<div class="card"><h3>\u2705 Confirmações desta semana (${conf}/${escalados.length})</h3>${rows}</div>`;
 }
 /* ---------- MODO CULTO AO VIVO ---------- */
 async function cloudAoVivo(){
@@ -1606,21 +1631,21 @@ async function iniciarAoVivo(musicaId,aba){
   const row={id:1,ativo:true,musica_id:musicaId,aba:aba||'cifra',por_nome:u?u.nome:'',updated_at:new Date().toISOString()};
   try{ await sb.from('ao_vivo').upsert(row); }catch(e){ return toast('Erro: '+(e.message||e)); }
   AO_VIVO=row;
-  notificarTodos('\uD83D\uDD34','CULTO AO VIVO','A transmissao ao vivo comecou! O app vai acompanhar a musica em tempo real.');
-  toast('Transmissao AO VIVO iniciada!'); atualizaBannerVivo();
+  notificarTodos('\uD83D\uDD34','CULTO AO VIVO','A transmissão ao vivo começou! O app vai acompanhar em tempo real.');
+  toast('Transmissão AO VIVO iniciada!'); atualizaBannerVivo();
   if(musicaAberta===musicaId) abrirMusica(musicaId,aba||'cifra');
 }
 async function trocarAoVivo(musicaId,aba){
   if(!ehAdmin()||!AO_VIVO.ativo) return;
   const row=Object.assign({},AO_VIVO,{musica_id:musicaId||AO_VIVO.musica_id,aba:aba||AO_VIVO.aba,updated_at:new Date().toISOString()});
   try{ await sb.from('ao_vivo').upsert(row); }catch(e){ return toast('Erro: '+(e.message||e)); }
-  AO_VIVO=row; toast('Ao vivo movido para esta musica.'); atualizaBannerVivo();
+  AO_VIVO=row; toast('Ao vivo movido para cá.'); atualizaBannerVivo();
   if(musicaAberta===musicaId) abrirMusica(musicaId,aba||AO_VIVO.aba);
 }
 async function encerrarAoVivo(){
   if(!ehAdmin()) return;
   try{ await sb.from('ao_vivo').upsert({id:1,ativo:false,updated_at:new Date().toISOString()}); }catch(e){}
-  AO_VIVO={ativo:false}; _liveLast=''; toast('Transmissao encerrada.'); atualizaBannerVivo(); go('inicio');
+  AO_VIVO={ativo:false}; _liveLast=''; toast('Transmissão encerrada.'); atualizaBannerVivo(); go('inicio');
 }
 function aplicarAoVivo(force){
   atualizaBannerVivo();
@@ -1638,17 +1663,17 @@ function atualizaBannerVivo(){
       b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:9999;background:#c0392b;color:#fff;font-weight:700;font-size:13px;text-align:center;padding:7px 10px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer'; }
     const m=DB.musicas.find(x=>x.id===AO_VIVO.musica_id);
     b.innerHTML='\uD83D\uDD34 AO VIVO'+(m?' \u2014 '+esc(m.titulo):'')+(ehAdmin()?' <span style="font-weight:400">(toque p/ encerrar)</span>':' <span style="font-weight:400">(acompanhando)</span>');
-    b.onclick=function(){ if(ehAdmin()){ if(confirm('Encerrar a transmissao ao vivo?')) encerrarAoVivo(); } else if(AO_VIVO.musica_id){ abrirMusica(AO_VIVO.musica_id,AO_VIVO.aba||'cifra'); } };
+    b.onclick=function(){ if(ehAdmin()){ if(confirm('Encerrar a transmissão ao vivo?')) encerrarAoVivo(); } else if(AO_VIVO.musica_id){ abrirMusica(AO_VIVO.musica_id,AO_VIVO.aba||'cifra'); } };
     document.body.style.paddingTop='34px';
   } else { if(b) b.remove(); document.body.style.paddingTop=''; }
 }
 function cardAoVivoAdm(){
   const on=AO_VIVO&&AO_VIVO.ativo; const m=on&&DB.musicas.find(x=>x.id===AO_VIVO.musica_id);
   return `<div class="card" style="border-left:4px solid #c0392b"><h3>\uD83D\uDD34 Culto ao vivo</h3>
-    <p style="font-size:13px;color:#556;margin-bottom:8px">${on?('Transmitindo: <b>'+(m?esc(m.titulo):'(musica)')+'</b>. Todos acompanham em tempo real.'):'Nenhuma transmissao ativa. Abra uma musica e toque em \u201cIniciar ao vivo\u201d.'}</p>
+    <p style="font-size:13px;color:#556;margin-bottom:8px">${on?('Transmitindo: <b>'+(m?esc(m.titulo):'(música)')+'</b>. Todos acompanham em tempo real.'):'Nenhuma transmissão ativa. Abra uma música ou um hino e toque em \u201cAo vivo\u201d.'}</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="mini-btn" onclick="go('musicas')">\uD83C\uDFB5 Escolher musica</button>
-      ${on?'<button class="mini-btn sec" onclick="encerrarAoVivo()">\u23F9 Encerrar transmissao</button>':''}
+      <button class="mini-btn" onclick="go('musicas')">\uD83C\uDFB5 Escolher música</button>
+      ${on?'<button class="mini-btn sec" onclick="encerrarAoVivo()">\u23F9 Encerrar transmissão</button>':''}
     </div></div>`;
 }
 /* ---------- UPLOAD DIRETO AO GOOGLE DRIVE (GIS) ---------- */
@@ -1722,8 +1747,8 @@ function registrarSW(){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 function pedirPermissaoNotif(){
-  if(!('Notification' in window)) return toast('Seu dispositivo nao suporta notificacoes.');
-  Notification.requestPermission().then(p=>{ toast(p==='granted'?'Notificacoes ativadas! \uD83D\uDD14':'Permissao negada.'); if($('#appShell')&&!$('#appShell').classList.contains('hidden')) go('perfil'); });
+  if(!('Notification' in window)) return toast('Seu aparelho não suporta notificações.');
+  Notification.requestPermission().then(p=>{ toast(p==='granted'?'Notificações ativadas! \uD83D\uDD14':'Permissao negada.'); if($('#appShell')&&!$('#appShell').classList.contains('hidden')) go('perfil'); });
 }
 function notifSistema(titulo,corpo){
   try{ if(('Notification' in window)&&Notification.permission==='granted'){ new Notification(titulo||'IBNM Musica',{body:corpo||'',icon:'icon-192.png',badge:'icon-192.png'}); } }catch(e){}
@@ -1770,10 +1795,10 @@ ROTAS.admin=function(){ let html=_admPrev(); if(!ehAdmin()) return html;
 const _perfPrev=ROTAS.perfil;
 ROTAS.perfil=function(){ let html=_perfPrev();
   const perm=('Notification' in window)?Notification.permission:'unsupported';
-  const btn = perm==='granted' ? '<p style="font-size:12.5px;color:var(--verde-claro)">\uD83D\uDD14 Notificacoes ativadas neste dispositivo.</p>'
-    : perm==='unsupported' ? '<p style="font-size:12.5px;color:#9aa">Notificacoes nao suportadas neste navegador.</p>'
-    : '<button class="mini-btn" onclick="pedirPermissaoNotif()">\uD83D\uDD14 Ativar notificacoes neste aparelho</button>';
-  const card='<div class="card"><h3>Notificacoes do app</h3><p style="font-size:12.5px;color:#556;margin-bottom:8px">Receba avisos de nova playlist, escala e culto ao vivo.</p>'+btn+'</div>';
+  const btn = perm==='granted' ? '<p style="font-size:12.5px;color:var(--verde-claro)">\uD83D\uDD14 Notificações ativadas neste aparelho.</p>'
+    : perm==='unsupported' ? '<p style="font-size:12.5px;color:#9aa">Notificações não suportadas neste navegador.</p>'
+    : '<button class="mini-btn" onclick="pedirPermissaoNotif()">\uD83D\uDD14 Ativar notificações neste aparelho</button>';
+  const card='<div class="card"><h3>Notificações do app</h3><p style="font-size:12.5px;color:#556;margin-bottom:8px">Receba avisos de nova playlist, escala e culto ao vivo.</p>'+btn+'</div>';
   const i=html.lastIndexOf('</div>'); return i>=0 ? (html.slice(0,i)+card+html.slice(i)) : (html+card);
 };
 
@@ -1788,7 +1813,7 @@ abrirMusica=function(id,aba){ _abrirPrevV2(id,aba); _viewAtual=function(){ abrir
     ? '<button class="mini-btn" onclick="iniciarAoVivo(\''+id+'\',\''+(aba||'cifra')+'\')">\u25B6 Iniciar ao vivo</button>'
     : (liveHere ? '<button class="mini-btn sec" onclick="encerrarAoVivo()">\u23F9 Encerrar</button>'
                 : '<button class="mini-btn" onclick="trocarAoVivo(\''+id+'\',\''+(aba||'cifra')+'\')">\uD83D\uDD04 Trazer p/ esta</button> <button class="mini-btn sec" onclick="encerrarAoVivo()">\u23F9 Encerrar</button>');
-  bar.innerHTML='<h3>\uD83D\uDD34 Culto ao vivo</h3><p style="font-size:13px;color:#556;margin-bottom:8px">'+(AO_VIVO.ativo?(liveHere?'Transmitindo ESTA musica.':'Ao vivo em outra musica.'):'Transmita esta musica para todos acompanharem.')+'</p><div style="display:flex;gap:8px;flex-wrap:wrap">'+acts+'</div>';
+  bar.innerHTML='<h3>\uD83D\uDD34 Culto ao vivo</h3><p style="font-size:13px;color:#556;margin-bottom:8px">'+(AO_VIVO.ativo?(liveHere?'Transmitindo ESTA música.':'Ao vivo em outra música.'):'Transmita esta música para todos acompanharem.')+'</p><div style="display:flex;gap:8px;flex-wrap:wrap">'+acts+'</div>';
   page.appendChild(bar);
 };
 
@@ -1801,7 +1826,7 @@ editorCifra=function(id){ _edPrevV2(id);
   wrap.innerHTML = cid
     ? '<button class="mini-btn" onclick="document.getElementById(\'edDriveFile\').click()">\u2601\uFE0F Enviar arquivo ao Drive</button>'+
       '<input type="file" id="edDriveFile" accept="audio/*" class="hidden" onchange="driveUploadAudio(\''+id+'\',this)">'+
-      '<p style="font-size:11.5px;color:#9aa;margin-top:6px">Envia direto ao Google Drive e ja adiciona o link.</p>'
+      '<p style="font-size:11.5px;color:#9aa;margin-top:6px">Envia direto ao Google Drive e já adiciona o link.</p>'
     : '<p style="font-size:11.5px;color:#c0392b;margin-top:6px">Para enviar arquivos direto ao Drive, configure o Client ID no Painel do ADM.</p>';
   addBtn.parentNode.insertBefore(wrap, addBtn.nextSibling);
 };
@@ -2233,5 +2258,7 @@ if(typeof ligarRealtime==='function'){
 <script src="hinos.js"></script>
 <script src="academia.js"></script>
 <script src="cantor.js"></script>
+<script src="melhorias.js"></script>
+<script src="culto.js"></script>
 </body>
 </html>

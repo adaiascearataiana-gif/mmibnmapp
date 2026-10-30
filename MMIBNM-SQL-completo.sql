@@ -125,3 +125,56 @@ END $$;
 -- Siga o guia MMIBNM-GOOGLE-LOGIN.md — leva ~5 minutos e
 -- precisa de um Client ID criado no Google Cloud Console.
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 7) (v0.3.0) Edições de cifra do Cantor Cristão na nuvem
+--    O ADM edita e TODOS os membros veem (tempo real).
+--    Sem esta tabela, as edições ficam só no aparelho do ADM.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS cantor_edits (
+  num integer PRIMARY KEY,           -- número do hino (1..581)
+  linhas jsonb NOT NULL,             -- { "parte-linha": "[G]linha com [D]acordes" }
+  updated_at timestamptz DEFAULT now()
+);
+ALTER TABLE cantor_edits ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.cantor_edits'::regclass AND polname='ce_sel') THEN
+    CREATE POLICY ce_sel ON cantor_edits FOR SELECT USING (true);
+    CREATE POLICY ce_ins ON cantor_edits FOR INSERT WITH CHECK (is_admin());
+    CREATE POLICY ce_upd ON cantor_edits FOR UPDATE USING (is_admin()) WITH CHECK (is_admin());
+    CREATE POLICY ce_del ON cantor_edits FOR DELETE USING (is_admin());
+  END IF;
+END $$;
+DO $$ BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE cantor_edits;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
+END $$;
+
+-- ------------------------------------------------------------
+-- 8) (v0.4.0) Favoritos do Cantor Cristão na nuvem
+--    Cada pessoa só vê e mexe nos próprios favoritos.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS cantor_favoritos (
+  user_id uuid NOT NULL DEFAULT auth.uid(),
+  num integer NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  PRIMARY KEY (user_id, num)
+);
+ALTER TABLE cantor_favoritos ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='public.cantor_favoritos'::regclass AND polname='cf_sel') THEN
+    CREATE POLICY cf_sel ON cantor_favoritos FOR SELECT USING (user_id = auth.uid());
+    CREATE POLICY cf_ins ON cantor_favoritos FOR INSERT WITH CHECK (user_id = auth.uid());
+    CREATE POLICY cf_upd ON cantor_favoritos FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+    CREATE POLICY cf_del ON cantor_favoritos FOR DELETE USING (user_id = auth.uid());
+  END IF;
+END $$;
+
+-- ------------------------------------------------------------
+-- 9) (v0.4.0) Segurança: só quem está logado cria notificações
+--    (antes, até visitante anônimo podia inserir).
+-- ------------------------------------------------------------
+DROP POLICY IF EXISTS notif_ins ON notificacoes;
+CREATE POLICY notif_ins ON notificacoes FOR INSERT TO authenticated WITH CHECK (true);
