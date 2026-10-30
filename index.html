@@ -318,7 +318,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
    Persistencia local (localStorage). Pontos de integracao
    para Google Login / Google Drive marcados com [INTEGRACAO].
 ============================================================ */
-const VERSION = 'v0.4.1';
+const VERSION = 'v0.5.0';
 const DB_KEY = 'ibnm_mm_db_v1';
 const SES_KEY = 'ibnm_mm_sessao';
 const LOGO = document.getElementById('logoTpl').innerHTML;
@@ -2200,56 +2200,90 @@ if(typeof ligarRealtime==='function'){
 </script>
 
 <script>
-/* ===== Botão VOLTAR do Android / navegador ===== */
+/* ===== Botão VOLTAR do Android / gesto de voltar do iPhone (v0.4.3) =====
+   Ordem do que o VOLTAR fecha/volta:
+   1) projetor, janelas (folhas, modais), menu lateral, boas-vindas
+   2) tela anterior (músicas, hinos, editor, academia, escala...)
+   3) quando acaba o histórico: volta para o INÍCIO
+   4) no INÍCIO: pergunta se quer sair do app
+   Nas telas de login: Cadastro/Recuperar senha voltam para o Login. */
 (function(){
   if(window.__ibnmBack) return; window.__ibnmBack=true;
+  var INICIO='go|inicio|';
   function _el(id){ return document.getElementById(id); }
   function _menuAberto(){ var s=_el('sidemenu'); return !!(s && s.classList.contains('show')); }
   function _modalAberto(){ var m=_el('modalBg'); return !!(m && m.classList.contains('show')); }
   function _bvAberto(){ var b=_el('bvScreen'); return !!(b && b.innerHTML.trim()!==''); }
   function _sheetAberto(){ return !!document.querySelector('.cc-sheet-bg'); }
-  function _overlayAberto(){ return _menuAberto()||_modalAberto()||_bvAberto()||_sheetAberto(); }
+  function _projAberto(){ return !!document.querySelector('.proj'); }
+  function _popAberto(){ return !!document.querySelector('.cor-pop.show'); }
+  function _overlayAberto(){ return _projAberto()||_sheetAberto()||_modalAberto()||_popAberto()||_menuAberto()||_bvAberto(); }
   function _fecharOverlay(){
-    if(_sheetAberto()){ document.querySelectorAll('.cc-sheet-bg').forEach(function(b){ b.remove(); }); return; }
+    if(_projAberto()){ if(window.fecharProjetor) window.fecharProjetor(); else document.querySelectorAll('.proj').forEach(function(b){ b.remove(); }); return; }
+    if(_sheetAberto()){ var bs=document.querySelectorAll('.cc-sheet-bg'); bs[bs.length-1].remove(); return; }
     if(_modalAberto() && typeof fecharModal==='function'){ fecharModal(); return; }
+    if(_popAberto()){ document.querySelectorAll('.cor-pop.show').forEach(function(p){ p.classList.remove('show'); }); return; }
     if(_menuAberto() && typeof toggleMenu==='function'){ toggleMenu(false); return; }
     if(_bvAberto() && typeof fecharBoasVindas==='function'){ fecharBoasVindas(); return; }
   }
+  function _naAutenticacao(){ var a=_el('authScreens'); var sh=_el('appShell'); return !!(a && a.innerHTML.trim()!=='' && (!sh || sh.classList.contains('hidden'))); }
+  function _telaSecundariaLogin(){ return !!(_el('cNome') || _el('recEmail')); }
+
   var navStack=[];
   function _topo(){ return navStack.length? navStack[navStack.length-1] : null; }
+  function _mesmaTela(a,b){ if(!a||!b) return false; var x=a.split('|'), y=b.split('|'); return x[0]===y[0] && x[1]===y[1] && (x[0]!=='go' || (x[2]||'')===(y[2]||'')); }
   function _registra(screen){
     var top=_topo();
     if(top===screen) return;
-    if(top && screen.indexOf('mus|')===0 && top.indexOf('mus|')===0){
-      if(top.split('|')[1]===screen.split('|')[1]){ navStack[navStack.length-1]=screen; return; }
-    }
-    /* botões "voltar" do app (ex.: ‹ Hinos): não empilha de novo a tela anterior */
-    if(navStack.length>1 && navStack[navStack.length-2]===screen){ navStack.pop(); return; }
+    if(_mesmaTela(top,screen)){ navStack[navStack.length-1]=screen; return; }      /* mesma música em outra aba, mesmo hino */
+    if(navStack.length>1 && navStack[navStack.length-2]===screen){ navStack.pop(); return; } /* botões "‹ Voltar" do app */
+    if(screen===INICIO){ navStack=[INICIO]; return; }                                 /* Início é sempre a base */
     navStack.push(screen);
+    if(navStack.length>60) navStack.splice(1,1);
   }
   window.__navReg=_registra;
+  window.__navStack=function(){ return navStack.slice(); };
   if(typeof window.go==='function'){
-    var _goOrig=window.go;
-    window.__goOrig=_goOrig;
-    window.go=function(page,arg){ _goOrig(page,arg); _registra('go|'+page+'|'+(arg==null?'':arg)); };
+    var _goOrig=window.go; window.__goOrig=_goOrig;
+    window.go=function(page,arg){ _goOrig(page,arg); if(page!=='ajuda') _registra('go|'+page+'|'+(arg==null?'':arg)); };
   }
   if(typeof window.abrirMusica==='function'){
-    var _amOrig=window.abrirMusica;
-    window.__amOrig=_amOrig;
+    var _amOrig=window.abrirMusica; window.__amOrig=_amOrig;
     window.abrirMusica=function(id,aba){ _amOrig(id,aba); _registra('mus|'+id+'|'+(aba||'cifra')); };
   }
+  if(typeof window.editorCifra==='function'){
+    var _edOrig=window.editorCifra; window.__edOrig=_edOrig;
+    window.editorCifra=function(id){ _edOrig(id); _registra('ed|'+id); };
+  }
   function _irPara(entry){
+    try{ if(window.__pararRolagens) window.__pararRolagens(); }catch(e){}
     var p=entry.split('|');
     if(p[0]==='mus'){ (window.__amOrig||window.abrirMusica)(p[1], p[2]||'cifra'); }
     else if(p[0]==='cc'){ if(window.cantorAbrir) window.cantorAbrir(+p[1]); }
+    else if(p[0]==='ed'){ (window.__edOrig||window.editorCifra)(p[1]); }
     else if(p[0]==='go'){ (window.__goOrig||window.go)(p[1], p[2]===''?undefined:p[2]); }
+    window.scrollTo(0,0);
   }
+  function _editorComMudancas(){ try{ return !!document.getElementById('edCifra') && typeof _edUndo!=='undefined' && _edUndo.length>0; }catch(e){ return false; } }
   function _arma(){ try{ history.pushState({ibnm:1}, ''); }catch(e){} }
   try{ history.replaceState({ibnm:1,root:1}, ''); }catch(e){}
   _arma();
+  window.__voltar=function(){
+    /* 1) sobreposições */
+    if(_overlayAberto()){ _fecharOverlay(); return true; }
+    /* telas de login */
+    if(_naAutenticacao()){ if(_telaSecundariaLogin() && typeof telaLogin==='function'){ telaLogin(); return true; } return false; }
+    /* editor com alterações não salvas */
+    if(_topo() && _topo().indexOf('ed|')===0 && _editorComMudancas() && !confirm('Sair do editor sem salvar as alterações?')) return true;
+    /* 2) tela anterior */
+    if(navStack.length>1){ navStack.pop(); _irPara(_topo()); return true; }
+    /* 3) volta para o Início */
+    if(_topo()!==INICIO){ navStack=[INICIO]; _irPara(INICIO); return true; }
+    /* 4) já no Início */
+    return false;
+  };
   window.addEventListener('popstate', function(){
-    if(_overlayAberto()){ _fecharOverlay(); _arma(); return; }
-    if(navStack.length>1){ navStack.pop(); _irPara(navStack[navStack.length-1]); _arma(); return; }
+    if(window.__voltar()){ _arma(); return; }
     if(confirm('Deseja sair do aplicativo?')){ history.back(); }
     else { _arma(); }
   });
@@ -2261,5 +2295,6 @@ if(typeof ligarRealtime==='function'){
 <script src="melhorias.js"></script>
 <script src="culto.js"></script>
 <script src="escala.js"></script>
+<script src="membros.js"></script>
 </body>
 </html>

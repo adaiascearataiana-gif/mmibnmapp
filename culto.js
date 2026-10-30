@@ -327,7 +327,6 @@ function fecharProjetor(){
 }
 window.fecharProjetor=fecharProjetor;
 /* botão VOLTAR do Android fecha o projetor */
-addEventListener('popstate',()=>{ if(PJ){ fecharProjetor(); } },true);
 
 /* ================= 4) METRÔNOMO E AFINADOR ================= */
 const MT={bpm:+(localStorage.getItem('ibnm_bpm')||80),comp:+(localStorage.getItem('ibnm_comp')||4),on:false,ctx:null,prox:0,beat:0,timer:0,taps:[]};

@@ -178,3 +178,29 @@ END $$;
 -- ------------------------------------------------------------
 DROP POLICY IF EXISTS notif_ins ON notificacoes;
 CREATE POLICY notif_ins ON notificacoes FOR INSERT TO authenticated WITH CHECK (true);
+
+-- ------------------------------------------------------------
+-- 10) (v0.5.0) Tabela de membros: ADM edita os dados de qualquer
+--     membro; ninguém (exceto ADM) consegue se tornar ADM sozinho.
+-- ------------------------------------------------------------
+DROP POLICY IF EXISTS perfis_upd_adm ON perfis;
+CREATE POLICY perfis_upd_adm ON perfis FOR UPDATE TO authenticated
+  USING (is_admin()) WITH CHECK (is_admin());
+
+CREATE OR REPLACE FUNCTION perfis_protege_admin() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.admin IS DISTINCT FROM OLD.admin AND NOT is_admin() THEN
+      NEW.admin := OLD.admin;            -- membro comum não muda o próprio "admin"
+    END IF;
+  ELSIF TG_OP = 'INSERT' THEN
+    IF COALESCE(NEW.admin,false) AND EXISTS (SELECT 1 FROM perfis) AND NOT is_admin() THEN
+      NEW.admin := false;                -- só o 1º cadastro do sistema nasce ADM
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_perfis_protege_admin ON perfis;
+CREATE TRIGGER trg_perfis_protege_admin BEFORE INSERT OR UPDATE ON perfis
+  FOR EACH ROW EXECUTE FUNCTION perfis_protege_admin();

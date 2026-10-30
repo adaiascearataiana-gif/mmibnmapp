@@ -190,6 +190,7 @@ if(typeof bindZoomView==='function'){
 }
 /* parar a rolagem das músicas ao trocar de tela */
 function pararTudo(){ pararRol(); try{ if(window.Cantor&&window.Cantor.stopScroll) window.Cantor.stopScroll(); }catch(e){} }
+window.__pararRolagens=pararTudo;
 if(typeof window.go==='function'){ const _g=window.go; window.go=function(){ pararTudo(); return _g.apply(this,arguments); }; }
 if(typeof window.abrirMusica==='function'){ const _am=window.abrirMusica; window.abrirMusica=function(id){ if(id!==window.__musRolId){ pararTudo(); } window.__musRolId=id; return _am.apply(this,arguments); }; }
 if(typeof window.cantorAbrir==='function'){ const _ca=window.cantorAbrir; window.cantorAbrir=function(){ pararRol(); return _ca.apply(this,arguments); }; }

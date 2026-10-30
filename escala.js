@@ -70,6 +70,61 @@ if(typeof linhaVigenteIdx==='function'){
   };
 }
 
+
+/* ---------------- colunas: só até a última preenchida ---------------- */
+const temValor=v=>String(v==null?'':v).trim()!=='';
+const nomeGenerico=c=>/^(col\s*\d+|__empty(_\d+)?|coluna\s*\d+)?$/i.test(String(c||'').trim());
+/* recebe a matriz da planilha (1ª linha = cabeçalho) e devolve {colunas, linhas} limpos */
+function limparPlanilha(rows){
+  const cab=(rows[0]||[]).map(c=>String(c==null?'':c).trim());
+  const dados=rows.slice(1).filter(r=>(r||[]).some(temValor));
+  const larg=Math.max(cab.length,...dados.map(r=>(r||[]).length),0);
+  let ultima=-1;
+  for(let j=0;j<larg;j++) if(dados.some(r=>temValor((r||[])[j]))) ultima=j;
+  if(ultima<0) for(let j=0;j<cab.length;j++) if(temValor(cab[j])) ultima=j;
+  const usar=[]; for(let j=0;j<=ultima;j++){ const temDado=dados.some(r=>temValor((r||[])[j])); if(temDado || temValor(cab[j])) usar.push(j); }
+  const vistos={};
+  const colunas=usar.map(j=>{ let n=cab[j]||('Coluna '+(j+1)); if(vistos[n]){ vistos[n]++; n=n+' ('+vistos[n]+')'; } else vistos[n]=1; return n; });
+  const linhas=dados.map(r=>{ const cel={}; usar.forEach((j,k)=>cel[colunas[k]]=String((r||[])[j]==null?'':(r||[])[j]).trim()); return cel; });
+  return {colunas,linhas};
+}
+/* escala já salva: esconde as colunas vazias do fim (e as sem nome e sem dado) */
+function aparar(E){
+  if(!E||!E.colunas||!E.colunas.length) return E;
+  const cols=E.colunas, ls=E.linhas||[];
+  let ultima=-1; cols.forEach((c,j)=>{ if(ls.some(l=>temValor((l.celulas||{})[c]))) ultima=j; });
+  if(ultima<0) return E;
+  const ok=cols.filter((c,j)=>j<=ultima && (ls.some(l=>temValor((l.celulas||{})[c])) || !nomeGenerico(c)));
+  if(ok.length===cols.length) return E;
+  return Object.assign({},E,{colunas:ok});
+}
+if(typeof escalaAtiva==='function'){
+  const _ea=escalaAtiva;
+  window.escalaAtiva=escalaAtiva=function(){ return aparar(_ea.apply(this,arguments)); };
+}
+/* importação (ADM): já grava só até a última coluna preenchida */
+window.importarEscala=importarEscala=function(inp){
+  const f=inp.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=async ev=>{ try{
+    const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array',cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false,blankrows:false});
+    if(!rows.length) return toast('Planilha vazia.');
+    const {colunas,linhas:cels}=limparPlanilha(rows);
+    if(!colunas.length||!cels.length) return toast('Não encontrei dados na planilha.');
+    const linhas=cels.map(cel=>{ const per=detectaPeriodo(colunas,cel); return {periodoInicio:per.ini,periodoFim:per.fim,celulas:cel}; });
+    DB.escala={colunas,linhas};
+    if(typeof sb!=='undefined'&&sb){ const {error}=await sb.from('escala').update({colunas,linhas,updated_at:new Date().toISOString()}).eq('id',1); if(error) return toast('Erro ao salvar: '+error.message); }
+    else if(typeof saveDB==='function') saveDB();
+    try{ notificarImportacaoEscala(); }catch(_){}
+    toast('Escala importada! '+linhas.length+' culto(s), '+colunas.length+' coluna(s).'); go('escala');
+    if(inp) inp.value='';
+  }catch(err){ toast('Erro ao ler o arquivo: '+err.message); } };
+  r.readAsArrayBuffer(f);
+};
+window.__limparPlanilha=limparPlanilha;
+
 /* ---------------- nomes ---------------- */
 const VAZIO=/^(x+|-+|—|–|\.+|n\/?a|nenhum|ninguem|sem|a definir|definir|\?+)$/i;
 function nomes(v){
@@ -81,7 +136,10 @@ function souEu(nome,u){ try{ return !!(u && nomeNaCelula(nome,u)); }catch(_){ re
 
 /* ---------------- estilos ---------------- */
 const css=`
-.esc-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
+.esc-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;position:sticky;top:var(--ibnm-topbar,64px);z-index:30;background:var(--cinza,#eef4f1);margin:0 -14px 12px;padding:8px 14px;box-shadow:0 6px 10px -8px rgba(0,0,0,.25)}
+/* modo tabela: só a tabela rola (para cima/baixo e para os lados), com o cabeçalho fixo */
+.esc-tabela .escala-wrap{max-height:calc(100vh - var(--ibnm-topbar,64px) - 76px);max-height:calc(100dvh - var(--ibnm-topbar,64px) - 76px);overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.esc-tabela table.escala th{position:sticky;top:0;z-index:2}
 .esc-seg{display:flex;flex:1;min-width:230px;background:#fff;border:1px solid #d6e2dc;border-radius:12px;overflow:hidden}
 .esc-seg button{flex:1;height:40px;border:0;background:none;font-weight:700;font-size:13px;color:var(--verde-escuro)}
 .esc-seg button+button{border-left:1px solid #d6e2dc}
@@ -162,7 +220,9 @@ if(typeof ROTAS!=='undefined' && ROTAS.escala){
     const a=html.indexOf('<div class="escala-wrap">'); if(a<0) return html;
     const b=html.indexOf('</table></div>',a); if(b<0) return html;
     if(p.modo==='tabela'){
-      return html.slice(0,a)+'<div class="esc-bar"><span style="flex:1"></span><button class="esc-modo" onclick="escalaModo()">▤ Cartões</button></div>'+html.slice(a);
+      setTimeout(()=>{ const w=document.querySelector('.esc-tabela .escala-wrap'); if(w) scrollTo(0, w.getBoundingClientRect().top+scrollY-(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ibnm-topbar'))||64)-62); },80);
+      const b2=html.indexOf('</table></div>',a)+'</table></div>'.length;
+      return html.slice(0,a)+'<div class="esc-tabela"><div class="esc-bar"><span style="flex:1;font-size:13px;color:#5d7c6e;font-weight:700">Arraste a tabela para os lados</span><button class="esc-modo" onclick="escalaModo()">▤ Cartões</button></div>'+html.slice(a,b2)+'</div>'+html.slice(b2);
     }
     html=html.replace('A linha vigente da semana aparece destacada. Atualiza toda segunda-feira às 00:01.','O culto desta semana aparece em dourado; seu nome também.');
     const a2=html.indexOf('<div class="escala-wrap">');

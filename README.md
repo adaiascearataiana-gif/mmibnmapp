@@ -31,9 +31,10 @@ cifras, playlist, escala e links do YouTube (do app e do Cantor Cristão).
 | `academia.js` | Academia de Música (materiais gerenciados pelo ADM) |
 | `culto.js` | Ordem do culto, tom do culto, projetor, metrônomo/afinador e modo escuro (v0.4.0) |
 | `escala.js` | Escala em cartões (nomes em destaque, filtros) e semana vigente corrigida (v0.4.1) |
+| `membros.js` | Modo ADM/usuário, cadastro obrigatório e tabela de membros (v0.5.0) |
 | `melhorias.js` | Correções e recursos da v0.3.0 (tom/rolagem nas músicas, ao vivo com hinos, links diretos) |
 | `cc-intro/` | Imagens de introdução dos hinos |
-| `sw.js` | Service worker (offline) — `mmibnm-v6`, atualiza os arquivos sozinho |
+| `sw.js` | Service worker (offline) — `mmibnm-v9`, atualiza os arquivos sozinho |
 | `MMIBNM-GOOGLE-LOGIN.md` | Guia do login com Google |
 | `MMIBNM-SQL-completo.sql` | SQL aplicado no Supabase (backup) |
 | `SUGESTOES.md` | Análise e melhorias sugeridas |
@@ -95,3 +96,30 @@ edições do Cantor aparecerem para todos.
   **▦ Tabela** para quem preferir a tabela.
 - Campos com "XXXXXXXXX" aparecem como "a definir".
 - A semana vigente agora reconhece datas como 7-Jun, 2-Aug, 07/06.
+
+## v0.4.2
+
+- **Importar escala:** grava só até a última coluna preenchida (colunas
+  vazias do fim, colunas sem nome e sem dado e linhas em branco são
+  ignoradas). A escala que já está no app também passa a esconder essas
+  colunas, sem precisar importar de novo.
+
+## v0.4.3
+- Botão **VOLTAR** (Android/gesto do iPhone) em todo o app: fecha projetor,
+  janelas, modais e menu; volta tela a tela (inclusive do editor de cifra,
+  hinos, academia); ao acabar o histórico vai para o **Início**; no Início
+  pergunta se quer sair. Cadastro/Recuperar senha voltam para o Login.
+- Escala: barra **Próximas · Todas · Minhas · Tabela** fica fixa; no modo
+  tabela só a tabela rola (para cima/baixo e para os lados).
+
+## v0.5.0
+- **Modo ADM / Modo usuário** no menu lateral (só para ADM). No modo
+  usuário aparece um aviso no topo; tocar nele volta ao modo ADM.
+- **Cadastro obrigatório:** nome e sobrenome, nascimento, telefone,
+  WhatsApp (sim/não) e função. Quem estiver incompleto (ex.: entrou pelo
+  Google) vê "Complete seu cadastro" ao abrir o app.
+- **👥 Membros (tabela do ADM):** todos os dados, cadastro completo ou
+  incompleto, busca, filtros (função, ADM, aniversariantes), ordenar,
+  editar, tornar/tirar ADM, WhatsApp e exportar para Excel.
+
+⚠️ Rode a seção **10** do `MMIBNM-SQL-completo.sql`.
