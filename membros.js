@@ -218,7 +218,7 @@ if(typeof iniciarApp==='function'){
   const _ia=iniciarApp;
   window.iniciarApp=iniciarApp=function(){ _ia.apply(this,arguments); setTimeout(gate,80); };
 }
-if(typeof _booted!=='undefined' && _booted) setTimeout(()=>{ try{ montaMenu(); }catch(_){} gate(); },60);
+if(typeof _booted!=='undefined' && _booted) setTimeout(()=>{ try{ montaMenu(); }catch(_){} gate(); if(typeof cloudPerfis==='function') Promise.resolve(cloudPerfis()).catch(()=>{}); },60);
 
 /* número do WhatsApp: carregar com os perfis e trazer do cadastro (metadados) */
 if(typeof cloudPerfis==='function'){

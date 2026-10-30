@@ -163,3 +163,13 @@ edições do Cantor aparecerem para todos.
   (aparece como botão na Playlist e no Início).
 - Corrigido o erro "duplicate key value violates unique constraint
   playlist_pkey" ao publicar (agora atualiza a playlist existente).
+
+## v0.7.0
+- **Playlist da próxima semana:** abas "📅 Esta semana" e "🗓️ Próxima semana"
+  na Playlist. O ADM monta a da próxima semana do mesmo jeito (busca de
+  músicas e hinos, ordem, tom, YouTube); as datas já vêm preenchidas.
+- Ao publicar, quem está **escalado nas datas dessa playlist** recebe aviso
+  em janela e acesso direto às letras, cifras e áudios (opção de avisar todos).
+- Quando chega a semana, ela vira automaticamente a playlist "desta semana".
+- Início mostra o cartão da próxima semana; itens mostram o que está
+  disponível (cifra · letra · áudio). Sem SQL novo.

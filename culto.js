@@ -55,6 +55,16 @@ const css=`
 .pl-sug .tx small{font-size:11.5px;color:#6b8378}
 .pl-sug i{font-style:normal;font-size:11.5px;font-weight:800;color:var(--verde-med);white-space:nowrap}
 .pl-sug .nada{font-size:12.5px;color:#9aa;padding:6px 4px}
+.pl-tabs{display:flex;gap:6px;margin:0 0 12px}
+.pl-tabs button{flex:1;height:42px;border-radius:12px;border:1px solid var(--verde-med);background:#fff;color:var(--verde-escuro);font-weight:800;font-size:13.5px}
+.pl-tabs button.on{background:var(--verde-med);color:#fff}
+.pl-tabs button i{font-style:normal;color:var(--dourado)}
+.pl-eu{background:#fff8dc;border:1px solid #f0d97a;border-radius:12px;padding:10px 12px;font-size:13.5px;color:#5a4700;margin-bottom:12px}
+.pl-dica{font-size:12.5px;color:#556;background:#eef6f2;border-radius:10px;padding:8px 10px;margin:-4px 0 10px}
+.sl-ok{display:inline-block;font-size:10.5px;font-weight:800;color:#1c6b47;background:#e1f4ea;border-radius:8px;padding:1px 6px;margin-left:2px}
+.pl-proxcard{cursor:pointer;border-left:5px solid var(--dourado)}
+.pl-proxcard p{font-size:13.5px;color:#445;margin:2px 0 6px}
+.pl-proxcard .lk{font-weight:800;color:var(--verde-med);font-size:13.5px}
 .sl-yt{display:inline-flex;align-items:center;height:38px;padding:0 12px;border-radius:10px;background:#c4302b;color:#fff;font-weight:800;font-size:13px;text-decoration:none}
 .pl-add select,.pl-add input{flex:1;min-width:0;padding:9px 10px;border:1px solid #ccd;border-radius:8px;font-size:14px}
 .pl-add button{border:0;background:var(--verde-med);color:#fff;font-weight:800;border-radius:8px;padding:0 12px}
@@ -140,12 +150,31 @@ if(typeof ROTAS!=='undefined' && ROTAS.perfil){
 }
 
 /* ================= 1) SETLIST DO CULTO ================= */
-function setlist(){
+const pad2=n=>String(n).padStart(2,'0');
+const hojeISO=()=>{ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); };
+function normSl(x,chave){ if(!x||!Array.isArray(x.itens)||!x.itens.length) return null;
+  return {inicio:String(x.inicio||'').slice(0,10),fim:String(x.fim||'').slice(0,10),itens:x.itens.filter(existe),tons:x.tons||{},youtube:x.youtube||'',chave}; }
+/* qual: (vazio) = esta semana · 'prox' = próxima semana.
+   A da próxima semana vira "esta semana" sozinha quando chega a data de início. */
+function setlist(qual){
+  const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{};
+  const a=normSl(C.setlist,'setlist'), p=normSl(C.setlist_prox,'setlist_prox');
+  const pVale = p && p.inicio && p.inicio<=hojeISO();
+  if(qual==='prox') return pVale? null : p;
+  if(pVale) return p;
+  if(a) return a;
   const pl=(typeof DB!=='undefined'&&DB.playlist)||{};
-  const s=(typeof APP_CFG!=='undefined'&&APP_CFG.setlist)||null;
-  if(s && Array.isArray(s.itens) && s.itens.length && (!pl.inicio || String(s.inicio).slice(0,10)===String(pl.inicio).slice(0,10)))
-    return {inicio:s.inicio,fim:s.fim,itens:s.itens.filter(existe),tons:s.tons||{},youtube:s.youtube||''};
-  if(pl.publicada && pl.musicas && pl.musicas.length) return {inicio:pl.inicio,fim:pl.fim,itens:pl.musicas.filter(existe),tons:{}};
+  if(pl.publicada && pl.musicas && pl.musicas.length) return {inicio:pl.inicio,fim:pl.fim,itens:pl.musicas.filter(existe),tons:{},youtube:'',chave:'setlist'};
+  return null;
+}
+window.setlistDe=setlist;
+/* de qual lista é este item (para "Anterior/Próxima" e tom do culto) */
+function listaDe(id){
+  id=String(id); const ctx=window.__slCtx; const at=setlist(), px=setlist('prox');
+  const tem=l=>l&&l.itens.indexOf(id)>=0;
+  if(ctx==='prox' && tem(px)) return px;
+  if(tem(at)) return at;
+  if(tem(px)) return px;
   return null;
 }
 function existe(id){ id=String(id); if(id.indexOf('cc:')===0) return !!hino(id.slice(3)); return !!(DB.musicas||[]).find(m=>m.id===id); }
@@ -154,26 +183,41 @@ function info(id){
   if(id.indexOf('cc:')===0){ const h=hino(id.slice(3)); return {hino:true,ic:'📖',t:h?h.n+' · '+h.titulo:'Hino '+id.slice(3),s:'Cantor Cristão'+(h&&h.ritmo?' · '+h.ritmo:''),tom:h?h.tom:''}; }
   const m=(DB.musicas||[]).find(x=>x.id===id)||{}; return {hino:false,ic:'🎵',t:m.titulo||'(música removida)',s:m.artista||'',tom:''};
 }
-window.abrirItem=function(id){ id=String(id); if(id.indexOf('cc:')===0){ if(window.cantorAbrir) cantorAbrir(+id.slice(3)); } else abrirMusica(id,'cifra'); };
+window.abrirItem=function(id,ctx){ id=String(id); if(ctx!==undefined) window.__slCtx=ctx; if(id.indexOf('cc:')===0){ if(window.cantorAbrir) cantorAbrir(+id.slice(3)); } else abrirMusica(id,'cifra'); };
 function rotuloSemitom(v){ return v? (v>0?'+':'')+v : ''; }
-function linhaItem(id,i,sl){
+function disponivel(id){
+  if(String(id).indexOf('cc:')===0) return '<span class="sl-ok">letra · cifra</span>';
+  const m=(DB.musicas||[]).find(x=>x.id===id)||{}; const t=[];
+  if(m.cifra) t.push('cifra'); if(m.letra) t.push('letra'); if((m.audios&&m.audios.length)||m.youtube) t.push('áudio');
+  return t.length? '<span class="sl-ok">'+t.join(' · ')+'</span>' : '';
+}
+function linhaItem(id,i,sl,ctx){
   const f=info(id); const v=(sl.tons||{})[id]||0;
   let tom='';
   if(v && f.hino && window.Cantor){ try{ const h=hino(id.slice(3)); tom='Tom '+Cantor.keyInfo(h,v).key; }catch(_){} }
   else if(v) tom='Tom '+rotuloSemitom(v);
-  return '<div class="song-row sl-item" onclick="abrirItem(\''+id+'\')"><span class="ord">'+(i+1)+'</span><div class="s-ic">'+f.ic+'</div><div style="flex:1;min-width:0"><div class="s-nm">'+e(f.t)+'</div><div class="s-ar">'+e(f.s)+'</div></div>'+(tom?'<span class="sl-tom">'+e(tom)+'</span>':'')+'</div>';
+  return '<div class="song-row sl-item" onclick="abrirItem(\''+id+'\',\''+(ctx||'')+'\')"><span class="ord">'+(i+1)+'</span><div class="s-ic">'+f.ic+'</div><div style="flex:1;min-width:0"><div class="s-nm">'+e(f.t)+'</div><div class="s-ar">'+e(f.s)+' '+disponivel(id)+'</div></div>'+(tom?'<span class="sl-tom">'+e(tom)+'</span>':'')+'</div>';
 }
-function cardSetlist(sl,titulo){
-  return '<div class="card"><h3>'+titulo+'</h3>'+sl.itens.map((id,i)=>linhaItem(id,i,sl)).join('')+
-    '<div class="sl-acts" style="margin:10px 0 0"><button class="gold" onclick="abrirItem(\''+sl.itens[0]+'\')">▶ Começar pelo 1º</button><button onclick="projetarSetlist()">📺 Projetar tudo</button>'+
+function cardSetlist(sl,titulo,ctx){
+  ctx=ctx||'';
+  return '<div class="card"><h3>'+titulo+'</h3>'+sl.itens.map((id,i)=>linhaItem(id,i,sl,ctx)).join('')+
+    '<div class="sl-acts" style="margin:10px 0 0"><button class="gold" onclick="abrirItem(\''+sl.itens[0]+'\',\''+ctx+'\')">▶ Começar pelo 1º</button><button onclick="projetarSetlist(\''+ctx+'\')">📺 Projetar tudo</button>'+
     (sl.youtube?'<a class="sl-yt" href="'+e(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist no YouTube</a>':'')+'</div></div>';
 }
 if(typeof ROTAS!=='undefined'){
-  ROTAS.playlist=function(){
-    const sl=setlist(); const a=adm();
-    const topo='<div class="page-ttl">📅 Playlist da Semana</div>'+(a?'<button class="mini-btn" style="margin-bottom:14px" onclick="modalPlaylist()">✏️ Montar / editar playlist</button>':'');
-    if(!sl||!sl.itens.length) return '<div class="page">'+topo+'<div class="empty"><div class="big">🎼</div>Nenhuma playlist publicada ainda.</div></div>';
-    return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">PLAYLIST DA SEMANA</div><div class="dt">'+fmtData(sl.inicio)+' - '+fmtData(sl.fim)+'</div></div>'+cardSetlist(sl,'Ordem do culto ('+sl.itens.length+')')+'</div>';
+  let abaPl='';
+  ROTAS.playlist=function(arg){
+    if(arg==='prox'||arg==='atual') abaPl=arg==='prox'?'prox':'';
+    const a=adm(); const at=setlist(), px=setlist('prox'); const prox=abaPl==='prox';
+    const sl=prox? px : at;
+    const tabs='<div class="pl-tabs"><button class="'+(!prox?'on':'')+'" onclick="go(\'playlist\',\'atual\')">📅 Esta semana</button><button class="'+(prox?'on':'')+'" onclick="go(\'playlist\',\'prox\')">🗓️ Próxima semana'+(px?' <i>●</i>':'')+'</button></div>';
+    const bt=a?'<button class="mini-btn" style="margin-bottom:14px" onclick="modalPlaylist(\''+(prox?'prox':'')+'\')">✏️ '+(prox?'Montar playlist da próxima semana':'Montar / editar playlist desta semana')+'</button>':'';
+    const topo='<div class="page-ttl">📅 Playlist</div>'+tabs+bt;
+    if(!sl||!sl.itens.length) return '<div class="page">'+topo+'<div class="empty"><div class="big">🎼</div>'+(prox?'A playlist da próxima semana ainda não foi publicada.':'Nenhuma playlist publicada para esta semana.')+'</div></div>';
+    const eu=escaladoNoPeriodo(sl);
+    return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">'+(prox?'PLAYLIST DA PRÓXIMA SEMANA':'PLAYLIST DA SEMANA')+'</div><div class="dt">'+fmtData(sl.inicio)+' - '+fmtData(sl.fim)+'</div></div>'+
+      (eu?'<div class="pl-eu">📍 Você está escalado(a) neste período'+(eu!==true?' — '+e(eu):'')+'. Toque nas músicas para ver letra, cifra e áudio.</div>':'')+
+      cardSetlist(sl,'Ordem do culto ('+sl.itens.length+')',prox?'prox':'')+'</div>';
   };
   if(ROTAS.inicio){
     const _ini=ROTAS.inicio;
@@ -182,25 +226,47 @@ if(typeof ROTAS!=='undefined'){
       const k=html.indexOf('<div class="card"><h3>Músicas da playlist</h3>');
       if(k>=0){ const fim=html.lastIndexOf('</div>'); html=html.slice(0,k)+(sl?cardSetlist(sl,'Ordem do culto'):'')+html.slice(fim); }
       else if(sl){ const fim=html.lastIndexOf('</div>'); html=html.slice(0,fim)+cardSetlist(sl,'Ordem do culto')+html.slice(fim); }
+      const px=setlist('prox');
+      if(px){ const eu=escaladoNoPeriodo(px); const fim=html.lastIndexOf('</div>');
+        html=html.slice(0,fim)+'<div class="card pl-proxcard" onclick="go(\'playlist\',\'prox\')"><h3>🗓️ Playlist da próxima semana</h3><p>'+fmtData(px.inicio)+' - '+fmtData(px.fim)+' · '+px.itens.length+' música(s)/hino(s)'+(eu?'<br><b>📍 Você está escalado(a) — já pode ensaiar!</b>':'')+'</p><span class="lk">Ver letras e cifras ›</span></div>'+html.slice(fim); }
       return html;
     };
   }
 }
 
+/* escalados entre as datas da playlist */
+function linhasNoPeriodo(sl){
+  const out=[]; try{ const E=escalaAtiva(); if(!E||!E.linhas) return out;
+    E.linhas.forEach((l,i)=>{ const inf=window.__escLinhaInfo? __escLinhaInfo(i) : null; if(!inf||!inf.dt) return;
+      const iso=inf.dt.getFullYear()+'-'+pad2(inf.dt.getMonth()+1)+'-'+pad2(inf.dt.getDate());
+      if(iso>=sl.inicio && iso<=sl.fim) out.push(l); }); }catch(_){}
+  return out;
+}
+function escaladosNoPeriodo(sl){ const ls=linhasNoPeriodo(sl); return (DB.usuarios||[]).filter(u=>ls.some(l=>colsDoUsuarioNaLinha(l,u).length)); }
+function escaladoNoPeriodo(sl){
+  const u=(typeof usuarioAtual==='function')&&usuarioAtual(); if(!u||!sl) return false;
+  for(const l of linhasNoPeriodo(sl)){ const c=colsDoUsuarioNaLinha(l,u); if(c.length) return c.map(x=>String(x).toLowerCase().replace(/(^|\s)(\S)/g,(m,a,b)=>a+b.toUpperCase())).join(', '); }
+  return false;
+}
 /* ---- editor da playlist (ADM): músicas + hinos com busca, ordem, tom e link do YouTube ---- */
 let _ed=null;
 const semAc = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-window.modalPlaylist=function(){
-  const sl=setlist()||{inicio:'',fim:'',itens:[],tons:{}};
+function proxSemana(){ const d=new Date(); const w=(d.getDay()+6)%7; const s=new Date(d); s.setDate(d.getDate()-w+7); const f=new Date(s); f.setDate(s.getDate()+6);
+  const iso=x=>x.getFullYear()+'-'+pad2(x.getMonth()+1)+'-'+pad2(x.getDate()); return [iso(s),iso(f)]; }
+window.modalPlaylist=function(qual){
+  const prox=qual==='prox';
   const pl=DB.playlist||{};
-  const cfg=(typeof APP_CFG!=='undefined'&&APP_CFG.setlist)||{};
-  _ed={inicio:String(sl.inicio||pl.inicio||'').slice(0,10),fim:String(sl.fim||pl.fim||'').slice(0,10),itens:sl.itens.slice(),tons:Object.assign({},sl.tons),youtube:sl.youtube||cfg.youtube||''};
-  abrirModal('<h3>Playlist / ordem do culto</h3>'+
+  let sl=setlist(prox?'prox':'');
+  if(!sl){ const [a,b]=prox?proxSemana():[String(pl.inicio||'').slice(0,10),String(pl.fim||'').slice(0,10)]; sl={inicio:a,fim:b,itens:[],tons:{},youtube:''}; }
+  _ed={qual:prox?'prox':'',inicio:String(sl.inicio||'').slice(0,10),fim:String(sl.fim||'').slice(0,10),itens:sl.itens.slice(),tons:Object.assign({},sl.tons),youtube:sl.youtube||'',chave:sl.chave||(prox?'setlist_prox':'setlist')};
+  abrirModal('<h3>'+(prox?'🗓️ Playlist da próxima semana':'📅 Playlist desta semana')+'</h3>'+
+    (prox?'<p class="pl-dica">Ao publicar, quem está escalado entre as datas abaixo recebe a notificação e já pode ver letras, cifras e áudios.</p>':'')+
     '<div class="row2"><div class="field"><label>Início</label><input type="date" id="plIni" value="'+_ed.inicio+'"></div><div class="field"><label>Fim</label><input type="date" id="plFim" value="'+_ed.fim+'"></div></div>'+
     '<div class="field"><label>Itens na ordem do culto · tom (+/− meio tom)</label><div class="pl-ed" id="plLista"></div></div>'+
     '<div class="field pl-busca"><label>🎵 Músicas do ministério</label><input id="plMusQ" type="search" autocomplete="off" placeholder="Digite o nome da música ou do artista" oninput="plSugMus()" onkeydown="plEnter(event,\'mus\')"><div class="pl-sug" id="plMusSug"></div></div>'+
     '<div class="field pl-busca"><label>📖 Hinos do Cantor Cristão</label><input id="plHinoQ" type="search" autocomplete="off" placeholder="Digite o número ou o nome do hino" oninput="plSugHino()" onkeydown="plEnter(event,\'hino\')"><div class="pl-sug" id="plHinoSug"></div></div>'+
     '<div class="field"><label>▶️ Playlist do YouTube (opcional)</label><input id="plYt" type="url" inputmode="url" placeholder="Cole aqui o link da playlist do YouTube" value="'+e(_ed.youtube)+'"></div>'+
+    (prox?'<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" id="plTodos"> Avisar também todos os membros</label>':'')+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" id="plPub" onclick="publicarPlaylist()">📢 Publicar</button></div>');
   renderLista();
 };
@@ -261,6 +327,18 @@ window.publicarPlaylist=async function(){
   if(!_ed.itens.length) return toast('Adicione ao menos uma música ou hino.');
   if(yt===null) return toast('O link precisa ser do YouTube (youtube.com ou youtu.be).');
   const bt=document.getElementById('plPub'); if(bt){ bt.disabled=true; bt.textContent='Publicando…'; }
+  const dados={inicio:_ed.inicio,fim:_ed.fim,itens:_ed.itens.slice(),tons:Object.assign({},_ed.tons),youtube:yt||''};
+  if(_ed.qual==='prox'){
+    await salvarConfig('setlist_prox',dados);
+    const todos=!!(document.getElementById('plTodos')||{}).checked;
+    const alvos=escaladosNoPeriodo(dados); const ids=new Set(alvos.map(u=>u.id));
+    const txt='Culto de '+fmtData(_ed.inicio)+' a '+fmtData(_ed.fim)+': '+_ed.itens.length+' música(s)/hino(s) com letra e cifra já estão no app.';
+    if(alvos.length) notificarTodos('🎼','Playlist da próxima semana',txt+' Você está escalado(a) — já pode ensaiar!',u=>ids.has(u.id),{link:'go:playlist:prox',popup:true});
+    if(todos) notificarTodos('🗓️','Playlist da próxima semana',txt,u=>!ids.has(u.id),{link:'go:playlist:prox'});
+    fecharModal();
+    toast(alvos.length? 'Publicada! '+alvos.length+' escalado(s) avisado(s).' : (todos?'Publicada e todos avisados.':'Publicada. Ninguém da escala encontrado nessas datas.'));
+    go('playlist','prox'); return;
+  }
   const mus=_ed.itens.filter(id=>String(id).indexOf('cc:')!==0);
   const reg={inicio:_ed.inicio,fim:_ed.fim,musicas:mus,publicada:true,updated_at:new Date().toISOString()};
   /* grava sem criar linha nova (evita o erro "duplicate key ... playlist_pkey"):
@@ -273,29 +351,39 @@ window.publicarPlaylist=async function(){
   }catch(err){ error=err; }
   if(error){ if(bt){ bt.disabled=false; bt.textContent='📢 Publicar'; } return toast('Erro: '+(error.message||error)); }
   DB.playlist={inicio:_ed.inicio,fim:_ed.fim,musicas:mus,publicada:true};
-  await salvarConfig('setlist',{inicio:_ed.inicio,fim:_ed.fim,itens:_ed.itens.slice(),tons:Object.assign({},_ed.tons),youtube:yt||''});
+  await salvarConfig('setlist',dados);
+  /* se a "esta semana" vinha da lista da próxima semana que já começou, ela foi substituída */
+  if(_ed.chave==='setlist_prox') await salvarConfig('setlist_prox',{});
   notificarTodos('📅','PLAYLIST DISPONÍVEL','A ordem do culto ('+fmtData(_ed.inicio)+' - '+fmtData(_ed.fim)+') já está no app. Confira!',null,{link:'go:playlist'});
-  fecharModal(); toast('Playlist publicada e todos notificados!'); go('playlist');
+  fecharModal(); toast('Playlist publicada e todos notificados!'); go('playlist','atual');
 };
+/* ADM: quando a semana da "próxima playlist" chega, ela passa a ser a desta semana */
+async function promoverProxima(){
+  try{ if(!(window.ehAdminReal? ehAdminReal() : adm())) return; const C=APP_CFG||{}; const p=normSl(C.setlist_prox,'setlist_prox');
+    if(p && p.inicio && p.inicio<=hojeISO()){ await salvarConfig('setlist',{inicio:p.inicio,fim:p.fim,itens:p.itens,tons:p.tons,youtube:p.youtube}); await salvarConfig('setlist_prox',{}); }
+  }catch(_){}
+}
+if(typeof iniciarApp==='function'){ const _ia2=iniciarApp; window.iniciarApp=iniciarApp=function(){ _ia2.apply(this,arguments); setTimeout(promoverProxima,1500); }; }
+setInterval(promoverProxima,10*60*1000);
 
 /* ================= 2) TOM DO CULTO ================= */
-window.tomCulto=function(id){ const sl=setlist(); return sl&&sl.tons? (sl.tons[String(id)]||0) : 0; };
+window.tomCulto=function(id){ const sl=listaDe(id); return sl&&sl.tons? (sl.tons[String(id)]||0) : 0; };
 window.fixarTomCulto=async function(id,v){
-  if(!adm()) return; const sl=setlist(); if(!sl) return toast('Monte a playlist primeiro.');
+  if(!adm()) return; const sl=listaDe(id); if(!sl) return toast('Monte a playlist primeiro.');
   const tons=Object.assign({},sl.tons); if(v) tons[id]=v; else delete tons[id];
-  await salvarConfig('setlist',{inicio:sl.inicio,fim:sl.fim,itens:sl.itens,tons});
+  await salvarConfig(sl.chave||'setlist',{inicio:sl.inicio,fim:sl.fim,itens:sl.itens,tons,youtube:sl.youtube||''});
   toast(v?'Tom do culto salvo. Todos abrem neste tom.':'Tom do culto: original.'); setTimeout(redesenhar,50);
 };
 function redesenhar(){ const y=scrollY; try{ if(typeof _viewAtual==='function') _viewAtual(); }catch(_){} scrollTo(0,y); }
 
 /* ---- barra "Anterior | 2 de 6 | Próxima" + ações, nas telas de música e hino ---- */
 function blocoCulto(id){
-  const sl=setlist(); let h='';
+  const sl=listaDe(id); let h=''; const cx=sl&&sl.chave==='setlist_prox'&&setlist('prox')?'prox':'';
   if(sl){ const i=sl.itens.indexOf(String(id));
     if(i>=0){ const p=sl.itens[i-1], n=sl.itens[i+1];
-      h+='<div class="sl-nav"><button '+(p?'onclick="abrirItem(\''+p+'\')"':'disabled')+'>◀ '+(p?e(info(p).t):'Início')+'</button>'+
-        '<div class="mid"><b>'+(i+1)+' de '+sl.itens.length+'</b>no culto</div>'+
-        '<button '+(n?'onclick="abrirItem(\''+n+'\')"':'disabled')+'>'+(n?e(info(n).t):'Fim')+' ▶</button></div>'; } }
+      h+='<div class="sl-nav"><button '+(p?'onclick="abrirItem(\''+p+'\',\''+cx+'\')"':'disabled')+'>◀ '+(p?e(info(p).t):'Início')+'</button>'+
+        '<div class="mid"><b>'+(i+1)+' de '+sl.itens.length+'</b>'+(cx?'próx. semana':'no culto')+'</div>'+
+        '<button '+(n?'onclick="abrirItem(\''+n+'\',\''+cx+'\')"':'disabled')+'>'+(n?e(info(n).t):'Fim')+' ▶</button></div>'; } }
   h+='<div class="sl-acts"><button onclick="projetar(\''+id+'\')">📺 Projetar letra</button><button onclick="abrirFerramentas()">🎛 Metrônomo / afinador</button>';
   if(adm() && sl && sl.itens.indexOf(String(id))>=0) h+='<button class="gold" onclick="fixarTomAtual(\''+id+'\')">📌 Usar este tom no culto</button>';
   h+='</div>';
@@ -362,7 +450,7 @@ function slidesMusica(id){
 function slidesDe(id){ id=String(id); return id.indexOf('cc:')===0? slidesHino(+id.slice(3)) : slidesMusica(id); }
 let PJ=null;
 window.projetar=function(id){ abrirProjetor([{id,slides:slidesDe(id)}]); };
-window.projetarSetlist=function(){ const sl=setlist(); if(!sl) return; abrirProjetor(sl.itens.map(id=>({id,slides:slidesDe(id)}))); };
+window.projetarSetlist=function(ctx){ const sl=setlist(ctx==='prox'?'prox':''); if(!sl) return; abrirProjetor(sl.itens.map(id=>({id,slides:slidesDe(id)}))); };
 function abrirProjetor(grupos){
   fecharProjetor();
   const flat=[]; grupos.forEach(g=>g.slides.forEach((s,i)=>flat.push(Object.assign({titulo:info(g.id).t,ini:i===0},s))));

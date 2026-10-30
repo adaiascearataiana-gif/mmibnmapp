@@ -36,14 +36,14 @@ window.abrirLinkNotif=function(link){
   if(!link) return false;
   const [tipo,...r]=String(link).split(':'); const v=r.join(':');
   try{
-    if(tipo==='go' && typeof ROTAS!=='undefined' && ROTAS[v]){ go(v); return true; }
+    if(tipo==='go' && typeof ROTAS!=='undefined'){ const [pg,ar]=v.split(':'); if(ROTAS[pg]){ go(pg,ar); return true; } }
     if(tipo==='mus' && (DB.musicas||[]).find(m=>m.id===v)){ abrirMusica(v,'cifra'); return true; }
     if(tipo==='cc' && window.cantorAbrir){ cantorAbrir(+v); return true; }
     if(tipo==='aovivo'){ if(typeof AO_VIVO!=='undefined' && AO_VIVO && AO_VIVO.ativo && window.abrirItem){ abrirItem(AO_VIVO.musica_id); return true; } go('inicio'); return true; }
   }catch(_){}
   return false;
 };
-const NOME_LINK={'go:escala':'Ver a escala','go:playlist':'Ver a playlist','go:musicas':'Ver músicas','go:cantor':'Abrir o Cantor','go:cantadas':'Ver músicas cantadas','go:inicio':'Ir ao início','aovivo':'Acompanhar ao vivo'};
+const NOME_LINK={'go:escala':'Ver a escala','go:playlist':'Ver a playlist','go:playlist:prox':'Ver a playlist da próxima semana','go:musicas':'Ver músicas','go:cantor':'Abrir o Cantor','go:cantadas':'Ver músicas cantadas','go:inicio':'Ir ao início','aovivo':'Acompanhar ao vivo'};
 const nomeLink = l => NOME_LINK[l] || (String(l).indexOf('mus:')===0?'Abrir a música':String(l).indexOf('cc:')===0?'Abrir o hino':'Abrir');
 
 /* ================= GRAVAR NOTIFICAÇÕES (com link e popup) ================= */
@@ -349,7 +349,8 @@ if(typeof iniciarApp==='function'){
 }
 setInterval(()=>rotina(false),60000);
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') rotina(false); });
-if(typeof _booted!=='undefined' && _booted) setTimeout(()=>rotina(true),900);
+/* se o app terminou de carregar antes deste arquivo, recarrega as notificações com link/popup */
+if(typeof _booted!=='undefined' && _booted){ Promise.resolve(cloudNotif()).then(()=>{ conhecidas=null; try{ atualizaBadge(); }catch(_){} }).catch(()=>{}); setTimeout(()=>rotina(true),900); }
 
 /* ================= estilos ================= */
 const css=`
