@@ -338,6 +338,8 @@ if(typeof ROTAS!=='undefined' && ROTAS.inicio){
 let ultSemana='', ultDia='';
 async function rotina(forcar){
   const u=eu(); if(!u || typeof _booted!=='undefined' && !_booted) return;
+  /* se a lista veio da carga antiga (sem link/popup), recarrega uma vez */
+  if(forcar){ const l=DB.notificacoes[u.email]||[]; if(l.some(n=>!('popup' in n))){ try{ await cloudNotif(); conhecidas=null; atualizaBadge(); }catch(_){} } }
   const s=semanaISO(), d=new Date().toDateString();
   if(forcar || s!==ultSemana){ ultSemana=s; try{ await enviarAvisosEscala(); }catch(_){} }
   if(forcar || d!==ultDia){ ultDia=d; try{ await avisarAniversarios(); }catch(_){} }

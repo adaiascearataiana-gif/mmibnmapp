@@ -63,14 +63,17 @@ if(typeof agendarReload==='function'){
 const SUS=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const BEM=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
 const IDX={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,Fb:4,'E#':5,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11,Cb:11,'B#':0};
-const ACORDE=/^\(?([A-G](?:#|b)?)((?:m|M|maj|min|dim|aug|sus|add|º|°|\+|-|\d|\(|\)|#|b)*)(?:\/([A-G](?:#|b)?))?\)?$/;
+/* acorde: raiz + complemento (m, 7M, 7(9), sus4, add9, º, +, b5…) + baixos/extensões depois da barra (A/C#, A7/9, C9/E) */
+const ACORDE=/^\(?([A-G](?:#|b)?)((?:m|M|maj|min|dim|aug|sus|add|º|°|\+|-|\d|\(|\)|#|b)*)((?:\/(?:[A-G](?:#|b)?|\d+(?:[#b+\-]|\(\d+\))?|\(\d+\)))*)\)?$/;
 function nota(n,st,bem){ const i=IDX[n]; return i===undefined? n : (bem?BEM:SUS)[(i+st+120)%12]; }
 function transpAcorde(tok,st,bem){
   const m=tok.match(ACORDE); if(!m) return tok;
   const pre=tok.startsWith('(')?'(':'', pos=tok.endsWith(')')&&tok.startsWith('(')?')':'';
-  return pre+nota(m[1],st,bem)+m[2]+(m[3]?'/'+nota(m[3],st,bem):'')+pos;
+  const baixos=(m[3]||'').replace(/\/([A-G](?:#|b)?)/g,(x,n)=>'/'+nota(n,st,bem));
+  return pre+nota(m[1],st,bem)+m[2]+baixos+pos;
 }
 function ehAcorde(tok){ return ACORDE.test(tok); }
+window.__ehAcorde=ehAcorde;
 /* linha só de acordes (aceita rótulos tipo [Intro], (2x), |, -, x2) */
 function ehLinhaCifra(l){ const toks=String(l).trim().split(/\s+/).filter(Boolean); if(!toks.length) return false; let ac=0;
   for(const t of toks){ if(ehAcorde(t)){ ac++; continue; } if(/^\[[^\]]*\]$/.test(t)||/^(\(?\d*x\d*\)?|[|/.\-()]+)$/i.test(t)) continue; return false; } return ac>0; }
@@ -133,8 +136,22 @@ function nomeTom(id){ const el=document.getElementById('zoomTarget'); if(!el) re
   let m=lin? lin.trim().split(/\s+/)[0].match(ACORDE) : null;
   if(!m){ const b=(el.innerText||'').match(/\[([^\]\s]+)\]/); m=b? b[1].match(ACORDE) : null; }
   return m? m[1]+(/^m(?!aj)/.test(m[2])?'m':'') : ''; }
-window.musTransp=function(id,d){ setTrMus(id,stMus(id)+d); const y=scrollY; abrirMusica(id,'cifra'); scrollTo(0,y); };
-window.musTomOriginal=function(id){ setTrMus(id,0,true); const y=scrollY; abrirMusica(id,'cifra'); scrollTo(0,y); };
+function aplicaTomNaTela(id){
+  const alvo=document.getElementById('zoomTarget');
+  if(!alvo || alvo.__orig==null){ const y=scrollY; abrirMusica(id,'cifra'); scrollTo(0,y); return; }
+  const y=scrollY, h=alvo.offsetHeight; alvo.style.minHeight=h+'px';      /* segura a altura: a tela não pula */
+  const st=stMus(id);
+  alvo.innerHTML=alvo.__orig; if(st) transporElemento(alvo,st);
+  try{ if(window.__marcarAcordes) window.__marcarAcordes(alvo); }catch(_){}
+  scrollTo(0,y); requestAnimationFrame(()=>{ alvo.style.minHeight=''; scrollTo(0,y); });
+  const tom=nomeTom(id); const doCulto=!Object.prototype.hasOwnProperty.call(trMus(),id) && st!==0;
+  const lb=document.querySelector('.mm-tom > span'); if(lb) lb.innerHTML='Tom <b>'+(tom||'—')+'</b>'+(st?' <small>('+(st>0?'+':'')+st+')</small>':'')+(doCulto?'<span class="tom-culto">culto</span>':'');
+  const zb=document.querySelector('#content .zoom-bar'); let rs=zb&&zb.querySelector('.rst');
+  if(st && !rs && zb){ const mt=zb.querySelector('.mm-tom'); if(mt) mt.insertAdjacentHTML('afterend','<button type="button" class="rst" onclick="musTomOriginal(\''+id+'\')">Tom original</button>'); }
+  if(!st && rs) rs.remove();
+}
+window.musTransp=function(id,d){ setTrMus(id,stMus(id)+d); aplicaTomNaTela(id); };
+window.musTomOriginal=function(id){ setTrMus(id,0,true); aplicaTomNaTela(id); };
 
 /* rolagem automática (mesmo padrão do Cantor: 30 px/s em 1×) */
 let rolOn=false, rolRaf=0, rolLast=0, rolAcc=0, rolWake=null;
@@ -179,6 +196,7 @@ function posMusica(){
   const zb=$q('#content .zoom-bar'); if(!zb || zb.dataset.mm) return; zb.dataset.mm='1';
   const ehCifra=(typeof abaAtual!=='undefined' && abaAtual==='cifra') && !!m.cifra;
   const st=stMus(m.id); const doCulto=!Object.prototype.hasOwnProperty.call(trMus(),m.id) && st!==0;
+  if(ehCifra) alvo.__orig=alvo.innerHTML;          /* guarda o original para mudar o tom sem recarregar */
   if(ehCifra && st) transporElemento(alvo,st);
   let h='';
   if(ehCifra){
@@ -708,17 +726,42 @@ function larguraLetra(el){
   s.style.cssText='position:absolute;visibility:hidden;white-space:pre;font-size:100px;font-family:'+getComputedStyle(el).fontFamily;
   document.body.appendChild(s); const w=s.getBoundingClientRect().width/5000; s.remove(); return w||0.6;
 }
-function marcarAcordes(el){
-  const ehC=window.__ehLinhaCifra||(()=>false);
-  el.querySelectorAll('div,p').forEach(d=>{ if(d.querySelector('div,p')) return; const t=(d.textContent||'').replace(/\u00a0/g,' ');
-    if(ehC(t)) d.classList.add('cf-ch'); else if(/^\s*[A-Ga-g]?\|[-\d|hpbr\/\\~x\s]+\|?\s*$/.test(t)) d.classList.add('cf-tab'); else if(/^\s*\[[^\]]+\]\s*$/.test(t)) d.classList.add('cf-sec'); });
-  /* texto solto (linhas fora de div) */
-  [...el.childNodes].forEach(n=>{ if(n.nodeType!==3||!n.nodeValue.trim()) return;
-    const frag=document.createDocumentFragment(); n.nodeValue.split('\n').forEach((l,i,arr)=>{
-      if(ehC(l)){ const sp=document.createElement('span'); sp.className='cf-ch'; sp.textContent=l; frag.appendChild(sp); } else frag.appendChild(document.createTextNode(l));
-      if(i<arr.length-1) frag.appendChild(document.createTextNode('\n')); });
-    n.replaceWith(frag); });
+window.__marcarAcordes=function(el){ marcarAcordes(el); };
+/* destaca SOMENTE os acordes; a letra fica normal */
+const COR_ACORDE='#a8350a';
+function escH(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+const ehAc = t => (window.__ehAcorde||(()=>false))(t);
+const ehLinhaC = t => (window.__ehLinhaCifra||(()=>false))(t);
+const RE_INTRO=/^(\s*intro(?:du[cç][aã]o)?\s*[:\-–]\s*)(.*)$/i;
+/* linha de acordes (ou "Intro: G D"): cada acorde vira <span class="cf-ac"> mantendo os espaços */
+function htmlLinhaAcordes(l){
+  const pi=l.match(RE_INTRO); let pre='', resto=l;
+  if(pi){ pre='<span class="cf-lb">'+escH(pi[1])+'</span>'; resto=pi[2]; }
+  return pre+resto.replace(/(\S+)|(\s+)/g,(m,tok,esp)=>{ if(esp) return esp; const k=tok.replace(/[(),]/g,''); return ehAc(k)? escH(tok).replace(escH(k),'<span class="cf-ac">'+escH(k)+'</span>') : (/^\[[^\]]*\]$/.test(tok)?'<span class="cf-lb">'+escH(tok)+'</span>':escH(tok)); });
 }
+function ehLinhaDeAcordes(t){ return ehLinhaC(t) || (RE_INTRO.test(t) && t.replace(RE_INTRO,'$2').trim().split(/\s+/).some(x=>ehAc(x.replace(/[(),]/g,'')))); }
+/* acordes entre colchetes no meio da letra: [G]Senhor */
+function marcaColchetes(root){
+  const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null); const ns=[]; while(w.nextNode()) ns.push(w.currentNode);
+  ns.forEach(n=>{ if(n.parentElement&&n.parentElement.closest('.cf-ac')) return; const v=n.nodeValue; if(!/\[[^\]\s]+\]/.test(v)) return;
+    const sp=document.createElement('span'); sp.innerHTML=escH(v).replace(/\[([^\]\s]+)\]/g,(m,c)=>ehAc(c)?'[<span class="cf-ac">'+c+'</span>]':m);
+    n.replaceWith(...sp.childNodes); });
+}
+function marcarAcordes(el){
+  /* blocos (cada <div>/<p> é uma linha) */
+  el.querySelectorAll('div,p').forEach(d=>{ if(d.querySelector('div,p')) return; const t=(d.textContent||'').replace(/\u00a0/g,' ');
+    if(ehLinhaDeAcordes(t)){ d.innerHTML=htmlLinhaAcordes(t); d.classList.add('cf-ch'); }
+    else if(/^\s*[A-Ga-g]?\|[-\d|hpbr\/\\~x\s]+\|?\s*$/.test(t)) d.classList.add('cf-tab');
+    else if(/^\s*\[[^\]]+\]\s*$/.test(t)) d.classList.add('cf-sec'); });
+  /* texto solto (cifra em texto puro e 1ª linha fora de bloco) */
+  const soltos=[...el.childNodes].filter(n=>n.nodeType===3 || (n.nodeType===1 && n.matches('span.ch')));
+  soltos.forEach(n=>{ const v=(n.textContent||''); if(!v.trim()) return;
+    const sp=document.createElement('span');
+    sp.innerHTML=v.split('\n').map(l=>{ const t=l.replace(/\u00a0/g,' '); return ehLinhaDeAcordes(t)? htmlLinhaAcordes(t) : escH(l); }).join('\n');
+    n.replaceWith(...sp.childNodes); });
+  marcaColchetes(el);
+}
+window.__marcarAcordes=function(el){ marcarAcordes(el); };
 function ajustar(){
   const el=document.getElementById('zoomTarget'); if(!el||!el.classList.contains('cifra-box')) return;
   el.classList.add('cf-fit');
@@ -741,9 +784,192 @@ let _rz=0; addEventListener('resize',()=>{ clearTimeout(_rz); _rz=setTimeout(aju
 const st=document.createElement('style'); st.textContent=`
 .cifra-box.cf-fit{white-space:pre;overflow-x:auto;line-height:1.55;-webkit-text-size-adjust:none;text-size-adjust:none}
 .cifra-box.cf-fit div,.cifra-box.cf-fit p{white-space:pre;margin:0}
-.cifra-box .cf-ch{color:var(--verde-med);font-weight:800}
-.cifra-box .cf-sec{color:#8a6a00;font-weight:800}
-.cifra-box .cf-tab{color:#456;letter-spacing:0}
+.cifra-box.cf-fit,.cifra-box.cf-fit *{font-weight:400!important;font-style:normal!important;color:#262626!important;text-decoration:none!important;background:none!important;font-family:'Courier New',ui-monospace,monospace!important}
+.cifra-box.cf-fit{background:#fffdf5!important}
+.cifra-box.cf-fit .cf-ac{font-weight:800!important;color:#a8350a!important}
+.cifra-box.cf-fit .cf-lb{color:#6b7c74!important}
+.cifra-box.cf-fit .cf-sec{color:#6b7c74!important}
 .editor-rich{white-space:pre!important;overflow-x:auto}
 `; document.head.appendChild(st);
+})();
+
+/* ============================================================
+   (v0.7.4) EDITOR DE CIFRA: 📄 IMPORTAR PDF
+   Lê o texto do PDF (pdf.js) e monta a cifra mantendo cada acorde
+   em cima da mesma sílaba em que está no PDF.
+============================================================ */
+(function(){
+'use strict';
+const PDFJS='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+function carregaScript(src){ return new Promise((ok,er)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=()=>er(new Error('Sem internet para abrir o leitor de PDF.')); document.head.appendChild(s); }); }
+async function pdfjs(){
+  if(!window.pdfjsLib){ await carregaScript(PDFJS+'pdf.min.js'); }
+  try{ pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+'pdf.worker.min.js'; }catch(_){}
+  return window.pdfjsLib;
+}
+/* larguras relativas de cada letra (fonte proporcional do PDF) */
+const cv=document.createElement('canvas').getContext('2d');
+function largurasRel(str,neg){ cv.font=(neg?'bold ':'')+'100px Arial, Helvetica, sans-serif'; return [...str].map(c=>cv.measureText(c).width||50); }
+/* cada item vira letras com posição x */
+function letrasDoItem(it){
+  const s=it.str||''; if(!s) return [];
+  const ws=largurasRel(s,/bold|black|heavy/i.test(it.fontName||'')); const tot=ws.reduce((a,b)=>a+b,0)||1; const W=it.width||tot/100*it.fs;
+  let x=it.x; return [...s].map((c,i)=>{ const o={c,x,w:ws[i]/tot*W}; x+=o.w; return o; });
+}
+const ehLinhaC = t => (window.__ehLinhaCifra||(()=>false))(t);
+/* monta as linhas de uma página */
+function linhasDaPagina(items){
+  const its=items.filter(i=>i.str!=null).map(i=>({str:i.str,x:i.transform[4],y:i.transform[5],fs:Math.hypot(i.transform[2],i.transform[3])||i.height||10,width:i.width,fontName:i.fontName}));
+  if(!its.length) return [];
+  its.sort((a,b)=>b.y-a.y||a.x-b.x);
+  const linhas=[];
+  its.forEach(it=>{ const l=linhas.find(L=>Math.abs(L.y-it.y)<Math.min(L.fs,it.fs)*0.45); if(l){ l.its.push(it); l.fs=Math.max(l.fs,it.fs); } else linhas.push({y:it.y,fs:it.fs,its:[it]}); });
+  linhas.sort((a,b)=>b.y-a.y);
+  linhas.forEach(L=>{ L.its.sort((a,b)=>a.x-b.x); L.letras=[].concat(...L.its.map(letrasDoItem)); L.texto=L.letras.map(o=>o.c).join(''); });
+  return linhas;
+}
+/* texto "normal": junta as letras e põe espaço onde há vão */
+function textoNormal(L){
+  let s='', ant=null;
+  L.letras.forEach(o=>{ if(ant){ const gap=o.x-(ant.x+ant.w); if(gap>L.fs*0.18 && ant.c!==' ' && o.c!==' ') s+=' '.repeat(Math.max(1,Math.round(gap/(L.fs*0.28)))); } s+=o.c; ant=o; });
+  return s.replace(/\s+$/,'');
+}
+/* linha de acordes: cada acorde vai para a coluna da letra (sílaba) que está embaixo dele */
+function acordesSobre(Lc,Ll,txtLetra){
+  const toks=[]; let atual=null;
+  Lc.letras.forEach(o=>{ if(/\s/.test(o.c)){ atual=null; return; } if(!atual || o.x-(atual.fim)>Lc.fs*0.18){ atual={t:'',x:o.x,fim:o.x}; toks.push(atual); } atual.t+=o.c; atual.fim=o.x+o.w; });
+  /* posição x de cada coluna do texto da letra */
+  const cols=[]; { let s='', ant=null; Ll.letras.forEach(o=>{ if(ant){ const gap=o.x-(ant.x+ant.w); if(gap>Ll.fs*0.18 && ant.c!==' ' && o.c!==' '){ const n=Math.max(1,Math.round(gap/(Ll.fs*0.28))); for(let k=0;k<n;k++) cols.push(ant.x+ant.w+gap*k/n); } } cols.push(o.x); ant=o; }); }
+  const larg=Ll.fs*0.5;
+  let out='';
+  toks.forEach(tk=>{
+    let c=cols.findIndex(x=>x>=tk.x-larg*0.35);
+    if(c<0) c=cols.length+Math.round((tk.x-(cols.length?cols[cols.length-1]:tk.x))/larg);
+    if(c<out.length+(out.length?1:0)) c=out.length+(out.length?1:0);
+    out+=' '.repeat(c-out.length)+tk.t;
+  });
+  return out;
+}
+function montaCifra(paginas){
+  const out=[];
+  paginas.forEach((linhas,pi)=>{
+    if(pi>0 && out.length && out[out.length-1]!=='') out.push('');
+    linhas.forEach((L,i)=>{
+      const ant=linhas[i-1];
+      if(ant && (ant.y-L.y)>Math.max(ant.fs,L.fs)*2.1 && out.length && out[out.length-1]!=='') out.push('');   /* espaço entre estrofes */
+      const t=textoNormal(L);
+      if(ehLinhaC(t)){
+        const prox=linhas[i+1];
+        if(prox && (L.y-prox.y)<L.fs*2.2 && !ehLinhaC(textoNormal(prox)) && prox.letras.length) out.push(acordesSobre(L,prox,textoNormal(prox)));
+        else out.push(t);
+      } else out.push(t);
+    });
+  });
+  return out.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+window.__montaCifraPdf=montaCifra; window.__linhasPdf=linhasDaPagina;
+window.importarPdfCifra=async function(inp){
+  const f=inp.files&&inp.files[0]; inp.value=''; if(!f) return;
+  try{
+    toast('Lendo o PDF…');
+    const lib=await pdfjs();
+    const pdf=await lib.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;
+    const paginas=[];
+    for(let p=1;p<=pdf.numPages;p++){ const pg=await pdf.getPage(p); const tc=await pg.getTextContent(); paginas.push(linhasDaPagina(tc.items)); }
+    const txt=montaCifra(paginas);
+    if(!txt.trim()) return toast('Este PDF é uma imagem (escaneado). Não há texto para importar.');
+    const el=document.getElementById('edCifra'); if(!el) return;
+    const temAlgo=(el.innerText||'').trim().length>0;
+    if(temAlgo && !confirm('Substituir a cifra atual pela do PDF?\n(Cancelar = adicionar no final)')){ el.focus(); const r=document.createRange(); r.selectNodeContents(el); r.collapse(false); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }
+    else { el.innerHTML=''; el.focus(); }
+    const html=txt.split('\n').map(l=>'<div>'+(l? l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '<br>')+'</div>').join('');
+    document.execCommand('insertHTML',false,html);
+    try{ if(typeof edCommit==='function') edCommit(); if(typeof atualizaTom==='function') atualizaTom(); }catch(_){}
+    toast('Cifra importada do PDF ('+pdf.numPages+' pág.). Confira e salve.');
+  }catch(err){ toast('Não consegui ler o PDF: '+(err.message||err)); }
+};
+if(typeof editorCifra==='function'){
+  const _ec=editorCifra;
+  window.editorCifra=editorCifra=function(){
+    const r=_ec.apply(this,arguments);
+    try{ const tb=document.getElementById('edTb'); if(tb && !document.getElementById('edPdfBt')){
+      tb.insertAdjacentHTML('beforebegin','<div class="ed-pdf"><label id="edPdfBt" class="mini-btn">📄 Importar cifra de PDF<input type="file" accept="application/pdf,.pdf" hidden onchange="importarPdfCifra(this)"></label><span>O texto vem com os acordes no mesmo lugar do PDF.</span></div>'); } }catch(_){}
+    return r;
+  };
+}
+const st=document.createElement('style'); st.textContent='.ed-pdf{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}.ed-pdf label{cursor:pointer;margin:0}.ed-pdf span{font-size:12px;color:#6b8378}';
+document.head.appendChild(st);
+})();
+
+/* ============================================================
+   (v0.7.5) NOMES PRÓPRIOS E NOMES DE MÚSICAS: primeira letra de
+   cada palavra maiúscula (siglas curtas como HCA, EBD ficam como estão)
+============================================================ */
+(function(){
+'use strict';
+/* palavras que ficam minúsculas no meio do nome/título */
+const MINUSC=new Set(['a','o','as','os','e','de','da','do','das','dos','d','em','na','no','nas','nos','por','pelo','pela','pelos','pelas','para','pra','com','ao','aos','à','às','du','van','von','y']);
+const SIGLAS=new Set(['HCA','EBD','IBNM','PIB','MM','CC','CCB','JMN','UMP','UPA','SAF','MDA','GLS','DVD','CD']);
+let _frasesMaiusc=false;
+function capPalavra(w){
+  const letras=w.replace(/[^\p{L}]/gu,'');
+  if(!letras) return w;
+  const tudoMaiusc = letras===letras.toLocaleUpperCase('pt-BR') && letras!==letras.toLocaleLowerCase('pt-BR');
+  if(tudoMaiusc && SIGLAS.has(letras)) return w;                                 /* siglas conhecidas */
+  if(tudoMaiusc && letras.length<=3 && !_frasesMaiusc) return w;                 /* sigla curta no meio de texto normal */
+  if(/^(i{1,3}|iv|v|vi{0,3}|ix|x)$/i.test(letras) && tudoMaiusc) return w;        /* números romanos */
+  let base = tudoMaiusc ? w.toLocaleLowerCase('pt-BR') : w;                      /* TUDO MAIÚSCULO → normal */
+  return base.replace(/\p{L}/u, c=>c.toLocaleUpperCase('pt-BR'));
+}
+window.capTitulo=function(s){
+  if(s==null) return s; s=String(s);
+  if(/^x+$/i.test(s.trim())) return s;                                            /* "xxxxxxxx" = não informado */
+  const ls=s.replace(/[^\p{L}]/gu,''); _frasesMaiusc = ls.length>4 && ls===ls.toLocaleUpperCase('pt-BR');
+  let primeira=true;
+  const r=s.replace(/([^\s\-'’]+)|([\s\-'’]+)/g,(m,w,sep)=>{ if(sep) return sep;
+    const x=capPalavra(w);
+    if(!primeira && MINUSC.has(w.toLocaleLowerCase('pt-BR'))) { primeira=false; return w.toLocaleLowerCase('pt-BR'); }
+    if(/\p{L}/u.test(w)) primeira=false; return x; });
+  _frasesMaiusc=false; return r;
+};
+/* enquanto digita: maiúscula no início de cada palavra, menos "da, de, do, e, por…" (exceto a 1ª palavra) */
+window.capDigitando=function(v){
+  let primeira=true;
+  return String(v).replace(/([^\s\-'’]+)|([\s\-'’]+)/g,(m,w,sep)=>{ if(sep) return sep;
+    const low=w.toLocaleLowerCase('pt-BR');
+    if(!primeira && MINUSC.has(low)){ return low; }
+    if(/\p{L}/u.test(w)) primeira=false;
+    return w.replace(/\p{L}/u,c=>c.toLocaleUpperCase('pt-BR')); });
+};
+const cap=window.capTitulo;
+/* músicas: ao carregar */
+function normMusicas(){ (DB.musicas||[]).forEach(m=>{ m.titulo=cap(m.titulo); m.artista=cap(m.artista); }); }
+function normUsuarios(){ (DB.usuarios||[]).forEach(u=>{ if(u.nome) u.nome=cap(u.nome); }); }
+if(typeof cloudMusicas==='function'){ const _cm=cloudMusicas; window.cloudMusicas=cloudMusicas=async function(){ await _cm.apply(this,arguments); normMusicas(); }; }
+if(typeof cloudPerfis==='function'){ const _cp=cloudPerfis; window.cloudPerfis=cloudPerfis=async function(){ await _cp.apply(this,arguments); normUsuarios(); }; }
+try{ normMusicas(); normUsuarios(); }catch(_){}
+if(typeof iniciarApp==='function'){ const _ia3=iniciarApp; window.iniciarApp=iniciarApp=function(){ try{ normMusicas(); normUsuarios(); }catch(_){} return _ia3.apply(this,arguments); }; }
+/* hinos e "músicas que já cantamos" */
+try{ (window.HINOS||[]).forEach(h=>{ if(h.titulo) h.titulo=cap(h.titulo); }); }catch(_){}
+try{ if(typeof MUSICAS_CANTADAS!=='undefined') MUSICAS_CANTADAS.forEach(m=>{ m.m=cap(m.m); if(m.a) m.a=cap(m.a); }); }catch(_){}
+/* campos de digitação: título/artista da música e nomes de pessoas */
+const CAMPOS=['nmTit','nmArt','edTit','edArt','cNome','cgNome','ePnome','mbNome'];
+document.addEventListener('input',ev=>{
+  const el=ev.target; if(!el || !CAMPOS.includes(el.id)) return;
+  const p=el.selectionStart; const v=window.capDigitando(el.value);
+  if(v!==el.value){ el.value=v; try{ el.setSelectionRange(p,p); }catch(_){} }
+},true);
+document.addEventListener('blur',ev=>{ const el=ev.target; if(el && CAMPOS.includes(el.id)) el.value=cap(el.value.replace(/\s+/g,' ').trim()); },true);
+/* ao salvar música nova ou editada, grava já com as maiúsculas */
+if(typeof sb!=='undefined' && sb && sb.from){
+  const _from=sb.from.bind(sb);
+  sb.from=function(t){
+    const q=_from(t); if(t!=='musicas') return q;
+    const fix=o=>{ if(o&&typeof o==='object'){ if('titulo' in o) o.titulo=cap(o.titulo); if('artista' in o) o.artista=cap(o.artista); } return o; };
+    const ins=q.insert&&q.insert.bind(q), upd=q.update&&q.update.bind(q);
+    if(ins) q.insert=(o,...r)=>ins(Array.isArray(o)?o.map(fix):fix(o),...r);
+    if(upd) q.update=(o,...r)=>upd(fix(o),...r);
+    return q;
+  };
+}
 })();

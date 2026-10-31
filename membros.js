@@ -128,8 +128,8 @@ async function gravaPerfil(id,d){
   return r;
 }
 /* ---- nomes: primeira letra de cada palavra maiúscula ---- */
-const capNome = s => String(s||'').replace(/(^|[\s'’\-])(\p{L})/gu,(m,a,b)=>a+b.toLocaleUpperCase('pt-BR'));
-const limpaNome = s => capNome(String(s||'').replace(/\s+/g,' ').trim());
+const capNome = s => window.capDigitando? capDigitando(String(s||'')) : String(s||'').replace(/(^|[\s'’\-])(\p{L})/gu,(m,a,b)=>a+b.toLocaleUpperCase('pt-BR'));
+const limpaNome = s => { const t=String(s||'').replace(/\s+/g,' ').trim(); return window.capTitulo? capTitulo(t) : capNome(t); };
 window.capNomeInput=function(el){ const p=el.selectionStart, v=capNome(el.value); if(v!==el.value){ el.value=v; try{ el.setSelectionRange(p,p); }catch(_){} } };
 function ligaCap(ids){ ids.forEach(id=>{ const el=$id(id); if(el && !el.dataset.cap){ el.dataset.cap='1'; el.setAttribute('autocapitalize','words'); el.addEventListener('input',()=>capNomeInput(el)); el.addEventListener('blur',()=>{ el.value=limpaNome(el.value); }); } }); }
 window.__capNome=capNome;
@@ -216,7 +216,8 @@ function gate(){
 window.verificarCadastro=gate;
 if(typeof iniciarApp==='function'){
   const _ia=iniciarApp;
-  window.iniciarApp=iniciarApp=function(){ _ia.apply(this,arguments); setTimeout(gate,80); };
+  window.iniciarApp=iniciarApp=function(){ _ia.apply(this,arguments); setTimeout(gate,80);
+    if((DB.usuarios||[]).some(u=>!('wpp_num' in u)) && typeof cloudPerfis==='function') Promise.resolve(cloudPerfis()).then(()=>{ try{ montaMenu(); }catch(_){} }).catch(()=>{}); };
 }
 if(typeof _booted!=='undefined' && _booted) setTimeout(()=>{ try{ montaMenu(); }catch(_){} gate(); if(typeof cloudPerfis==='function') Promise.resolve(cloudPerfis()).catch(()=>{}); },60);
 
@@ -224,7 +225,7 @@ if(typeof _booted!=='undefined' && _booted) setTimeout(()=>{ try{ montaMenu(); }
 if(typeof cloudPerfis==='function'){
   window.cloudPerfis=cloudPerfis=async function(){
     const {data}=await sb.from('perfis').select('*');
-    DB.usuarios=(data||[]).map(p=>({id:p.id,email:(p.email||'').toLowerCase(),nome:p.nome||'',nasc:p.nasc||'',tel:p.tel||'',wpp:!!p.wpp,wpp_num:p.wpp_num||'',vocal:p.vocal||[],instr:p.instr||[],foto:p.foto||'',admin:!!p.admin,origem:p.origem||'local',senhaHash:''}));
+    DB.usuarios=(data||[]).map(p=>({id:p.id,email:(p.email||'').toLowerCase(),nome:(window.capTitulo?capTitulo(p.nome||''):(p.nome||'')),nasc:p.nasc||'',tel:p.tel||'',wpp:!!p.wpp,wpp_num:p.wpp_num||'',vocal:p.vocal||[],instr:p.instr||[],foto:p.foto||'',admin:!!p.admin,origem:p.origem||'local',senhaHash:''}));
   };
 }
 if(typeof garantirPerfil==='function'){

@@ -196,3 +196,37 @@ edições do Cantor aparecerem para todos.
   desalinhava); a letra diminui para caber na tela (mín. 11 px; o resto rola
   de lado); acordes em verde, partes [Intro]/[Refrão] em dourado; ao mudar o
   tom, cada acorde fica na mesma coluna.
+
+## v0.7.4
+- **Editor de cifra: 📄 Importar cifra de PDF.** Lê o texto do PDF e coloca
+  cada acorde em cima da mesma sílaba em que está no PDF (PDF escaneado/imagem
+  não tem texto para ler).
+- **Mudar o tom:** agora só os acordes mudam, sem recarregar a tela (ela não
+  pula mais). Reconhece acordes como A7/9, C9/E, G7M(9)/B, Bm7(b5).
+
+## v0.7.5
+- **Maiúsculas em nomes e títulos:** primeira letra de cada palavra maiúscula
+  em títulos e artistas das músicas, hinos, "Músicas que já cantamos", nomes
+  de membros e nomes da escala. Texto TODO EM MAIÚSCULAS vira normal
+  ("PORQUE ELE VIVE" → "Porque Ele Vive"); siglas como HCA e EBD ficam.
+  Ao digitar título/artista ou nome, já sai certo; ao salvar, grava assim.
+
+## v0.7.6
+- **Só os acordes em destaque:** na cifra publicada, cada acorde fica em
+  negrito na cor laranja-queimado (#a8350a); a letra fica normal (sem negrito
+  e sem cores, mesmo que tenham sido aplicados no editor). Rótulos como
+  [Refrão] e "Intro:" ficam em cinza discreto. Mesma cor nos hinos do Cantor.
+  Contraste medido: 6,5:1 no modo claro e 8,6:1 no modo escuro.
+
+## v0.7.7
+- Nomes e títulos: primeira letra maiúscula, mas palavras pequenas no meio
+  ficam minúsculas ("Cristo Chama por Ti", "Maria da Silva", "Alfa e Ômega").
+- Corrigida uma corrida no carregamento: notificações em janela, nomes com
+  maiúsculas e número do WhatsApp agora sempre aparecem na 1ª abertura.
+
+## 🚀 Como publicar esta versão (tudo de uma vez)
+1. Substitua **todos** os arquivos do repositório pelo conteúdo deste zip.
+2. No Supabase → SQL Editor, rode o arquivo **SQL-PARA-RODAR-AGORA.sql**.
+3. Google Cloud → APIs e serviços → Biblioteca → **Google Drive API → Ativar**.
+4. No app (ADM) → Painel do ADM → 📁 Google Drive → cole o Client ID e salve.
+5. Abra o app 2 vezes no celular para ele pegar a versão nova.

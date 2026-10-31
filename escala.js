@@ -215,7 +215,7 @@ function cartoes(E){
                   : '<div class="esc-dt"><b style="font-size:13px">'+e(dataTxt||'—')+'</b></div>';
     const linhas=papeis.map(k=>{ const c=E.colunas[k]; const ns=nomes(l.celulas[c]);
       return '<div class="esc-row"><div class="esc-role">'+e(titulo(c))+'</div><div class="esc-nomes">'+
-        (ns.length? ns.map(n=>'<span class="esc-nome'+(souEu(n,u)?' eu':'')+'">'+e(n)+(souEu(n,u)?' · você':'')+'</span>').join('') : '<span class="esc-vazio">a definir</span>')+
+        (ns.length? ns.map(n=>'<span class="esc-nome'+(souEu(n,u)?' eu':'')+'">'+e(window.capTitulo?capTitulo(n):n)+(souEu(n,u)?' · você':'')+'</span>').join('') : '<span class="esc-vazio">a definir</span>')+
         '</div></div>'; }).join('');
     return '<div class="esc-card'+(i===vig?' vig':'')+(passado?' passado':'')+'" '+(i===vig?'id="escVig"':'')+'>'+
       '<div class="esc-head">'+caixa+'<div class="esc-ev"><div class="t">'+e(titulo(ev)||'Culto')+'</div><div class="s">'+e(titulo(diaTxt))+'</div></div>'+

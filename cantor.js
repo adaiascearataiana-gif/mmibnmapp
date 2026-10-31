@@ -68,7 +68,7 @@ const clean = l => strip(l).replace(/(\S)\s*-\s+(?=\S)/g,'$1').replace(/(\S)\s+-
 .cc-song .p{display:inline-flex;flex-direction:column;align-items:flex-start;vertical-align:top}
 .cc-song .p.gap .t::after{content:'-';color:#9aa;padding-left:.1em}
 .cc-song.nochords .p.gap .t::after{content:none}
-.cc-song .c{display:block;min-height:1.3em;line-height:1.3em;padding-right:.35em;font-weight:800;color:#a67c00;font-family:'Courier New',ui-monospace,monospace;font-size:.86em;letter-spacing:-.2px;cursor:pointer;user-select:none}
+.cc-song .c{display:block;min-height:1.3em;line-height:1.3em;padding-right:.35em;font-weight:800;color:#a8350a;font-family:'Courier New',ui-monospace,monospace;font-size:.86em;letter-spacing:-.2px;cursor:pointer;user-select:none}
 .cc-song .t{display:block;white-space:pre;color:#12281f}
 .cc-song.nochords .c{display:none}
 .cc-song.nochords .ln{margin-bottom:.2em}
