@@ -440,7 +440,7 @@ function slidesMusica(id){
   const m=(DB.musicas||[]).find(x=>x.id===id); if(!m) return [];
   let txt=m.letra||'';
   if(!txt.trim() && m.cifra){ const d=document.createElement('div'); d.innerHTML=/<[a-z]/i.test(m.cifra)?m.cifra:e(m.cifra).replace(/\n/g,'<br>'); d.style.cssText='position:absolute;left:-9999px;white-space:pre-wrap'; document.body.appendChild(d); txt=d.innerText; d.remove();
-    txt=txt.split('\n').filter(l=>!ehLinhaAcordes(l)).map(l=>l.replace(/\[[^\]]*\]/g,'')).join('\n'); }
+    txt=txt.split('\n').filter(l=>!ehLinhaAcordes(l) && !/^\s*intro(du[cç][aã]o)?\s*[:\-–]/i.test(l)).map(l=>l.replace(/\[[^\]]*\]/g,'')).join('\n'); }
   const blocos=txt.replace(/\r/g,'').split(/\n\s*\n/).map(b=>b.split('\n').map(x=>x.trim()).filter(Boolean)).filter(b=>b.length);
   const out=[{capa:true,txt:m.titulo+(m.artista?'\n'+m.artista:'')}];
   blocos.forEach(b=>{ const r=b[0].match(/^\[(.+)\]$/); if(r&&b.length>1) out.push({rot:r[1],txt:b.slice(1).join('\n')}); else for(let i=0;i<b.length;i+=6) out.push({txt:b.slice(i,i+6).join('\n')}); });

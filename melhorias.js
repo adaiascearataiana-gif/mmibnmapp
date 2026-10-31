@@ -71,14 +71,26 @@ function transpAcorde(tok,st,bem){
   return pre+nota(m[1],st,bem)+m[2]+(m[3]?'/'+nota(m[3],st,bem):'')+pos;
 }
 function ehAcorde(tok){ return ACORDE.test(tok); }
+/* linha só de acordes (aceita rótulos tipo [Intro], (2x), |, -, x2) */
+function ehLinhaCifra(l){ const toks=String(l).trim().split(/\s+/).filter(Boolean); if(!toks.length) return false; let ac=0;
+  for(const t of toks){ if(ehAcorde(t)){ ac++; continue; } if(/^\[[^\]]*\]$/.test(t)||/^(\(?\d*x\d*\)?|[|/.\-()]+)$/i.test(t)) continue; return false; } return ac>0; }
+window.__ehLinhaCifra=ehLinhaCifra;
+window.__transpTexto=(t,st)=>transporTexto('Intro: '+t,st,bemolNoDestino('Intro: '+t,st)).replace(/^Intro: /,'');
 function usaBemol(texto){ const b=(texto.match(/\b[A-G]b/g)||[]).length, s=(texto.match(/\b[A-G]#/g)||[]).length; return b>s; }
 /* transpõe só linhas que são de acordes (evita mexer em "A graça", "E o Senhor"...) e acordes entre [ ] */
 function transporTexto(txt,st,bem){
   return txt.split('\n').map(l=>{
     l=l.replace(/\[([^\]\s]+)\]/g,(m,c)=>'['+transpAcorde(c,st,bem)+']');
+    const pi=l.match(/^(\s*intro(?:du[cç][aã]o)?\s*[:\-–]\s*)(.*)$/i);
+    if(pi) return pi[1]+pi[2].replace(/\S+/g,t=>{ const k=t.replace(/[(),]/g,''); return ehAcorde(k)? t.replace(k,transpAcorde(k,st,bem)) : t; });
     const toks=l.trim().split(/\s+/).filter(Boolean);
-    if(toks.length && toks.every(t=>ehAcorde(t)||/^[|/.\-x()]+$/.test(t)))
-      return l.replace(/\S+/g,t=>ehAcorde(t)?transpAcorde(t,st,bem):t);
+    if(ehLinhaCifra(l)){
+      /* mantém cada acorde na mesma coluna (alinhado com a sílaba de baixo) */
+      let out='', col=0;
+      l.replace(/(\s*)(\S+)/g,(m,esp,tok)=>{ const ini=col+esp.length; const novo=ehAcorde(tok)?transpAcorde(tok,st,bem):tok;
+        const pad=Math.max(out.length?1:0, ini-out.length); out+=' '.repeat(pad)+novo; col=ini+tok.length; return m; });
+      return out;
+    }
     return l;
   }).join('\n');
 }
@@ -338,4 +350,400 @@ window.excluirMusicaInteira=async function(id){
   toast('Música excluída.'); go(typeof paginaMusicas!=='undefined'?paginaMusicas:'musicas');
 };
 const st=document.createElement('style'); st.textContent='.mini-btn.mm-del{color:#b3261e!important;border-color:#efc2ba!important;background:#fff5f3!important}'; document.head.appendChild(st);
+})();
+
+/* ============================================================
+   (v0.7.1) ADM: ÁUDIOS na aba Áudio da música
+   🎙️ gravar pelo celular · 📁 enviar arquivo · 🔗 colar link · 🗑️ remover
+   Destino: Google Drive (se configurado no Painel do ADM) ou
+   Supabase Storage (bucket "audios", seção 14 do SQL).
+============================================================ */
+(function(){
+'use strict';
+if(typeof renderMusica!=='function') return;
+const e = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $i = id => document.getElementById(id);
+const MAX_MB=100;
+const driveOk = () => { try{ return typeof driveClientId==='function' && !!driveClientId(); }catch(_){ return false; } };
+const conectado = () => { try{ return typeof _gisTok!=='undefined' && !!_gisTok && Date.now()<_gisExp-60000; }catch(_){ return false; } };
+/* conectar ao Drive precisa de um toque (o Google abre uma janela) */
+window.conectarDrive=async function(){
+  if(!driveOk()){ toast('Configure o Client ID do Google no Painel do ADM → Google Drive.'); return false; }
+  try{ await ensureDriveToken(); toast('Conectado ao Google Drive ✔'); atualizaStatusDrive(); return true; }
+  catch(err){ toast('Não conectou ao Drive: '+(err.message||err)); return false; }
+};
+function atualizaStatusDrive(){ const b=$i('auDrive'); if(b) b.outerHTML=statusDrive(); }
+function statusDrive(){
+  if(!driveOk()) return '<div id="auDrive" class="au-drv no">⚠️ Google Drive não configurado. Abra o <b>Painel do ADM → 📁 Google Drive</b> e cole o Client ID (o mesmo do login com Google).</div>';
+  return conectado()? '<div id="auDrive" class="au-drv ok">✅ Conectado ao Google Drive — os áudios vão para a pasta <b>MM IBNM - Áudios</b>.</div>'
+    : '<div id="auDrive" class="au-drv"><span>Os áudios vão para o Google Drive do Ministério.</span><button onclick="conectarDrive()">🔗 Conectar ao Drive</button></div>';
+}
+/* pasta "MM IBNM - Áudios" no Drive (criada uma vez e guardada na configuração) */
+async function pastaDrive(token){
+  const cfg=(typeof APP_CFG!=='undefined'&&APP_CFG.google_drive)||{};
+  if(cfg.pasta) return cfg.pasta;
+  const q=encodeURIComponent("name='MM IBNM - Áudios' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+  let r=await fetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id)',{headers:{Authorization:'Bearer '+token}});
+  let j=r.ok? await r.json() : {}; let id=j.files&&j.files[0]&&j.files[0].id;
+  if(!id){ r=await fetch('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({name:'MM IBNM - Áudios',mimeType:'application/vnd.google-apps.folder'})});
+    if(!r.ok) throw new Error('Não consegui criar a pasta no Drive ('+r.status+'). Ative a "Google Drive API" no Google Cloud.'); id=(await r.json()).id; }
+  try{ await salvarConfig('google_drive',Object.assign({},cfg,{client_id:driveClientId(),pasta:id})); }catch(_){}
+  return id;
+}
+async function sobeDrive(blob,nomeArq){
+  const token=await ensureDriveToken();
+  const pasta=await pastaDrive(token);
+  const fd=new FormData();
+  fd.append('metadata',new Blob([JSON.stringify({name:nomeArq,parents:[pasta]})],{type:'application/json'}));
+  fd.append('file',blob,nomeArq);
+  const up=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{Authorization:'Bearer '+token},body:fd});
+  if(!up.ok){ if(up.status===403) throw new Error('O Google recusou (403). Ative a "Google Drive API" no Google Cloud.'); if(up.status===401){ try{ _gisTok=null; }catch(_){} throw new Error('Conexão com o Drive expirou. Toque em "Conectar ao Drive".'); } throw new Error('Envio ao Drive falhou ('+up.status+').'); }
+  const fid=(await up.json()).id;
+  await fetch('https://www.googleapis.com/drive/v3/files/'+fid+'/permissions',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({role:'reader',type:'anyone'})}).catch(()=>{});
+  return fid;
+}
+/* mantém compatível com o envio do editor de cifra (também vai para a pasta) */
+window.uploadParaDrive=uploadParaDrive=async function(file,nome){ return sobeDrive(file,nome||file.name); };
+const _rm=renderMusica;
+window.renderMusica=renderMusica=function(){
+  let h=_rm.apply(this,arguments);
+  try{
+    if(typeof h!=='string' || abaAtual!=='audio' || !ehAdmin()) return h;
+    const m=DB.musicas.find(x=>x.id===musicaAberta); if(!m) return h;
+    const k=h.lastIndexOf('</div>'); if(k<0) return h;
+    h=h.slice(0,k)+cardAudios(m)+h.slice(k);
+  }catch(_){}
+  return h;
+};
+function cardAudios(m){
+  const lista=(m.audios||[]).map((a,i)=>'<div class="au-it"><button class="au-pl" onclick="tocarAudioAdm(\''+m.id+'\','+i+',this)" aria-label="Ouvir">▶</button><span class="au-nm">'+e(a.nome||'Áudio '+(i+1))+'</span>'+
+    '<button onclick="renomearAudio(\''+m.id+'\','+i+')" aria-label="Renomear">✏️</button><button onclick="excluirAudio(\''+m.id+'\','+i+')" aria-label="Excluir" class="au-del">🗑️</button></div>').join('')
+    || '<p class="au-vz">Nenhum áudio ainda. Grave, envie um arquivo ou cole um link.</p>';
+  const chips=['Voz guia','Playback','Ensaio','Original','Soprano','Contralto','Tenor','Baixo'].map(n=>'<button type="button" onclick="document.getElementById(\'auNome\').value=\''+n+'\'">'+n+'</button>').join('');
+  return '<div class="card au-card"><h3>🎧 Áudios da música <span class="admin-tag">ADM</span></h3>'+
+    '<div class="au-lista">'+lista+'</div>'+
+    '<div class="field"><label>Nome do novo áudio</label><input id="auNome" placeholder="Ex.: Voz guia"><div class="au-chips">'+chips+'</div></div>'+
+    statusDrive()+
+    '<div class="au-acts">'+
+      '<button class="au-b rec" id="auRecBt" onclick="gravarAudio(\''+m.id+'\')">🎙️ Gravar</button>'+
+      '<button class="au-b" onclick="escolherArquivoAudio()">📁 Enviar arquivo</button><input id="auArq" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" hidden onchange="enviarArquivoAudio(\''+m.id+'\',this)">'+
+      '<button class="au-b" onclick="linkAudio(\''+m.id+'\')">🔗 Colar link</button>'+
+    '</div><div id="auRec"></div>'+
+    (migraveis(m)?'<button class="au-b mig" onclick="moverParaDrive(\''+m.id+'\')">☁️ Mover '+migraveis(m)+' áudio(s) antigo(s) para o Drive</button>':'')+
+    '<p class="au-dica">Gravações e arquivos vão direto para o Google Drive (pasta "MM IBNM - Áudios"), sem gastar a cota do Supabase.</p></div>';
+}
+function redesenha(){ const y=scrollY; abrirMusica(musicaAberta,'audio'); scrollTo(0,y); }
+async function salvaLista(m){
+  m.audios=m.audios||[];
+  if(typeof sb!=='undefined'&&sb){ const {error}=await sb.from('musicas').update({audios:m.audios}).eq('id',m.id); if(error){ toast('Erro ao salvar: '+error.message); return false; } }
+  else { try{ saveDB(); }catch(_){} }
+  return true;
+}
+function nomeNovo(padrao){ const v=(($i('auNome')||{}).value||'').trim(); return v||padrao; }
+async function sobe(m,blob,nome,ext){
+  if(blob.size>MAX_MB*1024*1024) throw new Error('Arquivo grande demais (máx. '+MAX_MB+' MB).');
+  if(!driveOk()) throw new Error('Configure o Google Drive no Painel do ADM.');
+  const arq=(m.titulo+' - '+nome).replace(/[\\/:*?"<>|]+/g,' ').slice(0,90)+'.'+ext;
+  const fid=await sobeDrive(blob,arq); return {url:driveUrl(fid),drive:fid};
+}
+async function adiciona(m,nome,url){
+  const extra=(url&&typeof url==='object')? url : {url}; url=extra.url;
+  m.audios=m.audios||[]; m.audios.push(Object.assign({nome},extra));
+  if(await salvaLista(m)){ toast('Áudio "'+nome+'" adicionado! 🎧'); redesenha(); }
+  else m.audios.pop();
+}
+window.escolherArquivoAudio=function(){
+  if(!driveOk()) return toast('Configure o Google Drive no Painel do ADM primeiro.');
+  if(!conectado()){ conectarDrive(); toast('Depois de conectar, toque de novo em "Enviar arquivo".'); return; }
+  const i=$i('auArq'); if(i) i.click();
+};
+window.enviarArquivoAudio=async function(id,inp){
+  const f=inp.files[0]; inp.value=''; if(!f) return;
+  const m=DB.musicas.find(x=>x.id===id); if(!m) return;
+  const nome=nomeNovo(f.name.replace(/\.[^.]+$/,'')); const ext=(f.name.split('.').pop()||'mp3').toLowerCase();
+  toast('Enviando "'+nome+'" ao Google Drive…');
+  try{ await adiciona(m,nome,await sobe(m,f,nome,ext)); }catch(err){ toast('Não foi possível enviar: '+(err.message||err)); }
+};
+window.linkAudio=function(id){
+  const m=DB.musicas.find(x=>x.id===id); if(!m) return;
+  let v=prompt('Cole o link do áudio (Google Drive, MP3, Dropbox…):'); if(!v) return; v=v.trim();
+  let url=v; const drv=v.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?.*id=)([-\w]{20,})/);
+  if(drv) url=driveUrl(drv[1]);
+  else if(/^[-\w]{25,}$/.test(v)) url=driveUrl(v);
+  else if(/dropbox\.com/.test(v)) url=v.replace(/[?&]dl=0/,'').replace('www.dropbox.com','dl.dropboxusercontent.com');
+  else if(!/^https?:\/\//i.test(v)) return toast('Link inválido.');
+  adiciona(m,nomeNovo('Áudio '+((m.audios||[]).length+1)),url);
+};
+window.renomearAudio=async function(id,i){
+  const m=DB.musicas.find(x=>x.id===id); if(!m||!m.audios[i]) return;
+  const n=prompt('Novo nome do áudio:',m.audios[i].nome||''); if(!n||!n.trim()) return;
+  m.audios[i].nome=n.trim(); if(await salvaLista(m)) redesenha();
+};
+window.excluirAudio=async function(id,i){
+  const m=DB.musicas.find(x=>x.id===id); if(!m||!m.audios[i]) return;
+  const a=m.audios[i]; if(!confirm('Excluir o áudio "'+(a.nome||'')+'"?')) return;
+  m.audios.splice(i,1);
+  if(await salvaLista(m)){
+    try{ const p=String(a.url).split('/storage/v1/object/public/audios/')[1]; if(p&&sb) await sb.storage.from('audios').remove([decodeURIComponent(p)]); }catch(_){}
+    try{ const fid=a.drive||((String(a.url).match(/[?&]id=([-\w]{20,})/)||[])[1]); if(fid && conectado()) await fetch('https://www.googleapis.com/drive/v3/files/'+fid,{method:'DELETE',headers:{Authorization:'Bearer '+_gisTok}}); }catch(_){}
+    toast('Áudio excluído.'); redesenha();
+  } else m.audios.splice(i,0,a);
+};
+window.tocarAudioAdm=function(id,i,bt){
+  const m=DB.musicas.find(x=>x.id===id); if(!m) return; const a=m.audios[i];
+  const pl=$i('plAudio'); if(pl){ pl.src=a.url; pl.play().catch(()=>{}); const n=$i('plNome'); if(n) n.textContent=a.nome; scrollTo({top:0,behavior:'smooth'}); }
+  else redesenha();
+};
+
+/* ---- áudios antigos guardados no Supabase → Drive ---- */
+const ehSupabase = a => /\/storage\/v1\/object\/public\/audios\//.test(String(a&&a.url||''));
+function migraveis(m){ return (m.audios||[]).filter(ehSupabase).length; }
+window.moverParaDrive=async function(id){
+  const m=DB.musicas.find(x=>x.id===id); if(!m) return;
+  if(!driveOk()) return toast('Configure o Google Drive no Painel do ADM primeiro.');
+  if(!conectado()){ const ok=await conectarDrive(); if(!ok) return; }
+  let n=0;
+  for(const a of (m.audios||[])){ if(!ehSupabase(a)) continue;
+    try{ toast('Movendo "'+a.nome+'"…');
+      const r=await fetch(a.url); if(!r.ok) throw new Error(r.status); const b=await r.blob();
+      const ext=(String(a.url).split('.').pop()||'mp3').split('?')[0].slice(0,4);
+      const fid=await sobeDrive(b,(m.titulo+' - '+a.nome).replace(/[\\/:*?"<>|]+/g,' ').slice(0,90)+'.'+ext);
+      const velho=a.url; a.url=driveUrl(fid); a.drive=fid; n++;
+      try{ const p=velho.split('/storage/v1/object/public/audios/')[1]; if(p) await sb.storage.from('audios').remove([decodeURIComponent(p)]); }catch(_){}
+    }catch(err){ toast('Falhou em "'+a.nome+'": '+(err.message||err)); }
+  }
+  if(n && await salvaLista(m)){ toast(n+' áudio(s) movido(s) para o Drive.'); redesenha(); }
+};
+
+/* ---- gravação pelo microfone ---- */
+let REC=null;
+function tipoGravacao(){
+  const ts=['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus','audio/webm'];
+  for(const t of ts){ try{ if(window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t; }catch(_){} }
+  return '';
+}
+window.gravarAudio=async function(id){
+  if(REC && REC.mr && REC.mr.state==='recording'){ REC.mr.stop(); return; }
+  if(!window.MediaRecorder||!navigator.mediaDevices) return toast('Este navegador não grava áudio. Use "Enviar arquivo".');
+  if(!driveOk()) return toast('Configure o Google Drive no Painel do ADM primeiro.');
+  if(!conectado()){ const ok=await conectarDrive(); if(!ok) return; }
+  let stream; try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
+  catch(_){ return toast('Permita o uso do microfone para gravar.'); }
+  const tipo=tipoGravacao(); const mr=new MediaRecorder(stream,tipo?{mimeType:tipo,audioBitsPerSecond:64000}:{audioBitsPerSecond:64000});
+  REC={mr,stream,partes:[],ini:Date.now(),id,timer:0};
+  mr.ondataavailable=ev=>{ if(ev.data&&ev.data.size) REC.partes.push(ev.data); };
+  mr.onstop=()=>{ clearInterval(REC.timer); REC.stream.getTracks().forEach(t=>t.stop());
+    const blob=new Blob(REC.partes,{type:mr.mimeType||tipo||'audio/webm'}); REC.blob=blob; mostraPrevia(); };
+  mr.start(1000);
+  const bt=$i('auRecBt'); if(bt){ bt.classList.add('on'); bt.textContent='⏹ Parar (0:00)'; }
+  REC.timer=setInterval(()=>{ const s=Math.floor((Date.now()-REC.ini)/1000); const b=$i('auRecBt'); if(b) b.textContent='⏹ Parar ('+Math.floor(s/60)+':'+String(s%60).padStart(2,'0')+')'; if(s>=600){ mr.stop(); toast('Gravação limitada a 10 minutos.'); } },500);
+  try{ if('wakeLock' in navigator) navigator.wakeLock.request('screen').then(w=>{ REC.wl=w; }).catch(()=>{}); }catch(_){}
+};
+function mostraPrevia(){
+  const box=$i('auRec'); const bt=$i('auRecBt'); if(bt){ bt.classList.remove('on'); bt.textContent='🎙️ Gravar'; }
+  try{ if(REC.wl) REC.wl.release(); }catch(_){}
+  if(!box||!REC||!REC.blob) return;
+  const url=URL.createObjectURL(REC.blob); const kb=Math.round(REC.blob.size/1024);
+  box.innerHTML='<div class="au-prev"><b>Gravação pronta</b> <small>('+(kb>1024?(kb/1024).toFixed(1)+' MB':kb+' KB')+')</small><audio controls src="'+url+'"></audio>'+
+    '<div class="au-acts"><button class="au-b ok" onclick="salvarGravacao()">💾 Salvar na música</button><button class="au-b" onclick="descartarGravacao()">✕ Descartar</button></div></div>';
+}
+window.salvarGravacao=async function(){
+  if(!REC||!REC.blob) return; const m=DB.musicas.find(x=>x.id===REC.id); if(!m) return;
+  const t=REC.blob.type||''; const ext=/mp4|m4a|aac/.test(t)?'m4a':/ogg/.test(t)?'ogg':'webm';
+  const nome=nomeNovo('Gravação '+new Date().toLocaleDateString('pt-BR'));
+  const box=$i('auRec'); if(box) box.innerHTML='<p class="au-vz">Enviando gravação ao Google Drive…</p>';
+  try{ const url=await sobe(m,REC.blob,nome,ext); REC=null; await adiciona(m,nome,url); }
+  catch(err){ toast('Não foi possível salvar: '+(err.message||err)); mostraPrevia(); }
+};
+window.descartarGravacao=function(){ REC=null; const b=$i('auRec'); if(b) b.innerHTML=''; };
+
+/* ---- atalho na aba Cifra para o ADM ---- */
+const _rm2=renderMusica;
+window.renderMusica=renderMusica=function(){
+  let h=_rm2.apply(this,arguments);
+  try{ if(typeof h==='string' && abaAtual==='cifra' && ehAdmin()){ const m=DB.musicas.find(x=>x.id===musicaAberta);
+    const k=h.indexOf('<div class="zoom-bar">'); if(m && k>=0) h=h.slice(0,k)+'<button class="mini-btn sec" style="margin-bottom:10px;margin-left:6px" onclick="abrirMusica(\''+m.id+'\',\'audio\')">🎧 Áudios ('+((m.audios||[]).length)+')</button>'+h.slice(k); } }catch(_){}
+  return h;
+};
+
+const st=document.createElement('style'); st.textContent=`
+.au-card h3{display:flex;align-items:center;gap:8px}
+.au-lista{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.au-it{display:flex;align-items:center;gap:6px;background:#f4f7f5;border-radius:10px;padding:6px}
+.au-it .au-nm{flex:1;min-width:0;font-weight:700;font-size:14px;color:var(--verde-escuro);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.au-it button{border:1px solid #cfdad4;background:#fff;border-radius:8px;min-width:36px;height:34px;font-size:14px}
+.au-it .au-pl{background:var(--verde-med);color:#fff;border-color:var(--verde-med)}
+.au-it .au-del{color:#b3261e}
+.au-vz{font-size:13px;color:#8a9;padding:4px 2px}
+.au-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.au-chips button{border:1px solid #d6e2dc;background:#fff;border-radius:14px;padding:3px 10px;font-size:12px;font-weight:700;color:var(--verde-escuro)}
+.au-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.au-b{flex:1;min-width:110px;height:44px;border-radius:12px;border:1px solid var(--verde-med);background:#fff;color:var(--verde-escuro);font-weight:800;font-size:14px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.au-b.rec{background:#c0392b;border-color:#c0392b;color:#fff}
+.au-b.rec.on{animation:auPulse 1s infinite}
+.au-b.ok{background:var(--verde-med);color:#fff}
+@keyframes auPulse{50%{opacity:.6}}
+.au-prev{margin-top:10px;background:#fff8dc;border:1px solid #f0d97a;border-radius:12px;padding:10px}
+.au-prev audio{width:100%;margin:8px 0 2px}
+.au-drv{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;background:#eef3fb;border:1px solid #c9d6ee;color:#25406b;border-radius:10px;padding:8px 10px;margin:8px 0 4px}
+.au-drv span{flex:1;min-width:160px}
+.au-drv button{border:0;background:#1a73e8;color:#fff;font-weight:800;border-radius:8px;height:34px;padding:0 12px}
+.au-drv.ok{background:#e1f4ea;border-color:#b8e0c9;color:#1c6b47}
+.au-drv.no{background:#fff3e6;border-color:#f3cf9f;color:#7a4a00}
+.au-b.mig{flex-basis:100%;margin-top:6px;border-color:#1a73e8;color:#1a73e8}
+.au-dica{font-size:11.5px;color:#7a8f86;margin-top:10px}
+`; document.head.appendChild(st);
+})();
+
+/* ============================================================
+   (v0.7.2) Painel do ADM: Google Drive explicado
+============================================================ */
+if(typeof cardDriveCfg==='function'){
+  window.cardDriveCfg=cardDriveCfg=function(){
+    const cid=(typeof driveClientId==='function'&&driveClientId())||''; const esc2=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    return '<div class="card"><h3>📁 Google Drive (áudios)</h3>'+
+      '<p style="font-size:12.5px;color:#556;margin-bottom:8px">Todos os áudios gravados ou enviados no app vão para a pasta <b>MM IBNM - Áudios</b> no Google Drive. Cole aqui o <b>mesmo Client ID</b> do login com Google (termina em <i>.apps.googleusercontent.com</i>).</p>'+
+      '<div class="field"><label>Client ID OAuth</label><input id="cfgGcid" value="'+esc2(cid)+'" placeholder="xxxx.apps.googleusercontent.com"></div>'+
+      '<button class="mini-btn" onclick="salvarDriveCfg()">💾 Salvar Client ID</button>'+
+      (cid?'<p style="font-size:11.5px;color:var(--verde-claro);margin-top:8px">✅ Client ID configurado.</p>':'')+
+      '<p style="font-size:11.5px;color:#7a8f86;margin-top:8px">No Google Cloud, ative também a <b>Google Drive API</b> (APIs e serviços → Biblioteca → Google Drive API → Ativar).</p></div>';
+  };
+}
+
+/* ============================================================
+   (v0.7.2) Editor de cifra: campo INTRODUÇÃO (só o ADM vê o campo;
+   os músicos veem a introdução no topo da cifra)
+============================================================ */
+(function(){
+'use strict';
+if(typeof editorCifra!=='function') return;
+const e = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const RE_INTRO=/^\s*intro(?:du[cç][aã]o)?\s*[:\-–]\s*/i;
+/* separa a introdução (1ª linha "Intro: ...") do resto da cifra */
+function tirarIntro(el){
+  let intro='';
+  for(const n of [...el.childNodes]){
+    const t=(n.textContent||'').replace(/\u00a0/g,' ');
+    if(n.nodeType===1 && n.tagName==='BR') { n.remove(); continue; }
+    if(!t.trim()){ if(n.nodeType===3 || !n.querySelector('img')) { n.remove(); continue; } }
+    const prim=t.split('\n')[0];
+    if(RE_INTRO.test(prim)){
+      intro=prim.replace(RE_INTRO,'').trim();
+      if(n.nodeType===3 && t.indexOf('\n')>=0) n.textContent=t.slice(t.indexOf('\n')+1);
+      else n.remove();
+      while(el.firstChild && ((el.firstChild.nodeType===1&&el.firstChild.tagName==='BR') || (!(el.firstChild.textContent||'').trim() && !(el.firstChild.querySelector&&el.firstChild.querySelector('img'))))) el.firstChild.remove();
+    }
+    break;
+  }
+  return intro;
+}
+const _ed=editorCifra;
+window.editorCifra=editorCifra=function(id){
+  const r=_ed.apply(this,arguments);
+  try{
+    const el=document.getElementById('edCifra'); if(!el || document.getElementById('edIntro')) return r;
+    const intro=tirarIntro(el);
+    const tb=document.getElementById('edTb');
+    const campo='<div class="field ed-intro"><label>🎼 Introdução <small>(campo do ADM — os músicos veem a introdução no início da cifra)</small></label>'+
+      '<input id="edIntro" value="'+e(intro)+'" placeholder="Ex.: G  D/F#  Em  C  (2x)" autocomplete="off" spellcheck="false"></div>';
+    if(tb) tb.insertAdjacentHTML('beforebegin',campo); else el.insertAdjacentHTML('beforebegin',campo);
+    try{ if(typeof edCommit==='function') edCommit(); }catch(_){}
+  }catch(_){}
+  return r;
+};
+/* ao salvar: a introdução entra no topo da cifra, em destaque */
+if(typeof getCifraHtml==='function'){
+  const _g=getCifraHtml;
+  window.getCifraHtml=getCifraHtml=function(){
+    const html=_g.apply(this,arguments);
+    if(!window.__comIntro) return html;
+    const v=((document.getElementById('edIntro')||{}).value||'').trim();
+    return v? '<p><b style="color:#b8860b">Intro:</b> '+e(v)+'</p>'+html : html;
+  };
+}
+if(typeof salvarCifra==='function'){
+  const _s=salvarCifra;
+  window.salvarCifra=salvarCifra=function(){ window.__comIntro=true; try{ return _s.apply(this,arguments); } finally { window.__comIntro=false; } };
+}
+/* transpor no editor também muda a introdução */
+if(typeof transpor==='function'){
+  const _t=transpor;
+  window.transpor=transpor=function(ev,passo){
+    _t.apply(this,arguments);
+    try{ const i=document.getElementById('edIntro'); if(i && i.value.trim() && window.__transpTexto) i.value=window.__transpTexto(i.value,passo); }catch(_){}
+  };
+}
+const st=document.createElement('style'); st.textContent='.ed-intro{background:#fffbea;border:1px solid #efe1a5;border-radius:10px;padding:8px 10px;margin-bottom:10px}.ed-intro label small{font-weight:600;color:#8a7a3a}.ed-intro input{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;letter-spacing:.02em}';
+document.head.appendChild(st);
+})();
+
+/* ============================================================
+   (v0.7.3) CIFRA COLADA DO JEITO QUE VEM (Cifra Club etc.)
+   - colar: texto puro, sem tabulação/espaço especial, alinhamento preservado
+   - ver: sem quebra de linha (o acorde não sai de cima da sílaba);
+     a letra diminui para caber na tela; acordes destacados
+============================================================ */
+(function(){
+'use strict';
+/* 1) colar no editor */
+function normalizaColagem(t){
+  return String(t||'').replace(/\r\n?/g,'\n').replace(/\u00a0/g,' ')
+    .split('\n').map(l=>{ let o='',c=0; for(const ch of l){ if(ch==='\t'){ const n=4-(c%4); o+=' '.repeat(n); c+=n; } else { o+=ch; c++; } } return o.replace(/\s+$/,''); })
+    .join('\n').replace(/\n{3,}/g,'\n\n').replace(/^\n+|\n+$/g,'');
+}
+document.addEventListener('paste',function(ev){
+  const el=ev.target && ev.target.closest && ev.target.closest('#edCifra'); if(!el) return;
+  ev.preventDefault(); ev.stopImmediatePropagation();
+  const t=normalizaColagem((ev.clipboardData||window.clipboardData).getData('text')||'');
+  if(!t) return;
+  const html=t.split('\n').map(l=>'<div>'+(l? l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '<br>')+'</div>').join('');
+  document.execCommand('insertHTML',false,html);
+  try{ if(typeof edCommit==='function') edCommit(); if(typeof atualizaTom==='function') atualizaTom(); }catch(_){}
+  toast('Cifra colada com o alinhamento original.');
+},true);
+
+/* 2) ver a cifra: sem quebrar linhas + caber na tela + destacar acordes */
+function larguraLetra(el){
+  const s=document.createElement('span'); s.textContent='M'.repeat(50);
+  s.style.cssText='position:absolute;visibility:hidden;white-space:pre;font-size:100px;font-family:'+getComputedStyle(el).fontFamily;
+  document.body.appendChild(s); const w=s.getBoundingClientRect().width/5000; s.remove(); return w||0.6;
+}
+function marcarAcordes(el){
+  const ehC=window.__ehLinhaCifra||(()=>false);
+  el.querySelectorAll('div,p').forEach(d=>{ if(d.querySelector('div,p')) return; const t=(d.textContent||'').replace(/\u00a0/g,' ');
+    if(ehC(t)) d.classList.add('cf-ch'); else if(/^\s*[A-Ga-g]?\|[-\d|hpbr\/\\~x\s]+\|?\s*$/.test(t)) d.classList.add('cf-tab'); else if(/^\s*\[[^\]]+\]\s*$/.test(t)) d.classList.add('cf-sec'); });
+  /* texto solto (linhas fora de div) */
+  [...el.childNodes].forEach(n=>{ if(n.nodeType!==3||!n.nodeValue.trim()) return;
+    const frag=document.createDocumentFragment(); n.nodeValue.split('\n').forEach((l,i,arr)=>{
+      if(ehC(l)){ const sp=document.createElement('span'); sp.className='cf-ch'; sp.textContent=l; frag.appendChild(sp); } else frag.appendChild(document.createTextNode(l));
+      if(i<arr.length-1) frag.appendChild(document.createTextNode('\n')); });
+    n.replaceWith(frag); });
+}
+function ajustar(){
+  const el=document.getElementById('zoomTarget'); if(!el||!el.classList.contains('cifra-box')) return;
+  el.classList.add('cf-fit');
+  const linhas=(el.innerText||'').replace(/\u00a0/g,' ').split('\n'); const max=Math.max(1,...linhas.map(l=>l.replace(/\s+$/,'').length));
+  const cs=getComputedStyle(el); const disp=el.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)-2;
+  const ideal=disp/(max*larguraLetra(el));
+  const base=Math.max(11,Math.min(16,Math.floor(ideal*10)/10));
+  el.dataset.base=String(base);
+  try{ if(typeof _applyZoom==='function') _applyZoom(); }catch(_){}
+}
+function posCifra(){
+  const el=document.getElementById('zoomTarget'); if(!el||!el.classList.contains('cifra-box')||el.dataset.cf) return;
+  el.dataset.cf='1'; try{ marcarAcordes(el); }catch(_){} ajustar();
+}
+if(typeof renderMusica==='function'){
+  const _rm=renderMusica;
+  window.renderMusica=renderMusica=function(){ const h=_rm.apply(this,arguments); setTimeout(posCifra,5); return h; };
+}
+let _rz=0; addEventListener('resize',()=>{ clearTimeout(_rz); _rz=setTimeout(ajustar,150); });
+const st=document.createElement('style'); st.textContent=`
+.cifra-box.cf-fit{white-space:pre;overflow-x:auto;line-height:1.55;-webkit-text-size-adjust:none;text-size-adjust:none}
+.cifra-box.cf-fit div,.cifra-box.cf-fit p{white-space:pre;margin:0}
+.cifra-box .cf-ch{color:var(--verde-med);font-weight:800}
+.cifra-box .cf-sec{color:#8a6a00;font-weight:800}
+.cifra-box .cf-tab{color:#456;letter-spacing:0}
+.editor-rich{white-space:pre!important;overflow-x:auto}
+`; document.head.appendChild(st);
 })();

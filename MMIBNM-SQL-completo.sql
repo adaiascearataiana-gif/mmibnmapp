@@ -281,3 +281,20 @@ GRANT EXECUTE ON FUNCTION excluir_musica(text) TO authenticated;
 -- 13) (v0.6.2) Número do WhatsApp quando o telefone não é WhatsApp
 -- ------------------------------------------------------------
 ALTER TABLE perfis ADD COLUMN IF NOT EXISTS wpp_num text DEFAULT '';
+
+-- ------------------------------------------------------------
+-- 14) (v0.7.1) Áudios das músicas no Storage (bucket "audios")
+--     Todos ouvem; só o ADM envia e apaga.
+-- ------------------------------------------------------------
+INSERT INTO storage.buckets (id, name, public, file_size_limit)
+VALUES ('audios', 'audios', true, 20971520)
+ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = 20971520;
+
+DROP POLICY IF EXISTS audios_ler ON storage.objects;
+DROP POLICY IF EXISTS audios_adm_enviar ON storage.objects;
+DROP POLICY IF EXISTS audios_adm_apagar ON storage.objects;
+CREATE POLICY audios_ler ON storage.objects FOR SELECT USING (bucket_id = 'audios');
+CREATE POLICY audios_adm_enviar ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'audios' AND public.is_admin());
+CREATE POLICY audios_adm_apagar ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'audios' AND public.is_admin());

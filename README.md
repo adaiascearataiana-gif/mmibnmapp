@@ -173,3 +173,26 @@ edições do Cantor aparecerem para todos.
 - Quando chega a semana, ela vira automaticamente a playlist "desta semana".
 - Início mostra o cartão da próxima semana; itens mostram o que está
   disponível (cifra · letra · áudio). Sem SQL novo.
+
+## v0.7.1
+- **Áudios das músicas (ADM):** na aba **Áudio** de cada música, cartão com
+  🎙️ Gravar (pelo microfone do celular), 📁 Enviar arquivo (mp3, m4a, wav…),
+  🔗 Colar link (Google Drive, MP3, Dropbox), ✏️ renomear e 🗑️ excluir.
+  Atalho "🎧 Áudios (n)" na aba Cifra. Rode a seção **14** do SQL.
+
+## v0.7.2
+- **Áudios vão direto para o Google Drive** (pasta "MM IBNM - Áudios"),
+  inclusive gravações. Botão "🔗 Conectar ao Drive" na aba Áudio; botão para
+  mover áudios antigos do Supabase para o Drive. A seção 14 do SQL deixou de
+  ser necessária.
+- **Editor de cifra: campo Introdução** (só o ADM vê o campo). Os músicos
+  veem "Intro: ..." no topo da cifra; Tom −/+ e transpor também mudam a intro.
+
+## v0.7.3
+- **Colar cifra do Cifra Club (ou de outro site):** o editor cola como texto
+  puro, linha por linha, mantendo os espaços que deixam o acorde em cima da
+  sílaba certa (tabulações viram espaços).
+- **Ver cifra:** as linhas não quebram mais no celular (era isso que
+  desalinhava); a letra diminui para caber na tela (mín. 11 px; o resto rola
+  de lado); acordes em verde, partes [Intro]/[Refrão] em dourado; ao mudar o
+  tom, cada acorde fica na mesma coluna.
