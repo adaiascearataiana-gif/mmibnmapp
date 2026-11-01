@@ -318,7 +318,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
    Persistencia local (localStorage). Pontos de integracao
    para Google Login / Google Drive marcados com [INTEGRACAO].
 ============================================================ */
-const VERSION = 'v0.7.7';
+const VERSION = 'v0.9.0';
 const DB_KEY = 'ibnm_mm_db_v1';
 const SES_KEY = 'ibnm_mm_sessao';
 const LOGO = document.getElementById('logoTpl').innerHTML;
@@ -976,7 +976,7 @@ function salvarCifra(id,publicar){ const m=DB.musicas.find(x=>x.id===id);
   m.cifra=getCifraHtml(); m.letra=$('#edLetra').value;
   if(publicar){ const jaPub=m.publicada; m.publicada=true; saveDB();
     if(!jaPub){ notificarTodos('\uD83C\uDFBC','Nova música disponível','"'+m.titulo+'" foi publicada no app. Confira a cifra, letra e áudio!'); }
-    toast('Publicado! Todos foram notificados.'); abrirMusica(id,'cifra');
+    toast('Publicado!'+((typeof APP_CFG!=='undefined'&&APP_CFG.notif_cfg&&APP_CFG.notif_cfg.auto_musica)?' Todos foram notificados.':' Avise pela Central de avisos quando quiser.')); abrirMusica(id,'cifra');
   } else { saveDB(); toast('Rascunho salvo.'); }
 }
 </script>
@@ -1357,7 +1357,7 @@ async function salvarSenha(){
 }
 /* ---------- BOOT / CARGA ---------- */
 async function bootCloud(){
-  try{ sb=supabase.createClient(SUPA_URL,SUPA_KEY); }
+  try{ if(!sb) sb=supabase.createClient(SUPA_URL,SUPA_KEY); }
   catch(e){ telaLogin(); return; }
   const {data:{session}}=await sb.auth.getSession();
   if(!session){ telaLogin();
@@ -1480,7 +1480,7 @@ async function salvarCifra(id,publicar){ const m=DB.musicas.find(x=>x.id===id); 
   const jaPub=m.publicada; if(publicar) m.publicada=true;
   await sb.from('musicas').update({titulo:m.titulo,artista:m.artista,youtube:m.youtube,cifra:m.cifra,letra:m.letra,dados:{publicada:!!m.publicada}}).eq('id',id);
   if(publicar){ if(!jaPub) notificarTodos('\uD83C\uDFBC','Nova música disponível','\"'+m.titulo+'\" foi publicada no app. Confira a cifra, letra e audio!');
-    toast('Publicado! Todos foram notificados.'); _editando=false; abrirMusica(id,'cifra'); }
+    toast('Publicado!'+((typeof APP_CFG!=='undefined'&&APP_CFG.notif_cfg&&APP_CFG.notif_cfg.auto_musica)?' Todos foram notificados.':' Avise pela Central de avisos quando quiser.')); _editando=false; abrirMusica(id,'cifra'); }
   else toast('Rascunho salvo.');
 }
 async function publicarPlaylist(){ const ini=$('#plIni').value, fim=$('#plFim').value;
@@ -1552,8 +1552,11 @@ go=function(page,arg){ _editando=false; _viewAtual=function(){ _goOrig(page,arg)
 abrirMusica=function(id,aba){ _editando=false; _viewAtual=function(){ _abrirOrig(id,aba); }; return _abrirOrig(id,aba); };
 editorCifra=function(id){ _editando=true; _viewAtual=null; return _editorOrig(id); };
 
-/* ---------- INICIAR ---------- */
-bootCloud();
+/* ---------- INICIAR ----------
+   O cliente é criado já; o app só inicia depois que TODOS os módulos
+   (melhorias, escala, avisos, economia de dados…) estiverem carregados. */
+try{ sb=supabase.createClient(SUPA_URL,SUPA_KEY); }catch(e){}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>bootCloud()); else bootCloud();
 </script>
 <script id="v2feats">
 /* ============================================================
@@ -2300,5 +2303,7 @@ if(typeof ligarRealtime==='function'){
 <script src="membros.js"></script>
 <script src="cantadas.js"></script>
 <script src="avisos.js"></script>
+<script src="central.js"></script>
+<script src="sync.js"></script>
 </body>
 </html>

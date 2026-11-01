@@ -83,7 +83,27 @@ function validaUrl(u){
 const TIPO_INFO={
   youtube:{ic:'▶', rot:'Vídeo (YouTube)', cor:'#c0392b'},
   pdf:{ic:'📄', rot:'PDF', cor:'#b8860b'},
-  link:{ic:'🔗', rot:'Link', cor:'#1f7a5a'}
+  link:{ic:'🔗', rot:'Link', cor:'#1f7a5a'},
+  video:{ic:'🎬', rot:'Vídeo', cor:'#6c3fb5'},
+  audio:{ic:'🎧', rot:'Áudio', cor:'#1d6fa5'}
+};
+/* id do arquivo no Google Drive (para tocar/ver dentro do app) */
+function driveId(u){ const m=String(u||'').match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:[^#]*&)?id=)([-\w]{20,})/); return m? m[1] : ''; }
+function tipoDoArquivo(f){ const t=(f.type||'').toLowerCase(), n=(f.name||'').toLowerCase();
+  if(t.startsWith('video/')||/\.(mp4|mov|m4v|webm|avi|mkv|3gp)$/.test(n)) return 'video';
+  if(t.startsWith('audio/')||/\.(mp3|m4a|wav|ogg|aac|opus|flac|amr)$/.test(n)) return 'audio';
+  if(t==='application/pdf'||/\.pdf$/.test(n)) return 'pdf';
+  return 'link'; }
+const nomeSemExt = n => { const b=String(n||'').replace(/\.[^.]+$/,'').replace(/[_]+/g,' ').trim(); return (window.capTitulo? capTitulo(b) : b); };
+window.adVer=function(id,btn){
+  const m=MATS.find(x=>String(x.id)===String(id)); if(!m) return; const box=document.getElementById('adPrev_'+id); if(!box) return;
+  if(box.innerHTML){ box.innerHTML=''; btn.classList.remove('on'); return; }
+  const did=driveId(m.url);
+  if(did) box.innerHTML='<iframe src="https://drive.google.com/file/d/'+did+'/preview" allow="autoplay; fullscreen" allowfullscreen loading="lazy" class="ad-ifr '+(m.tipo==='audio'?'aud':m.tipo==='pdf'?'pdf':'')+'"></iframe>';
+  else if(m.tipo==='audio') box.innerHTML='<audio controls autoplay src="'+esc(m.url)+'" style="width:100%"></audio>';
+  else if(m.tipo==='video') box.innerHTML='<video controls playsinline src="'+esc(m.url)+'" style="width:100%;border-radius:10px"></video>';
+  else { window.open(m.url,'_blank','noopener'); return; }
+  btn.classList.add('on');
 };
 
 /* ---------- CSS (tema verde/dourado) ---------- */
@@ -161,7 +181,9 @@ function renderSecao(sec){
         '<div class="ad-main">'+
           '<div class="ad-t">'+esc(m.titulo)+'</div>'+
           (m.descricao?'<div class="ad-d">'+esc(m.descricao)+'</div>':'')+
-          '<a class="ad-open" href="'+esc(m.url)+'" target="_blank" rel="noopener">'+(m.tipo==='pdf'?'📄 Abrir / baixar PDF':m.tipo==='youtube'?'▶ Assistir no vídeo':'🔗 Abrir link')+'</a>'+
+          ((m.tipo==='video'||m.tipo==='audio'||(m.tipo==='pdf'&&driveId(m.url)))?
+            '<div class="ad-acts"><button class="ad-open ad-play" onclick="adVer(\''+m.id+'\',this)">'+(m.tipo==='video'?'▶ Assistir':m.tipo==='audio'?'🎧 Ouvir':'📄 Ver PDF')+'</button><a class="ad-open sec" href="'+esc(m.url)+'" target="_blank" rel="noopener">Abrir no Drive ↗</a></div><div class="ad-prev" id="adPrev_'+m.id+'"></div>'
+          : '<a class="ad-open" href="'+esc(m.url)+'" target="_blank" rel="noopener">'+(m.tipo==='pdf'?'📄 Abrir / baixar PDF':m.tipo==='youtube'?'▶ Assistir no vídeo':'🔗 Abrir link')+'</a>')+
         '</div>'+
         (adm?'<div class="ad-side">'+
           '<button class="ad-mini" onclick="adMover(\''+m.id+'\',-1)" title="Mover para cima">↑</button>'+
@@ -176,7 +198,9 @@ function renderSecao(sec){
     '<button class="mini-btn sec" style="margin-bottom:12px" onclick="go(\'academia\')">‹ Academia</button>'+
     '<div class="page-ttl">'+s.ic+' '+s.nome+'</div>'+
     '<p style="font-size:12.5px;color:#789;margin-bottom:12px">'+(itens.length? itens.length+' material'+(itens.length>1?'is':'')+' disponível'+(itens.length>1?'eis':'') : '')+'</p>'+
-    (adm?'<button class="mini-btn" style="margin-bottom:14px" onclick="adNovo(\''+sec+'\')">➕ Adicionar material</button>':'')+
+    (adm?'<div class="ad-adm"><button class="mini-btn" onclick="adNovo(\''+sec+'\')">➕ Adicionar material</button><button class="mini-btn imp" onclick="adImportar(\''+sec+'\')">📁 Importar arquivos</button>'+
+      '<input type="file" id="adImpFile" multiple hidden accept="video/*,audio/*,application/pdf,.pdf,.mp3,.m4a,.wav,.ogg,.aac,.mp4,.mov,.m4v,.webm" onchange="adImportarArquivos(\''+sec+'\',this)"></div>'+
+      '<p class="ad-imp-dica">Vídeos, PDFs e áudios vão para o Google Drive (pasta "MM IBNM - Academia") e aparecem aqui para todos.</p><div id="adImpProg"></div>':'')+
     lista+
   '</div>';
 }
@@ -197,11 +221,13 @@ function folhaMaterial(sec,item){
       '<button data-t="youtube" aria-pressed="'+(t==='youtube')+'">▶ YouTube</button>'+
       '<button data-t="pdf" aria-pressed="'+(t==='pdf')+'">📄 PDF</button>'+
       '<button data-t="link" aria-pressed="'+(t==='link')+'">🔗 Link</button>'+
+      '<button data-t="video" aria-pressed="'+(t==='video')+'">🎬 Vídeo</button>'+
+      '<button data-t="audio" aria-pressed="'+(t==='audio')+'">🎧 Áudio</button>'+
     '</div>'+
     '<label class="small" style="font-weight:700">Endereço (URL) *</label>'+
     '<input id="adUrl" value="'+esc(item?item.url:'')+'" placeholder="https://..." inputmode="url" autocomplete="off" spellcheck="false">'+
-    '<div class="row"><button id="adUpBtn">📤 Enviar PDF ao Google Drive</button></div>'+
-    '<input type="file" id="adUpFile" accept=".pdf,application/pdf" hidden>'+
+    '<div class="row"><button id="adUpBtn">📤 Enviar arquivo (vídeo, PDF ou áudio)</button></div>'+
+    '<input type="file" id="adUpFile" accept="video/*,audio/*,application/pdf,.pdf,.mp3,.m4a,.wav,.mp4,.mov" hidden>'+
     '<p class="ad-upload-note" id="adUpNote">'+(typeof driveClientId==='function'&&driveClientId()?'O PDF é salvo no Google Drive do ministério e o link entra automaticamente.':'Para enviar PDF direto do aparelho, configure o Client ID do Google Drive no Painel do ADM. Enquanto isso, use uma URL.')+'</p>'+
     '<div class="row">'+
       (edit?'<button class="dan" id="adDel">Remover</button>':'')+
@@ -218,20 +244,22 @@ function folhaMaterial(sec,item){
   /* upload de PDF ao Drive */
   const upBtn=el.querySelector('#adUpBtn'), upFile=el.querySelector('#adUpFile'), upNote=el.querySelector('#adUpNote');
   upBtn.onclick=()=>{
-    if(typeof driveClientId!=='function'||!driveClientId()){ toast2('Configure o Client ID do Google Drive no Painel do ADM para enviar PDFs.'); return; }
+    const D=window.__drive;
+    if(!D||!D.ok()){ toast2('Configure o Client ID do Google Drive no Painel do ADM para enviar arquivos.'); return; }
+    if(!D.conectado()){ D.conectar().then(ok=>{ if(ok) toast2('Conectado! Toque de novo em "Enviar arquivo".'); }); return; }
     upFile.click();
   };
   upFile.onchange=async ()=>{
     const f=upFile.files[0]; if(!f) return; upFile.value='';
-    if(typeof uploadParaDrive!=='function'){ toast2('Upload indisponível neste aparelho.'); return; }
-    upNote.textContent='Enviando '+f.name+' ao Google Drive...';
+    const D=window.__drive; if(!D){ toast2('Upload indisponível neste aparelho.'); return; }
+    const tp=tipoDoArquivo(f);
+    upNote.textContent='Enviando '+f.name+' ao Google Drive... 0%';
     try{
-      const fid=await uploadParaDrive(f, f.name.replace(/\.pdf$/i,'')+'.pdf');
-      const url='https://drive.google.com/file/d/'+fid+'/view';
-      urlInp.value=url;
-      tipo='pdf'; chips.forEach(x=>x.setAttribute('aria-pressed', x.dataset.t==='pdf'?'true':'false'));
-      if(!el.querySelector('#adTit').value.trim()) el.querySelector('#adTit').value=f.name.replace(/\.pdf$/i,'');
-      upNote.textContent='✅ PDF enviado! O link já está preenchido — é só salvar.';
+      const fid=await D.sobe(f, f.name, 'MM IBNM - Academia', p=>{ upNote.textContent='Enviando '+f.name+' ao Google Drive... '+Math.round(p*100)+'%'; });
+      urlInp.value='https://drive.google.com/file/d/'+fid+'/view';
+      tipo=tp==='link'?'link':tp; chips.forEach(x=>x.setAttribute('aria-pressed', x.dataset.t===tipo?'true':'false'));
+      if(!el.querySelector('#adTit').value.trim()) el.querySelector('#adTit').value=nomeSemExt(f.name);
+      upNote.textContent='✅ Arquivo enviado! O link já está preenchido — é só salvar.';
     }catch(e){ upNote.textContent='❌ Erro no upload: '+(e.message||e); }
   };
   el.querySelector('#adCnl').onclick=close;
@@ -265,6 +293,33 @@ function recarregar(){
     else if(typeof go==='function') go('academia');
   }catch(e){}
 }
+
+/* ---------- ADM: importar vários arquivos de uma vez (vídeo, PDF, áudio) ---------- */
+window.adImportar=function(sec){
+  if(!ehAdm()) return; const D=window.__drive;
+  if(!D||!D.ok()){ toast2('Configure o Client ID do Google Drive no Painel do ADM (📁 Google Drive).'); return; }
+  if(!D.conectado()){ D.conectar().then(ok=>{ if(ok) toast2('Conectado ao Drive! Toque de novo em "Importar arquivos".'); }); return; }
+  const i=document.getElementById('adImpFile'); if(i) i.click();
+};
+window.adImportarArquivos=async function(sec,inp){
+  const fs=[...(inp.files||[])]; inp.value=''; if(!fs.length) return;
+  const D=window.__drive; const prog=document.getElementById('adImpProg');
+  const linha=(i,txt)=>{ if(prog){ let d=prog.querySelector('[data-i="'+i+'"]'); if(!d){ d=document.createElement('div'); d.className='ad-imp-it'; d.dataset.i=i; prog.appendChild(d); } d.innerHTML=txt; } };
+  let ok=0;
+  for(let i=0;i<fs.length;i++){
+    const f=fs[i]; const tp=tipoDoArquivo(f);
+    if(tp==='link'){ linha(i,'⚠️ '+esc(f.name)+' — tipo de arquivo não aceito'); continue; }
+    if(f.size>1024*1024*1024){ linha(i,'⚠️ '+esc(f.name)+' — maior que 1 GB'); continue; }
+    try{
+      linha(i,'⏳ '+esc(f.name)+' — 0%');
+      const fid=await D.sobe(f,f.name,'MM IBNM - Academia',p=>linha(i,'⏳ '+esc(f.name)+' — '+Math.round(p*100)+'%'));
+      const novo={secao:sec,tipo:tp,titulo:nomeSemExt(f.name),descricao:'',url:'https://drive.google.com/file/d/'+fid+'/view',ordem:itensDaSecao(sec).length,created_by:(typeof _sessaoId!=='undefined'?_sessaoId:null),created_at:new Date().toISOString()};
+      MATS.push(novo); ordena(); salvarLocal(); await cloudInserir(novo); ok++;
+      linha(i,'✅ '+esc(novo.titulo)+' ('+(TIPO_INFO[tp].rot)+')');
+    }catch(e){ linha(i,'❌ '+esc(f.name)+' — '+esc(e.message||e)); }
+  }
+  if(ok){ toast2(ok+' arquivo(s) importado(s)! Toque em ✎ para mudar título ou descrição.'); setTimeout(recarregar,1200); }
+};
 
 /* ---------- ações ADM ---------- */
 window.adNovo=function(sec){ if(!ehAdm()) return; folhaMaterial(sec,null); };
@@ -310,3 +365,4 @@ try{
 
 cloudCarregar();
 })();
+(function(){ const st=document.createElement('style'); st.textContent=`.ad-adm{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}\n.ad-adm .imp{background:#1a73e8!important;border-color:#1a73e8!important;color:#fff!important}\n.ad-imp-dica{font-size:11.5px;color:#7a8f86;margin:0 0 10px}\n#adImpProg{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}\n.ad-imp-it{font-size:12.5px;background:#f4f7f5;border-radius:8px;padding:6px 10px;color:#264}\n.ad-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}\n.ad-open.sec{background:#fff!important;color:var(--verde-escuro)!important;border:1px solid #cfdad4}\n.ad-play.on{background:var(--dourado)!important;color:#3a2f00!important}\n.ad-prev:empty{display:none}\n.ad-prev{margin-top:8px}\n.ad-ifr{width:100%;aspect-ratio:16/9;border:0;border-radius:10px;background:#000}\n.ad-ifr.pdf{aspect-ratio:3/4;background:#f1f3f4}\n.ad-ifr.aud{aspect-ratio:auto;height:110px;background:#f1f3f4}\n`; document.head.appendChild(st); })();

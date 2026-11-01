@@ -1,5 +1,5 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v21';
+const CACHE = 'mmibnm-v24';
 const CORE = [
   './',
   './index.html',
@@ -13,6 +13,8 @@ const CORE = [
   './membros.js',
   './cantadas.js',
   './avisos.js',
+  './central.js',
+  './sync.js',
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',
@@ -27,7 +29,7 @@ self.addEventListener('install', function (e) {
 self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys().then(function (ks) {
-      return Promise.all(ks.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); }));
+      return Promise.all(ks.filter(function (k) { return k !== CACHE && k !== 'ibnm-fotos'; }).map(function (k) { return caches.delete(k); }));
     }).then(function () { return self.clients.claim(); })
   );
 });
@@ -36,7 +38,16 @@ self.addEventListener('fetch', function (e) {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  // Supabase / CDNs externas: sempre a rede (dados em tempo real).
+  // Fotos de perfil do Supabase: guardadas no celular (não baixam de novo a cada abertura).
+  if (/supabase\.co$/.test(url.hostname) && url.pathname.indexOf('/storage/v1/object/public/fotos/') >= 0) {
+    e.respondWith(caches.open('ibnm-fotos').then(function (c) {
+      return c.match(req).then(function (hit) {
+        return hit || fetch(req).then(function (r) { if (r && (r.ok || r.type === 'opaque')) c.put(req, r.clone()); return r; });
+      });
+    }));
+    return;
+  }
+  // Supabase (dados) / CDNs externas: sempre a rede.
   if (url.origin !== location.origin) return;
 
   // Abrir o app: rede primeiro; sem internet, usa a cópia guardada.

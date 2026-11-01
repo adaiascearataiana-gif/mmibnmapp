@@ -1,11 +1,11 @@
 -- =========================================================
--- MM IBNM — SQL PARA RODAR AGORA (versão 0.7.7)
+-- MM IBNM — SQL PARA RODAR AGORA (versão 0.9.0)
 -- Cole tudo no Supabase → SQL Editor → Run.
 -- Pode rodar mesmo que alguma parte já tenha sido rodada antes:
 -- nada é apagado e nada dá erro de duplicado.
 -- Inclui: 10 (ADM edita membros / proteção do ADM),
 --         11 (avisos e excluir membro), 12 (excluir música),
---         13 (número do WhatsApp).
+--         13 (número do WhatsApp), 15 (economia de dados).
 -- Não precisa da seção 14: os áudios agora vão para o Google Drive.
 -- =========================================================
 
@@ -111,3 +111,25 @@ GRANT EXECUTE ON FUNCTION excluir_musica(text) TO authenticated;
 -- 13) (v0.6.2) Número do WhatsApp quando o telefone não é WhatsApp
 -- ------------------------------------------------------------
 ALTER TABLE perfis ADD COLUMN IF NOT EXISTS wpp_num text DEFAULT '';
+
+-- ------------------------------------------------------------
+-- 15) (v0.9.0) Economia de dados: coluna updated_at + gatilho
+--     Com isso o app baixa só as músicas/escala que mudaram.
+-- ------------------------------------------------------------
+ALTER TABLE musicas ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+ALTER TABLE escala  ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+ALTER TABLE perfis  ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+UPDATE musicas SET updated_at = now() WHERE updated_at IS NULL;
+
+CREATE OR REPLACE FUNCTION tocar_updated_at() RETURNS trigger
+LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at := now(); RETURN NEW; END $$;
+
+DROP TRIGGER IF EXISTS trg_musicas_upd ON musicas;
+CREATE TRIGGER trg_musicas_upd BEFORE UPDATE ON musicas FOR EACH ROW EXECUTE FUNCTION tocar_updated_at();
+DROP TRIGGER IF EXISTS trg_escala_upd ON escala;
+CREATE TRIGGER trg_escala_upd BEFORE UPDATE ON escala FOR EACH ROW EXECUTE FUNCTION tocar_updated_at();
+DROP TRIGGER IF EXISTS trg_perfis_upd ON perfis;
+CREATE TRIGGER trg_perfis_upd BEFORE UPDATE ON perfis FOR EACH ROW EXECUTE FUNCTION tocar_updated_at();
+
+-- notificações antigas já lidas (mais de 60 dias) ocupam espaço à toa
+DELETE FROM notificacoes WHERE lida = true AND data < now() - interval '60 days';

@@ -298,3 +298,25 @@ CREATE POLICY audios_adm_enviar ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'audios' AND public.is_admin());
 CREATE POLICY audios_adm_apagar ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'audios' AND public.is_admin());
+
+-- ------------------------------------------------------------
+-- 15) (v0.9.0) Economia de dados: coluna updated_at + gatilho
+--     Com isso o app baixa só as músicas/escala que mudaram.
+-- ------------------------------------------------------------
+ALTER TABLE musicas ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+ALTER TABLE escala  ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+ALTER TABLE perfis  ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+UPDATE musicas SET updated_at = now() WHERE updated_at IS NULL;
+
+CREATE OR REPLACE FUNCTION tocar_updated_at() RETURNS trigger
+LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at := now(); RETURN NEW; END $$;
+
+DROP TRIGGER IF EXISTS trg_musicas_upd ON musicas;
+CREATE TRIGGER trg_musicas_upd BEFORE UPDATE ON musicas FOR EACH ROW EXECUTE FUNCTION tocar_updated_at();
+DROP TRIGGER IF EXISTS trg_escala_upd ON escala;
+CREATE TRIGGER trg_escala_upd BEFORE UPDATE ON escala FOR EACH ROW EXECUTE FUNCTION tocar_updated_at();
+DROP TRIGGER IF EXISTS trg_perfis_upd ON perfis;
+CREATE TRIGGER trg_perfis_upd BEFORE UPDATE ON perfis FOR EACH ROW EXECUTE FUNCTION tocar_updated_at();
+
+-- notificações antigas já lidas (mais de 60 dias) ocupam espaço à toa
+DELETE FROM notificacoes WHERE lida = true AND data < now() - interval '60 days';

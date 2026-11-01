@@ -224,9 +224,42 @@ edições do Cantor aparecerem para todos.
 - Corrigida uma corrida no carregamento: notificações em janela, nomes com
   maiúsculas e número do WhatsApp agora sempre aparecem na 1ª abertura.
 
-## 🚀 Como publicar esta versão (tudo de uma vez)
+## 🚀 Como publicar (tudo de uma vez)
 1. Substitua **todos** os arquivos do repositório pelo conteúdo deste zip.
 2. No Supabase → SQL Editor, rode o arquivo **SQL-PARA-RODAR-AGORA.sql**.
 3. Google Cloud → APIs e serviços → Biblioteca → **Google Drive API → Ativar**.
 4. No app (ADM) → Painel do ADM → 📁 Google Drive → cole o Client ID e salve.
 5. Abra o app 2 vezes no celular para ele pegar a versão nova.
+
+## v0.8.0
+- **📣 Central de avisos (ADM)** no menu e no Painel do ADM. O ADM escolhe o
+  que avisar e para quem (todos, escalados desta/próxima semana, vocal,
+  instrumentistas, uma função, só ADM), em janela ou não:
+  - 🎵 Músicas novas: lista com todas as músicas publicadas que ainda não
+    foram avisadas (marcar/desmarcar); depois do envio elas saem da lista.
+  - 📚 Materiais de estudo da Academia, do mesmo jeito.
+  - 📅 Playlist desta semana / da próxima semana.
+  - 📋 Escala atualizada e lembrete de presença (só para quem não respondeu).
+  - 📝 Lembrete para quem está com cadastro faltando (foto, WhatsApp…).
+  - 🎂 Aniversariantes dos próximos 7 dias. ✍️ Aviso livre.
+  - Publicar música não avisa mais sozinho (dá para religar na Central).
+- **Lembrete a cada 7 dias (membros):** janela "Falta pouco" com o que está
+  pendente: confirmar presença na escala (Sim/Não), foto de perfil,
+  WhatsApp e ativar notificações. Sem SQL novo.
+
+## v0.9.0
+- **Economia de dados (Supabase):**
+  - Tempo real aplica só a linha que mudou (antes cada mudança fazia todos os
+    celulares baixarem todas as tabelas).
+  - Músicas, escala, histórico e notificações ficam guardados no aparelho;
+    ao abrir, o app baixa só o que mudou (2ª abertura ≈ 1% do volume).
+  - Ao voltar do segundo plano, sincroniza só o que mudou.
+  - Fotos de perfil reduzidas para ~30 KB ao enviar; a sua foto antiga é
+    otimizada sozinha; o celular guarda as fotos (não baixa de novo).
+  - O app só inicia depois de carregar todos os módulos (sem "corrida").
+  - Rode a seção **15** do SQL (coluna updated_at): é o que permite baixar só
+    o que mudou. Ela também apaga notificações lidas com mais de 60 dias.
+- **Academia de Música:** em todas as seções, botão **📁 Importar arquivos**
+  (vários de uma vez: vídeos, PDFs e áudios) → Google Drive (pasta
+  "MM IBNM - Academia"); tipos novos 🎬 Vídeo e 🎧 Áudio; ▶ Assistir /
+  🎧 Ouvir / 📄 Ver PDF dentro do app. Envios grandes (até 1 GB) com progresso.

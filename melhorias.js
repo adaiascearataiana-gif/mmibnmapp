@@ -396,30 +396,38 @@ function statusDrive(){
   return conectado()? '<div id="auDrive" class="au-drv ok">✅ Conectado ao Google Drive — os áudios vão para a pasta <b>MM IBNM - Áudios</b>.</div>'
     : '<div id="auDrive" class="au-drv"><span>Os áudios vão para o Google Drive do Ministério.</span><button onclick="conectarDrive()">🔗 Conectar ao Drive</button></div>';
 }
-/* pasta "MM IBNM - Áudios" no Drive (criada uma vez e guardada na configuração) */
-async function pastaDrive(token){
+/* pastas no Drive ("MM IBNM - Áudios", "MM IBNM - Academia"…), criadas uma vez e guardadas na configuração */
+async function pastaDrive(token,nomePasta){
+  nomePasta=nomePasta||'MM IBNM - Áudios';
   const cfg=(typeof APP_CFG!=='undefined'&&APP_CFG.google_drive)||{};
-  if(cfg.pasta) return cfg.pasta;
-  const q=encodeURIComponent("name='MM IBNM - Áudios' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+  const pastas=cfg.pastas||{}; if(nomePasta==='MM IBNM - Áudios' && cfg.pasta) return cfg.pasta;
+  if(pastas[nomePasta]) return pastas[nomePasta];
+  const q=encodeURIComponent("name='"+nomePasta.replace(/'/g,"\\'")+"' and mimeType='application/vnd.google-apps.folder' and trashed=false");
   let r=await fetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id)',{headers:{Authorization:'Bearer '+token}});
   let j=r.ok? await r.json() : {}; let id=j.files&&j.files[0]&&j.files[0].id;
-  if(!id){ r=await fetch('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({name:'MM IBNM - Áudios',mimeType:'application/vnd.google-apps.folder'})});
+  if(!id){ r=await fetch('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({name:nomePasta,mimeType:'application/vnd.google-apps.folder'})});
     if(!r.ok) throw new Error('Não consegui criar a pasta no Drive ('+r.status+'). Ative a "Google Drive API" no Google Cloud.'); id=(await r.json()).id; }
-  try{ await salvarConfig('google_drive',Object.assign({},cfg,{client_id:driveClientId(),pasta:id})); }catch(_){}
+  try{ const novo=Object.assign({},cfg,{client_id:driveClientId(),pastas:Object.assign({},pastas,{[nomePasta]:id})}); if(nomePasta==='MM IBNM - Áudios') novo.pasta=id; await salvarConfig('google_drive',novo); }catch(_){}
   return id;
 }
-async function sobeDrive(blob,nomeArq){
+/* envio "resumable" (aceita arquivos grandes: vídeos) com barra de progresso */
+async function sobeDrive(blob,nomeArq,nomePasta,progresso){
   const token=await ensureDriveToken();
-  const pasta=await pastaDrive(token);
-  const fd=new FormData();
-  fd.append('metadata',new Blob([JSON.stringify({name:nomeArq,parents:[pasta]})],{type:'application/json'}));
-  fd.append('file',blob,nomeArq);
-  const up=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{Authorization:'Bearer '+token},body:fd});
-  if(!up.ok){ if(up.status===403) throw new Error('O Google recusou (403). Ative a "Google Drive API" no Google Cloud.'); if(up.status===401){ try{ _gisTok=null; }catch(_){} throw new Error('Conexão com o Drive expirou. Toque em "Conectar ao Drive".'); } throw new Error('Envio ao Drive falhou ('+up.status+').'); }
-  const fid=(await up.json()).id;
+  const pasta=await pastaDrive(token,nomePasta);
+  const tipo=blob.type||'application/octet-stream';
+  const ini=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id',{method:'POST',
+    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':tipo,'X-Upload-Content-Length':String(blob.size)},
+    body:JSON.stringify({name:nomeArq,parents:[pasta]})});
+  if(!ini.ok){ if(ini.status===403) throw new Error('O Google recusou (403). Ative a "Google Drive API" no Google Cloud.'); if(ini.status===401){ try{ _gisTok=null; }catch(_){} throw new Error('Conexão com o Drive expirou. Toque em "Conectar ao Drive".'); } throw new Error('Envio ao Drive falhou ('+ini.status+').'); }
+  const loc=ini.headers.get('Location'); if(!loc) throw new Error('O Drive não aceitou o envio.');
+  const fid=await new Promise((ok,er)=>{ const x=new XMLHttpRequest(); x.open('PUT',loc); x.setRequestHeader('Content-Type',tipo);
+    x.upload.onprogress=ev=>{ if(progresso&&ev.lengthComputable) progresso(ev.loaded/ev.total); };
+    x.onload=()=>{ if(x.status>=200&&x.status<300){ try{ ok(JSON.parse(x.responseText).id); }catch(e){ er(e); } } else er(new Error('Envio ao Drive falhou ('+x.status+').')); };
+    x.onerror=()=>er(new Error('Sem internet durante o envio.')); x.send(blob); });
   await fetch('https://www.googleapis.com/drive/v3/files/'+fid+'/permissions',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({role:'reader',type:'anyone'})}).catch(()=>{});
   return fid;
 }
+window.__drive={ ok:()=>driveOk(), conectado:()=>conectado(), conectar:()=>conectarDrive(), sobe:(b,n,p,f)=>sobeDrive(b,n,p,f) };
 /* mantém compatível com o envio do editor de cifra (também vai para a pasta) */
 window.uploadParaDrive=uploadParaDrive=async function(file,nome){ return sobeDrive(file,nome||file.name); };
 const _rm=renderMusica;
