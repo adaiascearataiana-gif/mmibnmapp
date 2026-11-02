@@ -263,3 +263,11 @@ edições do Cantor aparecerem para todos.
   (vários de uma vez: vídeos, PDFs e áudios) → Google Drive (pasta
   "MM IBNM - Academia"); tipos novos 🎬 Vídeo e 🎧 Áudio; ▶ Assistir /
   🎧 Ouvir / 📄 Ver PDF dentro do app. Envios grandes (até 1 GB) com progresso.
+
+## v0.9.1
+- **📥 Importar letras do Telegram (ADM):** menu lateral e Painel do ADM.
+  Exporte o grupo no Telegram Desktop (formato JSON) e escolha o `result.json`.
+  Cada tópico (♫ Título) vira uma música; "Título - Artista" e
+  "Título (Artista)" separam o artista; mensagens do tópico viram a letra
+  (com acordes, entra também como cifra). Lista para revisar antes:
+  🆕 novas, ✍️ já existe sem letra (completa), ✔️ já tem, ∅ sem letra.

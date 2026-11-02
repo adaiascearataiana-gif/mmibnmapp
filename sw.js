@@ -1,5 +1,5 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v24';
+const CACHE = 'mmibnm-v25';
 const CORE = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const CORE = [
   './cantadas.js',
   './avisos.js',
   './central.js',
+  './telegram.js',
   './sync.js',
   './icon-192.png',
   './icon-512.png',
