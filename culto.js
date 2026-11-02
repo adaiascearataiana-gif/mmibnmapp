@@ -68,6 +68,34 @@ const css=`
 .sl-yt{display:inline-flex;align-items:center;height:38px;padding:0 12px;border-radius:10px;background:#c4302b;color:#fff;font-weight:800;font-size:13px;text-decoration:none}
 .pl-add select,.pl-add input{flex:1;min-width:0;padding:9px 10px;border:1px solid #ccd;border-radius:8px;font-size:14px}
 .pl-add button{border:0;background:var(--verde-med);color:#fff;font-weight:800;border-radius:8px;padding:0 12px}
+/* eventos da playlist */
+.pl-ev{border:1px solid #dde;border-radius:10px;margin-bottom:8px;background:#fff;overflow:hidden}
+.pl-ev.on{border-color:var(--verde-med);box-shadow:0 0 0 2px rgba(26,122,86,.12)}
+.pl-ev-head{display:flex;align-items:center;gap:6px;padding:8px;flex-wrap:wrap}
+.pl-ev-head .chev{border:1px solid #c9ced6;background:#f4f6f7;border-radius:7px;width:30px;height:30px;font-weight:900;color:var(--verde-escuro);flex:none}
+.pl-ev-head .n{font-size:11px;font-weight:900;color:#789;width:16px;text-align:center;flex:none}
+.pl-ev-head input.pl-ev-nome{flex:1;min-width:110px;padding:8px 9px;border:1px solid #ccd;border-radius:8px;font-size:14px;font-weight:700}
+.pl-ev-head input.pl-ev-data{width:142px;padding:8px 9px;border:1px solid #ccd;border-radius:8px;font-size:13px;flex:none}
+.pl-ev-qt{font-size:11px;font-weight:800;color:#8a6a00;background:#fffbea;border:1px solid #efe1a5;border-radius:8px;padding:2px 6px;flex:none}
+.pl-ev-btns{display:flex;gap:4px;flex:none}
+.pl-ev-btns button{border:1px solid #c9ced6;background:#fff;border-radius:7px;min-width:30px;height:30px;font-weight:800;color:var(--verde-escuro);cursor:pointer}
+.pl-ev-btns button.rm{color:#c0392b}
+.pl-ev-body{padding:0 8px 10px}
+.pl-ev-body .field{margin-top:8px}
+.pl-ev-add{width:100%;border:1.5px dashed var(--verde-med);background:#f2f9f6;color:var(--verde-escuro);font-weight:800;border-radius:10px;padding:11px;font-size:14px;cursor:pointer}
+.pl-evv{border:1px solid #e3e8e5;border-left:4px solid var(--verde-med);border-radius:10px;padding:8px 10px;margin-bottom:10px;background:#fff}
+.pl-evv.ok{border-left-color:#1c6b47;background:#f3fbf6}
+.pl-evv-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.pl-evv-h .nn{font-size:11px;font-weight:900;color:#fff;background:var(--verde-med);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex:none}
+.pl-evv-h b{font-size:14.5px;color:var(--verde-escuro);letter-spacing:.02em}
+.pl-evv-h .dt{font-size:13px;font-weight:800;color:var(--verde-med);background:#eef6f2;border-radius:8px;padding:2px 7px}
+.pl-evv-h .tag{font-size:11px;font-weight:800;color:#1c6b47;background:#e1f4ea;border-radius:8px;padding:2px 7px}
+.pl-evv-h .mv{display:flex;gap:4px;margin-left:auto}
+.pl-evv-h .mv button{border:1px solid #c9ced6;background:#fff;border-radius:7px;min-width:30px;height:30px;font-weight:800;color:var(--verde-escuro);cursor:pointer}
+.pl-evv-vazio{font-size:12.5px;color:#9aa;padding:4px 2px 6px}
+.pl-evv-ft{font-size:11.5px;color:#789;font-weight:700;margin-top:6px}
+.pl-ev-done{margin-top:8px;width:100%;border:1px solid #1c6b47;background:#e1f4ea;color:#1c6b47;font-weight:900;border-radius:10px;min-height:42px;font-size:14px;cursor:pointer}
+.pl-ev-done:active{background:#cdeede}
 /* projetor */
 .proj{position:fixed;inset:0;z-index:12000;background:#05110d;color:#f4f1e8;display:flex;flex-direction:column;user-select:none;-webkit-user-select:none}
 .proj .bar{display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top,0px)) 12px 6px;font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;color:#9fb8ad}
@@ -153,7 +181,8 @@ if(typeof ROTAS!=='undefined' && ROTAS.perfil){
 const pad2=n=>String(n).padStart(2,'0');
 const hojeISO=()=>{ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); };
 function normSl(x,chave){ if(!x||!Array.isArray(x.itens)||!x.itens.length) return null;
-  return {inicio:String(x.inicio||'').slice(0,10),fim:String(x.fim||'').slice(0,10),itens:x.itens.filter(existe),tons:x.tons||{},youtube:x.youtube||'',chave}; }
+  return {inicio:String(x.inicio||'').slice(0,10),fim:String(x.fim||'').slice(0,10),itens:x.itens.filter(existe),tons:x.tons||{},youtube:x.youtube||'',
+    eventos:(Array.isArray(x.eventos)&&x.eventos.length)? x.eventos : null,chave}; }
 /* qual: (vazio) = esta semana · 'prox' = próxima semana.
    A da próxima semana vira "esta semana" sozinha quando chega a data de início. */
 function setlist(qual){
@@ -164,7 +193,7 @@ function setlist(qual){
   if(pVale) return p;
   if(a) return a;
   const pl=(typeof DB!=='undefined'&&DB.playlist)||{};
-  if(pl.publicada && pl.musicas && pl.musicas.length) return {inicio:pl.inicio,fim:pl.fim,itens:pl.musicas.filter(existe),tons:{},youtube:'',chave:'setlist'};
+  if(pl.publicada && pl.musicas && pl.musicas.length) return {inicio:pl.inicio,fim:pl.fim,itens:pl.musicas.filter(existe),tons:{},youtube:'',eventos:(Array.isArray(pl.eventos)&&pl.eventos.length)?pl.eventos:null,chave:'setlist'};
   return null;
 }
 window.setlistDe=setlist;
@@ -204,6 +233,124 @@ function cardSetlist(sl,titulo,ctx){
     '<div class="sl-acts" style="margin:10px 0 0"><button class="gold" onclick="abrirItem(\''+sl.itens[0]+'\',\''+ctx+'\')">▶ Começar pelo 1º</button><button onclick="projetarSetlist(\''+ctx+'\')">📺 Projetar tudo</button>'+
     (sl.youtube?'<a class="sl-yt" href="'+e(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist no YouTube</a>':'')+'</div></div>';
 }
+
+/* ================= EVENTOS DA PLAYLIST ================= */
+const evtUid=()=> 'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const pad2b=n=>String(n).padStart(2,'0');
+function isoShift(iso,n){ if(!iso) return ''; const p=String(iso).slice(0,10).split('-').map(Number); if(p.length!==3||!p[0]) return '';
+  const t=new Date(p[0],p[1]-1,p[2]+n); return t.getFullYear()+'-'+pad2b(t.getMonth()+1)+'-'+pad2b(t.getDate()); }
+function dataBR(iso){ const p=String(iso||'').slice(0,10).split('-'); return (p.length===3)? p[2]+'/'+p[1] : ''; }
+function dataBRAno(iso){ const p=String(iso||'').slice(0,10).split('-'); return (p.length===3)? p[2]+'/'+p[1]+'/'+p[0] : ''; }
+const DIAS=['DOMINGO','SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA','SÁBADO'];
+function diaSemana(iso){ if(!iso) return ''; const p=String(iso).slice(0,10).split('-').map(Number); if(p.length!==3||!p[0]) return '';
+  return DIAS[new Date(p[0],p[1]-1,p[2]).getDay()]; }
+/* modelo de eventos da semana anterior: mesmos nomes, datas +7 dias quando caem na semana alvo */
+function seedEventos(evs,ini,fim){
+  if(!Array.isArray(evs)||!evs.length||!ini||!fim) return null;
+  const out=JSON.parse(JSON.stringify(evs));
+  out.forEach(x=>{ x.id=evtUid(); x.concluido=false; x.concluido_em=null;
+    x.itens=Array.isArray(x.itens)? x.itens.filter(existe):[];
+    if(x.data){ for(let k=0;k<6 && (x.data<ini||x.data>fim);k++) x.data=isoShift(x.data,7); if(x.data<ini||x.data>fim) x.data=''; }
+    else x.data='';
+    x.nome=String(x.nome||'CULTO'); });
+  return out;
+}
+function packSl(sl,evs){
+  const itens=[]; (evs||[]).forEach(x=>(x.itens||[]).forEach(id=>{ if(itens.indexOf(id)<0) itens.push(id); }));
+  return {inicio:sl.inicio,fim:sl.fim,itens:evs? itens : (sl.itens||[]).slice(),tons:Object.assign({},sl.tons||{}),youtube:sl.youtube||'',
+    eventos:evs? evs : (sl.eventos||null)};
+}
+/* linha do histórico "músicas já cantadas" (tabela musicas_cantadas) */
+function linhaCantada(id,ev,sl){
+  const v=(sl.tons||{})[id]||0;
+  const data=dataBRAno(ev.data)||dataBRAno(sl.inicio);
+  const dia=diaSemana(ev.data)||diaSemana(sl.inicio);
+  const evento=String(ev.nome||'EVENTO').trim()||'EVENTO';
+  if(String(id).indexOf('cc:')===0){
+    const h=hino(id.slice(3)); let tom='';
+    if(v&&h&&window.Cantor){ try{ tom=Cantor.keyInfo(h,v).key; }catch(_){} }
+    return {data,dia,evento,musica:(h?h.titulo:'Hino '+id.slice(3))+' - '+id.slice(3),artista:'Cantor Cristão',tom,web:''};
+  }
+  const m=(DB.musicas||[]).find(x=>x.id===id)||{};
+  return {data,dia,evento,musica:m.titulo||'',artista:m.artista||'',tom:v?rotuloSemitom(v):'',web:m.youtube||''};
+}
+/* ADM encerra o evento: grava as músicas em musicas_cantadas e marca como concluído */
+window.concluirEvento=async function(ctx,i){
+  if(!adm()) return;
+  const sl=setlist(ctx==='prox'?'prox':'');
+  if(!sl||!Array.isArray(sl.eventos)||!sl.eventos[i]) return;
+  const ev=sl.eventos[i];
+  if(ev.concluido) return;
+  if(!(ev.itens||[]).length) return toast('Este evento não tem músicas.');
+  const nm=String(ev.nome||'EVENTO').trim()||'EVENTO';
+  if(!window.confirm('Encerrar o evento "'+nm+'"'+(ev.data?' em '+dataBR(ev.data):'')+'?\n\nAs '+ev.itens.length+' música(s) serão enviadas automaticamente para "Músicas já cantadas".\n(Ação só pode ser desfeita pelo ADM)')) return;
+  const rows=ev.itens.map(id=>linhaCantada(id,ev,sl)).filter(r=>r.musica);
+  if(!rows.length) return toast('Nada para registrar.');
+  try{
+    const ult=await sb.from('musicas_cantadas').select('ordem').order('ordem',{ascending:false}).limit(1);
+    const base=(ult.data&&ult.data[0]&&typeof ult.data[0].ordem==='number')? ult.data[0].ordem : 0;
+    rows.forEach((r,k)=>{ r.ordem=base+k+1; });
+    const {error}=await sb.from('musicas_cantadas').insert(rows);
+    if(error) throw error;
+  }catch(err){ return toast('Erro ao gravar no histórico: '+(err.message||err)); }
+  ev.concluido=true; ev.concluido_em=new Date().toISOString();
+  const evs=JSON.parse(JSON.stringify(sl.eventos));
+  await salvarConfig(sl.chave||'setlist',packSl(sl,evs));
+  if(typeof cloudCantadas==='function'){ try{ await cloudCantadas(); }catch(_){} }
+  toast('🎉 Evento "'+nm+'" concluído! '+rows.length+' música(s) no histórico.');
+  redesenhar();
+};
+/* ADM: reordenar eventos direto na visualização */
+let _plReord=false, _plReordEvs=null, _plReordCtx='';
+window.plReordenar=function(ctx){
+  if(!adm()) return;
+  if(_plReord && _plReordCtx===ctx){
+    const sl=setlist(ctx==='prox'?'prox':''); if(!sl) { _plReord=false; return redesenhar(); }
+    const evs=JSON.parse(JSON.stringify(_plReordEvs||sl.eventos||[]));
+    salvarConfig(sl.chave||'setlist',packSl(sl,evs)).then(()=>{ _plReord=false; _plReordEvs=null; toast('Ordem dos eventos salva!'); redesenhar(); });
+    return;
+  }
+  const sl=setlist(ctx==='prox'?'prox':''); if(!sl||!sl.eventos||!sl.eventos.length) return;
+  _plReord=true; _plReordCtx=ctx; _plReordEvs=JSON.parse(JSON.stringify(sl.eventos));
+  redesenhar();
+};
+window.plReordMov=function(i,d){
+  const j=i+d; if(!_plReordEvs||j<0||j>=_plReordEvs.length) return;
+  const a=_plReordEvs; [a[i],a[j]]=[a[j],a[i]]; redesenhar();
+};
+function cardEventos(sl,titulo,ctx){
+  ctx=ctx||''; const a=adm();
+  const evs=(_plReord&&_plReordCtx===ctx&&_plReordEvs)? _plReordEvs : (sl.eventos||[]);
+  let h='<div class="card"><h3>'+titulo+'</h3>';
+  evs.forEach((ev,i)=>{
+    const done=!!ev.concluido;
+    h+='<div class="pl-evv'+(done?' ok':'')+'"><div class="pl-evv-h"><span class="nn">'+(i+1)+'</span>'+
+      '<b>'+e(String(ev.nome||'EVENTO').trim()||'EVENTO')+'</b>'+
+      (ev.data?'<span class="dt">'+dataBR(ev.data)+'</span>':'')+
+      (done?'<span class="tag">✅ Concluído</span>':'')+
+      (_plReord&&_plReordCtx===ctx? '<span class="mv"><button onclick="plReordMov('+i+',-1)" aria-label="Subir evento">↑</button><button onclick="plReordMov('+i+',1)" aria-label="Descer evento">↓</button></span>':'')+
+      '</div><div>';
+    h+=(ev.itens&&ev.itens.length)? ev.itens.map((id,k)=>linhaItem(id,k,sl,ctx)).join('') : '<p class="pl-evv-vazio">Nenhuma música neste evento ainda.</p>';
+    h+='</div>';
+    if(a && !(_plReord&&_plReordCtx===ctx)){
+      h+= done
+        ? '<div class="pl-evv-ft">🏁 Encerrado'+(ev.concluido_em? ' em '+fmtDataHora(ev.concluido_em):'')+' · registrado no histórico</div>'
+        : '<button class="pl-ev-done" onclick="concluirEvento(\''+ctx+'\','+i+')">✅ Evento concluído — encerrar e enviar músicas ao histórico</button>';
+    }
+    h+='</div>';
+  });
+  h+='</div>';
+  if(a){
+    h+='<div class="sl-acts" style="margin-top:12px">'+
+      '<button onclick="modalPlaylist(\''+(ctx==='prox'?'prox':'')+'\')">➕ Adicionar evento</button>'+
+      '<button class="'+(_plReord&&_plReordCtx===ctx?'gold':'')+'" onclick="plReordenar(\''+(ctx==='prox'?'prox':'')+'\')">'+((_plReord&&_plReordCtx===ctx)?'✅ Salvar ordem dos eventos':'↕ Reorganizar eventos')+'</button>'+
+      '</div>';
+    if(_plReord&&_plReordCtx===ctx) h+='<div class="pl-dica">Toque em ↑ e ↓ para mudar a ordem e depois em <b>Salvar ordem dos eventos</b>.</div>';
+  }
+  return h;
+}
+function cardSetlistSmart(sl,titulo,ctx){ return (sl.eventos&&sl.eventos.length)? cardEventos(sl,titulo,ctx) : cardSetlist(sl,titulo,ctx); }
+
 if(typeof ROTAS!=='undefined'){
   let abaPl='';
   ROTAS.playlist=function(arg){
@@ -217,15 +364,15 @@ if(typeof ROTAS!=='undefined'){
     const eu=escaladoNoPeriodo(sl);
     return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">'+(prox?'PLAYLIST DA PRÓXIMA SEMANA':'PLAYLIST DA SEMANA')+'</div><div class="dt">'+fmtData(sl.inicio)+' - '+fmtData(sl.fim)+'</div></div>'+
       (eu?'<div class="pl-eu">📍 Você está escalado(a) neste período'+(eu!==true?' — '+e(eu):'')+'. Toque nas músicas para ver letra, cifra e áudio.</div>':'')+
-      cardSetlist(sl,'Ordem do culto ('+sl.itens.length+')',prox?'prox':'')+'</div>';
+      cardSetlistSmart(sl,(sl.eventos&&sl.eventos.length)? 'Eventos da semana ('+sl.itens.length+' música(s)/hino(s))' : 'Ordem do culto ('+sl.itens.length+')',prox?'prox':'')+'</div>';
   };
   if(ROTAS.inicio){
     const _ini=ROTAS.inicio;
     ROTAS.inicio=function(){
       let html=_ini.apply(this,arguments); const sl=setlist();
       const k=html.indexOf('<div class="card"><h3>Músicas da playlist</h3>');
-      if(k>=0){ const fim=html.lastIndexOf('</div>'); html=html.slice(0,k)+(sl?cardSetlist(sl,'Ordem do culto'):'')+html.slice(fim); }
-      else if(sl){ const fim=html.lastIndexOf('</div>'); html=html.slice(0,fim)+cardSetlist(sl,'Ordem do culto')+html.slice(fim); }
+      if(k>=0){ const fim=html.lastIndexOf('</div>'); html=html.slice(0,k)+(sl?cardSetlistSmart(sl,'Ordem do culto'):'')+html.slice(fim); }
+      else if(sl){ const fim=html.lastIndexOf('</div>'); html=html.slice(0,fim)+cardSetlistSmart(sl,'Ordem do culto')+html.slice(fim); }
       const px=setlist('prox');
       if(px){ const eu=escaladoNoPeriodo(px); const fim=html.lastIndexOf('</div>');
         html=html.slice(0,fim)+'<div class="card pl-proxcard" onclick="go(\'playlist\',\'prox\')"><h3>🗓️ Playlist da próxima semana</h3><p>'+fmtData(px.inicio)+' - '+fmtData(px.fim)+' · '+px.itens.length+' música(s)/hino(s)'+(eu?'<br><b>📍 Você está escalado(a) — já pode ensaiar!</b>':'')+'</p><span class="lk">Ver letras e cifras ›</span></div>'+html.slice(fim); }
@@ -258,32 +405,92 @@ window.modalPlaylist=function(qual){
   const pl=DB.playlist||{};
   let sl=setlist(prox?'prox':'');
   if(!sl){ const [a,b]=prox?proxSemana():[String(pl.inicio||'').slice(0,10),String(pl.fim||'').slice(0,10)]; sl={inicio:a,fim:b,itens:[],tons:{},youtube:''}; }
-  _ed={qual:prox?'prox':'',inicio:String(sl.inicio||'').slice(0,10),fim:String(sl.fim||'').slice(0,10),itens:sl.itens.slice(),tons:Object.assign({},sl.tons),youtube:sl.youtube||'',chave:sl.chave||(prox?'setlist_prox':'setlist')};
+  const ini=String(sl.inicio||'').slice(0,10), fim=String(sl.fim||'').slice(0,10);
+  /* eventos: os desta playlist; se vazios, herda da outra semana (nomes salvos, datas +7) */
+  let evs=sl.eventos? JSON.parse(JSON.stringify(sl.eventos)) : null;
+  if(!evs){ const outro=setlist(prox?'':'prox'); if(outro&&outro.eventos) evs=seedEventos(outro.eventos,ini,fim); }
+  if(!evs && sl.itens.length) evs=[{id:evtUid(),nome:'CULTO',data:'',itens:sl.itens.slice(),concluido:false}];
+  if(!evs) evs=[];
+  _ed={qual:prox?'prox':'',inicio:ini,fim:fim,evs,tons:Object.assign({},sl.tons),youtube:sl.youtube||'',chave:sl.chave||(prox?'setlist_prox':'setlist'),
+    aberto: evs.length? evs[0].id : null};
   abrirModal('<h3>'+(prox?'🗓️ Playlist da próxima semana':'📅 Playlist desta semana')+'</h3>'+
     (prox?'<p class="pl-dica">Ao publicar, quem está escalado entre as datas abaixo recebe a notificação e já pode ver letras, cifras e áudios.</p>':'')+
     '<div class="row2"><div class="field"><label>Início</label><input type="date" id="plIni" value="'+_ed.inicio+'"></div><div class="field"><label>Fim</label><input type="date" id="plFim" value="'+_ed.fim+'"></div></div>'+
-    '<div class="field"><label>Itens na ordem do culto · tom (+/− meio tom)</label><div class="pl-ed" id="plLista"></div></div>'+
-    '<div class="field pl-busca"><label>🎵 Músicas do ministério</label><input id="plMusQ" type="search" autocomplete="off" placeholder="Digite o nome da música ou do artista" oninput="plSugMus()" onkeydown="plEnter(event,\'mus\')" onblur="setTimeout(()=>{const b=document.getElementById(\'plMusSug\'); if(b) b.innerHTML=\'\';},200)"><div class="pl-sug" id="plMusSug"></div></div>'+
-    '<div class="field pl-busca"><label>📖 Hinos do Cantor Cristão</label><input id="plHinoQ" type="search" autocomplete="off" placeholder="Digite o número ou o nome do hino" oninput="plSugHino()" onkeydown="plEnter(event,\'hino\')" onblur="setTimeout(()=>{const b=document.getElementById(\'plHinoSug\'); if(b) b.innerHTML=\'\';},200)"><div class="pl-sug" id="plHinoSug"></div></div>'+
+    '<div class="pl-dica">📌 <b>Eventos da semana</b> — dê o nome (CULTO, EBD, ANIVERSÁRIO…), escolha a data, busque as músicas com o evento aberto e reordene com ↑↓. Ao salvar, os nomes ficam guardados e já aparecem na próxima playlist.</div>'+
+    '<div id="plEvts"></div>'+
+    '<button type="button" class="pl-ev-add" onclick="plEvAdd()">➕ Adicionar evento</button>'+
     '<div class="field"><label>▶️ Playlist do YouTube (opcional)</label><input id="plYt" type="url" inputmode="url" placeholder="Cole aqui o link da playlist do YouTube" value="'+e(_ed.youtube)+'"></div>'+
     (prox?'<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" id="plTodos"> Avisar também todos os membros</label>':'')+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" id="plPub" onclick="publicarPlaylist()">📢 Publicar</button></div>');
+  renderEvts();
+};
+function evAberto(){ return (_ed&&Array.isArray(_ed.evs))? (_ed.evs.find(x=>x.id===_ed.aberto)||null) : null; }
+function jaNoEv(id){ const ev=evAberto(); return !!ev && ev.itens.indexOf(String(id))>=0; }
+function renderEvts(){
+  const box=document.getElementById('plEvts'); if(!box||!_ed) return;
+  if(!_ed.evs.length){ box.innerHTML='<p style="font-size:13px;color:#9aa;padding:6px 2px">Nenhum evento ainda — toque em <b>Adicionar evento</b>.</p>'; return; }
+  box.innerHTML=_ed.evs.map((ev,i)=>{
+    const on=_ed.aberto===ev.id;
+    return '<div class="pl-ev'+(on?' on':'')+'"><div class="pl-ev-head">'+
+      '<button type="button" class="chev" onclick="plEvAbre(\''+ev.id+'\')" aria-label="Abrir evento">'+(on?'▾':'▸')+'</button>'+
+      '<span class="n">'+(i+1)+'</span>'+
+      '<input class="pl-ev-nome" type="text" placeholder="Nome do evento (CULTO, EBD…)" value="'+e(ev.nome||'')+'" oninput="plEvNome(\''+ev.id+'\',this.value)">'+
+      '<input class="pl-ev-data" type="date" value="'+e(ev.data||'')+'" onchange="plEvData(\''+ev.id+'\',this.value)">'+
+      '<span class="pl-ev-qt" id="qt-'+ev.id+'">'+(ev.itens||[]).length+' música(s)</span>'+
+      '<span class="pl-ev-btns">'+
+        '<button type="button" onclick="plEvMov(\''+ev.id+'\',-1)" aria-label="Subir evento">↑</button>'+
+        '<button type="button" onclick="plEvMov(\''+ev.id+'\',1)" aria-label="Descer evento">↓</button>'+
+        '<button type="button" class="rm" onclick="plEvDel(\''+ev.id+'\')" aria-label="Remover evento">✕</button>'+
+      '</span></div>'+
+      (on? '<div class="pl-ev-body">'+
+        '<div class="pl-ed" id="plLista"></div>'+
+        '<div class="field pl-busca"><label>🎵 Músicas do ministério</label><input id="plMusQ" type="search" autocomplete="off" placeholder="Digite o nome da música ou do artista" oninput="plSugMus()" onkeydown="plEnter(event,\'mus\')" onblur="setTimeout(()=>{const b=document.getElementById(\'plMusSug\'); if(b) b.innerHTML=\'\';},200)"><div class="pl-sug" id="plMusSug"></div></div>'+
+        '<div class="field pl-busca"><label>📖 Hinos do Cantor Cristão</label><input id="plHinoQ" type="search" autocomplete="off" placeholder="Digite o número ou o nome do hino" oninput="plSugHino()" onkeydown="plEnter(event,\'hino\')" onblur="setTimeout(()=>{const b=document.getElementById(\'plHinoSug\'); if(b) b.innerHTML=\'\';},200)"><div class="pl-sug" id="plHinoSug"></div></div>'+
+      '</div>' : '')+
+    '</div>';
+  }).join('');
   renderLista();
+}
+window.plEvAbre=function(id){ _ed.aberto=(_ed.aberto===id? null : id); renderEvts(); };
+window.plEvAdd=function(){
+  const ev={id:evtUid(),nome:'CULTO',data:'',itens:[],concluido:false};
+  _ed.evs.push(ev); _ed.aberto=ev.id; renderEvts();
+  const inp=document.querySelector('#plEvts .pl-ev.on .pl-ev-nome');
+  if(inp){ inp.focus(); inp.select(); }
+};
+window.plEvNome=function(id,v){ const ev=_ed.evs.find(x=>x.id===id); if(ev) ev.nome=v; };
+window.plEvData=function(id,v){ const ev=_ed.evs.find(x=>x.id===id); if(ev) ev.data=v; };
+window.plEvMov=function(id,d){
+  const i=_ed.evs.findIndex(x=>x.id===id), j=i+d;
+  if(i<0||j<0||j>=_ed.evs.length) return;
+  const a=_ed.evs; [a[i],a[j]]=[a[j],a[i]]; renderEvts();
+};
+window.plEvDel=function(id){
+  const i=_ed.evs.findIndex(x=>x.id===id); if(i<0) return;
+  const ev=_ed.evs[i];
+  if((ev.itens||[]).length && !window.confirm('Remover o evento "'+(ev.nome||'EVENTO')+'" e as músicas dele da playlist?')) return;
+  _ed.evs.splice(i,1);
+  if(_ed.aberto===id) _ed.aberto=_ed.evs.length? _ed.evs[0].id : null;
+  renderEvts();
 };
 function renderLista(){
   const box=document.getElementById('plLista'); if(!box) return;
-  box.innerHTML=_ed.itens.map((id,i)=>{ const f=info(id); const v=_ed.tons[id]||0;
+  const ev=evAberto(); if(!ev) return;
+  box.innerHTML=(ev.itens||[]).map((id,i)=>{ const f=info(id); const v=_ed.tons[id]||0;
     return '<div class="it"><span>'+(i+1)+'. '+f.ic+'</span><span class="nm">'+e(f.t)+'</span><span style="flex-basis:100%;height:0"></span>'+
       '<button type="button" onclick="plTom('+i+',-1)" aria-label="Baixar tom">−</button><span class="st">'+(v?rotuloSemitom(v):'tom')+'</span><button type="button" onclick="plTom('+i+',1)" aria-label="Subir tom">+</button>'+
       '<button type="button" onclick="plMov('+i+',-1)" aria-label="Subir na ordem">↑</button><button type="button" onclick="plMov('+i+',1)" aria-label="Descer na ordem">↓</button><button type="button" onclick="plDel('+i+')" aria-label="Remover" style="color:#c0392b">✕</button></div>'; }).join('')
     || '<p style="font-size:13px;color:#9aa;padding:8px">Busque abaixo e toque na música ou no hino para adicionar.</p>';
+  const qt=document.getElementById('qt-'+ev.id); if(qt) qt.textContent=(ev.itens||[]).length+' música(s)';
 }
-window.plTom=function(i,d){ const id=_ed.itens[i]; let v=((((_ed.tons[id]||0)+d)%12)+12)%12; if(v>6) v-=12; if(v) _ed.tons[id]=v; else delete _ed.tons[id]; renderLista(); };
-window.plMov=function(i,d){ const j=i+d; if(j<0||j>=_ed.itens.length) return; const a=_ed.itens; [a[i],a[j]]=[a[j],a[i]]; renderLista(); };
-window.plDel=function(i){ const id=_ed.itens.splice(i,1)[0]; delete _ed.tons[id]; renderLista(); };
+window.plTom=function(i,d){ const ev=evAberto(); if(!ev) return; const id=ev.itens[i]; let v=(((((_ed.tons[id]||0)+d)%12)+12)%12); if(v>6) v-=12; if(v) _ed.tons[id]=v; else delete _ed.tons[id]; renderLista(); };
+window.plMov=function(i,d){ const ev=evAberto(); if(!ev) return; const j=i+d; if(j<0||j>=ev.itens.length) return; const a=ev.itens; [a[i],a[j]]=[a[j],a[i]]; renderLista(); };
+window.plDel=function(i){ const ev=evAberto(); if(!ev) return; const id=ev.itens.splice(i,1)[0]; delete _ed.tons[id]; renderLista(); };
 function plAdd(id){
-  if(_ed.itens.includes(id)){ toast('Já está na lista.'); return; }
-  _ed.itens.push(id); renderLista(); toast('Adicionado: '+info(id).t);
+  const ev=evAberto();
+  if(!ev) return toast('Abra um evento (toque ▸ nele) para adicionar música.');
+  if(ev.itens.includes(id)){ toast('Já está neste evento.'); return; }
+  ev.itens.push(id); renderLista(); toast('Adicionado: '+info(id).t);
 }
 /* busca de músicas do ministério (título ou artista) */
 function achaMus(q){
@@ -304,11 +511,11 @@ function achaHino(q){
 let _sug={mus:[],hino:[]};
 window.plSugMus=function(){
   const q=document.getElementById('plMusQ').value, box=document.getElementById('plMusSug'); _sug.mus=achaMus(q);
-  box.innerHTML=!q.trim()?'':(_sug.mus.length? _sug.mus.map((m,i)=>'<button type="button" onmousedown="event.preventDefault()" class="'+(_ed.itens.includes(m.id)?'ja':'')+'" onclick="plEscolhe(\'mus\','+i+')"><span class="ic">🎵</span><span class="tx"><b>'+e(m.titulo)+'</b><small>'+e(m.artista||'')+(m.cifra?' · cifra ✓':'')+'</small></span>'+(_ed.itens.includes(m.id)?'<i>na lista</i>':'<i>+ adicionar</i>')+'</button>').join('') : '<div class="nada">Nenhuma música cadastrada com esse nome.</div>');
+  box.innerHTML=!q.trim()?'':(_sug.mus.length? _sug.mus.map((m,i)=>'<button type="button" onmousedown="event.preventDefault()" class="'+(jaNoEv(m.id)?'ja':'')+'" onclick="plEscolhe(\'mus\','+i+')"><span class="ic">🎵</span><span class="tx"><b>'+e(m.titulo)+'</b><small>'+e(m.artista||'')+(m.cifra?' · cifra ✓':'')+'</small></span>'+(jaNoEv(m.id)?'<i>na lista</i>':'<i>+ adicionar</i>')+'</button>').join('') : '<div class="nada">Nenhuma música cadastrada com esse nome.</div>');
 };
 window.plSugHino=function(){
   const q=document.getElementById('plHinoQ').value, box=document.getElementById('plHinoSug'); _sug.hino=achaHino(q);
-  box.innerHTML=!q.trim()?'':(_sug.hino.length? _sug.hino.map((h,i)=>{ const id='cc:'+h.n; return '<button type="button" onmousedown="event.preventDefault()" class="'+(_ed.itens.includes(id)?'ja':'')+'" onclick="plEscolhe(\'hino\','+i+')"><span class="nmh">'+h.n+'</span><span class="tx"><b>'+e(h.titulo)+'</b><small>Tom '+e(h.tom||'—')+(h.ritmo?' · '+e(h.ritmo):'')+'</small></span>'+(_ed.itens.includes(id)?'<i>na lista</i>':'<i>+ adicionar</i>')+'</button>'; }).join('') : '<div class="nada">Nenhum hino encontrado.</div>');
+  box.innerHTML=!q.trim()?'':(_sug.hino.length? _sug.hino.map((h,i)=>{ const id='cc:'+h.n; return '<button type="button" onmousedown="event.preventDefault()" class="'+(jaNoEv(id)?'ja':'')+'" onclick="plEscolhe(\'hino\','+i+')"><span class="nmh">'+h.n+'</span><span class="tx"><b>'+e(h.titulo)+'</b><small>Tom '+e(h.tom||'—')+(h.ritmo?' · '+e(h.ritmo):'')+'</small></span>'+(jaNoEv(id)?'<i>na lista</i>':'<i>+ adicionar</i>')+'</button>'; }).join('') : '<div class="nada">Nenhum hino encontrado.</div>');
 };
 window.plEscolhe=function(tipo,i){
   if(tipo==='mus'){ const m=_sug.mus[i]; if(!m) return; plAdd(m.id); const q=document.getElementById('plMusQ'); q.value=''; plSugMus(); q.focus(); }
@@ -324,25 +531,28 @@ window.publicarPlaylist=async function(){
   const yt=linkYoutube(document.getElementById('plYt').value);
   if(!_ed.inicio||!_ed.fim) return toast('Informe início e fim.');
   if(_ed.fim<_ed.inicio) return toast('A data final está antes da inicial.');
-  if(!_ed.itens.length) return toast('Adicione ao menos uma música ou hino.');
   if(yt===null) return toast('O link precisa ser do YouTube (youtube.com ou youtu.be).');
+  const evs=(_ed.evs||[]).map(x=>({id:x.id||evtUid(),nome:String(x.nome||'').trim()||'EVENTO',data:String(x.data||'').slice(0,10),
+    itens:(x.itens||[]).slice(),concluido:!!x.concluido,concluido_em:x.concluido_em||null}));
+  const itens=[];
+  evs.forEach(x=>x.itens.forEach(id=>{ if(itens.indexOf(id)<0) itens.push(id); }));
+  if(!itens.length) return toast('Adicione ao menos um evento com música ou hino.');
   const bt=document.getElementById('plPub'); if(bt){ bt.disabled=true; bt.textContent='Publicando…'; }
-  const dados={inicio:_ed.inicio,fim:_ed.fim,itens:_ed.itens.slice(),tons:Object.assign({},_ed.tons),youtube:yt||''};
+  const dados={inicio:_ed.inicio,fim:_ed.fim,itens,tons:Object.assign({},_ed.tons),youtube:yt||'',eventos:evs};
   if(_ed.qual==='prox'){
     await salvarConfig('setlist_prox',dados);
     const todos=!!(document.getElementById('plTodos')||{}).checked;
     const alvos=escaladosNoPeriodo(dados); const ids=new Set(alvos.map(u=>u.id));
-    const txt='Culto de '+fmtData(_ed.inicio)+' a '+fmtData(_ed.fim)+': '+_ed.itens.length+' música(s)/hino(s) com letra e cifra já estão no app.';
+    const txt='Culto de '+fmtData(_ed.inicio)+' a '+fmtData(_ed.fim)+': '+itens.length+' música(s)/hino(s) com letra e cifra já estão no app.';
     if(alvos.length) notificarTodos('🎼','Playlist da próxima semana',txt+' Você está escalado(a) — já pode ensaiar!',u=>ids.has(u.id),{link:'go:playlist:prox',popup:true});
     if(todos) notificarTodos('🗓️','Playlist da próxima semana',txt,u=>!ids.has(u.id),{link:'go:playlist:prox'});
     fecharModal();
     toast(alvos.length? 'Publicada! '+alvos.length+' escalado(s) avisado(s).' : (todos?'Publicada e todos avisados.':'Publicada. Ninguém da escala encontrado nessas datas.'));
     go('playlist','prox'); return;
   }
-  const mus=_ed.itens.filter(id=>String(id).indexOf('cc:')!==0);
+  const mus=itens.filter(id=>String(id).indexOf('cc:')!==0);
   const reg={inicio:_ed.inicio,fim:_ed.fim,musicas:mus,publicada:true,updated_at:new Date().toISOString()};
-  /* grava sem criar linha nova (evita o erro "duplicate key ... playlist_pkey"):
-     atualiza a playlist mais recente; só cria uma se ainda não existir nenhuma */
+  /* grava sem criar linha nova (evita o erro "duplicate key ... playlist_pkey") */
   let error=null;
   try{
     const ult=await sb.from('playlist').select('id').order('updated_at',{ascending:false}).limit(1);
@@ -350,7 +560,7 @@ window.publicarPlaylist=async function(){
     else { ({error}=await sb.from('playlist').insert(reg)); }
   }catch(err){ error=err; }
   if(error){ if(bt){ bt.disabled=false; bt.textContent='📢 Publicar'; } return toast('Erro: '+(error.message||error)); }
-  DB.playlist={inicio:_ed.inicio,fim:_ed.fim,musicas:mus,publicada:true};
+  DB.playlist={inicio:_ed.inicio,fim:_ed.fim,musicas:mus,publicada:true,eventos:evs};
   await salvarConfig('setlist',dados);
   /* se a "esta semana" vinha da lista da próxima semana que já começou, ela foi substituída */
   if(_ed.chave==='setlist_prox') await salvarConfig('setlist_prox',{});
@@ -360,7 +570,7 @@ window.publicarPlaylist=async function(){
 /* ADM: quando a semana da "próxima playlist" chega, ela passa a ser a desta semana */
 async function promoverProxima(){
   try{ if(!(window.ehAdminReal? ehAdminReal() : adm())) return; const C=APP_CFG||{}; const p=normSl(C.setlist_prox,'setlist_prox');
-    if(p && p.inicio && p.inicio<=hojeISO()){ await salvarConfig('setlist',{inicio:p.inicio,fim:p.fim,itens:p.itens,tons:p.tons,youtube:p.youtube}); await salvarConfig('setlist_prox',{}); }
+    if(p && p.inicio && p.inicio<=hojeISO()){ await salvarConfig('setlist',{inicio:p.inicio,fim:p.fim,itens:p.itens,tons:p.tons,youtube:p.youtube,eventos:p.eventos||null}); await salvarConfig('setlist_prox',{}); }
   }catch(_){}
 }
 if(typeof iniciarApp==='function'){ const _ia2=iniciarApp; window.iniciarApp=iniciarApp=function(){ _ia2.apply(this,arguments); setTimeout(promoverProxima,1500); }; }
@@ -371,7 +581,7 @@ window.tomCulto=function(id){ const sl=listaDe(id); return sl&&sl.tons? (sl.tons
 window.fixarTomCulto=async function(id,v){
   if(!adm()) return; const sl=listaDe(id); if(!sl) return toast('Monte a playlist primeiro.');
   const tons=Object.assign({},sl.tons); if(v) tons[id]=v; else delete tons[id];
-  await salvarConfig(sl.chave||'setlist',{inicio:sl.inicio,fim:sl.fim,itens:sl.itens,tons,youtube:sl.youtube||''});
+  await salvarConfig(sl.chave||'setlist',{inicio:sl.inicio,fim:sl.fim,itens:sl.itens,tons,youtube:sl.youtube||'',eventos:sl.eventos||null});
   toast(v?'Tom do culto salvo. Todos abrem neste tom.':'Tom do culto: original.'); setTimeout(redesenhar,50);
 };
 function redesenhar(){ const y=scrollY; try{ if(typeof _viewAtual==='function') _viewAtual(); }catch(_){} scrollTo(0,y); }
