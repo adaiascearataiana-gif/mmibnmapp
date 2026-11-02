@@ -1,5 +1,5 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v31';
+const CACHE = 'mmibnm-v32';
 const CORE = [
   './',
   './index.html',
@@ -16,6 +16,9 @@ const CORE = [
   './central.js',
   './telegram.js',
   './cifras.js',
+  './vozes.js',
+  './cores.js',
+  './push.js',
   './sync.js',
   './icon-192.png',
   './icon-512.png',
@@ -88,4 +91,28 @@ self.addEventListener('fetch', function (e) {
       });
     })
   );
+});
+
+/* ===== Notificações na barra do celular (Web Push) ===== */
+self.addEventListener('push', function (e) {
+  var d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (x) { d = { title: 'MM IBNM', body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) {
+    // app aberto na tela: ele mesmo mostra o aviso (som/janela)
+    if (cs.some(function (c) { return c.visibilityState === 'visible'; })) return;
+    return self.registration.showNotification(d.title || 'Ministério de Música IBNM', {
+      body: d.body || '', icon: 'icon-192.png', badge: 'favicon-32.png',
+      tag: d.id ? 'ibnm-' + d.id : undefined, renotify: true, vibrate: [80, 40, 80],
+      data: { link: d.link || '' }
+    });
+  }));
+});
+self.addEventListener('notificationclick', function (e) {
+  e.notification.close();
+  var link = (e.notification.data && e.notification.data.link) || '';
+  var url = './' + (link ? '?n=' + encodeURIComponent(link) : '');
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) {
+    for (var i = 0; i < cs.length; i++) { var c = cs[i]; if ('focus' in c) { c.postMessage({ tipo: 'abrir', link: link }); return c.focus(); } }
+    return self.clients.openWindow(url);
+  }));
 });

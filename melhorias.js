@@ -442,9 +442,9 @@ window.renderMusica=renderMusica=function(){
   return h;
 };
 function cardAudios(m){
-  const lista=(m.audios||[]).map((a,i)=>'<div class="au-it"><button class="au-pl" onclick="tocarAudioAdm(\''+m.id+'\','+i+',this)" aria-label="Ouvir">▶</button><span class="au-nm">'+e(a.nome||'Áudio '+(i+1))+'</span>'+
+  const lista=(m.audios||[]).map((a,i)=>a.slot?'':'<div class="au-it"><button class="au-pl" onclick="tocarAudioAdm(\''+m.id+'\','+i+',this)" aria-label="Ouvir">▶</button><span class="au-nm">'+e(a.nome||'Áudio '+(i+1))+'</span>'+
     '<button onclick="renomearAudio(\''+m.id+'\','+i+')" aria-label="Renomear">✏️</button><button onclick="excluirAudio(\''+m.id+'\','+i+')" aria-label="Excluir" class="au-del">🗑️</button></div>').join('')
-    || '<p class="au-vz">Nenhum áudio ainda. Grave, envie um arquivo ou cole um link.</p>';
+    || '<p class="au-vz">Nenhum outro áudio. Use para playback, ensaio, original…</p>';
   const chips=['Voz guia','Playback','Ensaio','Original','Soprano','Contralto','Tenor','Baixo'].map(n=>'<button type="button" onclick="document.getElementById(\'auNome\').value=\''+n+'\'">'+n+'</button>').join('');
   return '<div class="card au-card"><h3>🎧 Áudios da música <span class="admin-tag">ADM</span></h3>'+
     '<div class="au-lista">'+lista+'</div>'+
@@ -657,6 +657,12 @@ function tirarIntro(el){
       intro=prim.replace(RE_INTRO,'').trim();
       if(n.nodeType===3 && t.indexOf('\n')>=0) n.textContent=t.slice(t.indexOf('\n')+1);
       else n.remove();
+      /* introdução com mais de uma linha: as linhas de acordes logo abaixo também são da intro */
+      while(el.firstChild && el.firstChild.nodeType===1 && /^(DIV|P)$/.test(el.firstChild.tagName)){
+        const tx=(el.firstChild.textContent||'').replace(/\u00a0/g,' ');
+        if(!tx.trim() || !(window.__ehLinhaCifra && window.__ehLinhaCifra(tx)) || !/^\s{4,}/.test(tx)) break;
+        intro+='\n'+tx.replace(/^ {0,7}/,'').replace(/\s+$/,''); el.firstChild.remove();
+      }
       while(el.firstChild && ((el.firstChild.nodeType===1&&el.firstChild.tagName==='BR') || (!(el.firstChild.textContent||'').trim() && !(el.firstChild.querySelector&&el.firstChild.querySelector('img'))))) el.firstChild.remove();
     }
     break;
@@ -671,7 +677,7 @@ window.editorCifra=editorCifra=function(id){
     const intro=tirarIntro(el);
     const tb=document.getElementById('edTb');
     const campo='<div class="field ed-intro"><label>🎼 Introdução <small>(campo do ADM — os músicos veem a introdução no início da cifra)</small></label>'+
-      '<input id="edIntro" value="'+e(intro)+'" placeholder="Ex.: G  D/F#  Em  C  (2x)" autocomplete="off" spellcheck="false"></div>';
+      '<textarea id="edIntro" rows="'+Math.max(2,intro.split('\n').length+1)+'" enterkeyhint="enter" placeholder="Ex.: G  D/F#  Em  C  (2x)  — Enter abre outra linha" autocomplete="off" autocapitalize="characters" spellcheck="false">'+e(intro)+'</textarea></div>';
     if(tb) tb.insertAdjacentHTML('beforebegin',campo); else el.insertAdjacentHTML('beforebegin',campo);
     try{ if(typeof edCommit==='function') edCommit(); }catch(_){}
   }catch(_){}
@@ -683,8 +689,10 @@ if(typeof getCifraHtml==='function'){
   window.getCifraHtml=getCifraHtml=function(){
     const html=_g.apply(this,arguments);
     if(!window.__comIntro) return html;
-    const v=((document.getElementById('edIntro')||{}).value||'').trim();
-    return v? '<p><b style="color:#b8860b">Intro:</b> '+e(v)+'</p>'+html : html;
+    const v=((document.getElementById('edIntro')||{}).value||'').replace(/\r/g,'').replace(/\s+$/,'').replace(/^\n+/,'');
+    if(!v.trim()) return html;
+    const ls=v.split('\n');
+    return '<p><b style="color:#b8860b">Intro:</b> '+e(ls[0])+'</p>'+ls.slice(1).map(l=>'<div>'+(l.trim()? '       '+e(l) : '<br>')+'</div>').join('')+html;
   };
 }
 if(typeof salvarCifra==='function'){
@@ -699,7 +707,7 @@ if(typeof transpor==='function'){
     try{ const i=document.getElementById('edIntro'); if(i && i.value.trim() && window.__transpTexto) i.value=window.__transpTexto(i.value,passo); }catch(_){}
   };
 }
-const st=document.createElement('style'); st.textContent='.ed-intro{background:#fffbea;border:1px solid #efe1a5;border-radius:10px;padding:8px 10px;margin-bottom:10px}.ed-intro label small{font-weight:600;color:#8a7a3a}.ed-intro input{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;letter-spacing:.02em}';
+const st=document.createElement('style'); st.textContent='.ed-intro{background:#fffbea;border:1px solid #efe1a5;border-radius:10px;padding:8px 10px;margin-bottom:10px}.ed-intro label small{font-weight:600;color:#8a7a3a}.ed-intro textarea{display:block;width:100%;box-sizing:border-box;min-height:64px;resize:vertical;font-family:"Courier New",ui-monospace,monospace;font-size:14px;font-weight:700;line-height:1.6;white-space:pre;overflow-x:auto;padding:8px 10px;border:1px solid #cfdad4;border-radius:8px;background:#fff;color:var(--verde-escuro)}';
 document.head.appendChild(st);
 })();
 
@@ -789,6 +797,7 @@ function desespaca(ls){
   return ls.map(l=>{ const out=[]; for(let i=0;i<l.length;i++){ if(l[i]!==' '){ let c=Math.floor(i/2); while(out[c]!==undefined && out[c]!==' ') c++; out[c]=l[i]; } } for(let i=0;i<out.length;i++) if(out[i]===undefined) out[i]=' '; return out.join('').replace(/\s+$/,''); });
 }
 window.__linhasDoHtml=linhasDoHtml;
+window.__htmlLinhaAcordes=l=>htmlLinhaAcordes(l); window.__ehLinhaDeAcordes=t=>ehLinhaDeAcordes(t);
 /* reconstrói a cifra: só os acordes ganham destaque; a letra fica normal */
 function marcarAcordes(el){
   const ls=linhasDoHtml(el);
@@ -825,10 +834,12 @@ const st=document.createElement('style'); st.textContent=`
 .cifra-box.cf-fit div,.cifra-box.cf-fit p{white-space:pre;margin:0}
 .cifra-box.cf-fit,.cifra-box.cf-fit *{letter-spacing:0!important;word-spacing:normal!important;font-weight:400!important;font-style:normal!important;color:#262626!important;text-decoration:none!important;background:none!important;font-family:'Courier New',ui-monospace,monospace!important}
 .cifra-box.cf-fit{background:#fffdf5!important}
-.cifra-box.cf-fit .cf-ac{font-weight:800!important;color:#a8350a!important}
+.cifra-box.cf-fit .cf-ac{font-weight:800!important;color:var(--cor-acorde,#a8350a)!important}
 .cifra-box.cf-fit .cf-lb{color:#6b7c74!important}
 .cifra-box.cf-fit .cf-sec{color:#6b7c74!important}
-.editor-rich{white-space:pre!important;overflow-x:auto}
+.editor-rich{white-space:pre!important;overflow-x:auto;overflow-y:visible!important;max-height:none!important;height:auto!important;overscroll-behavior:auto}
+.editor-tb{position:sticky;top:var(--ibnm-topbar,64px);z-index:15;background:#fff}
+.editor-rich > *{scroll-margin-top:calc(var(--ibnm-topbar,64px) + 70px);scroll-margin-bottom:90px}
 `; document.head.appendChild(st);
 })();
 

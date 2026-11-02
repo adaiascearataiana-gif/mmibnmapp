@@ -325,3 +325,20 @@ edições do Cantor aparecerem para todos.
   do culto fixos; cada nome numa etiqueta, um embaixo do outro; linhas
   alternadas; semana atual em dourado; seu nome destacado; filtros
   Próximas/Todas/Minhas também na tabela.
+
+## v1.0.0
+- **Áudios por voz (ADM), na aba Áudio:** 🎤 PRINCIPAL, 🎶 BACK 1, 🎶 BACK 2 —
+  cada um com Gravar / Enviar arquivo / Link (vai para o Google Drive),
+  campo "Quem canta" com prévia ao digitar (só quem tem voz no cadastro) e
+  💾 Salvar. Quem é marcado recebe notificação que abre o áudio.
+  "Outros áudios" continua para playback/ensaio.
+- **Notificações na barra do celular (Web Push)**, com o app fechado, e
+  **preferências**: cada pessoa escolhe o que quer receber (Perfil e 🔔).
+  Configuração única no Supabase: arquivo PUSH-CONFIGURAR.md (fora do GitHub).
+- **Cor dos acordes:** paleta de 6 cores (ADM escolhe no editor 🎨 ou no
+  Painel); vale para músicas e hinos. No editor os acordes já aparecem
+  destacados; botão ✨ Acordes. Barra do editor sem fonte/tamanho/cores manuais.
+- **Introdução** em caixa de várias linhas, que cresce e pode ser puxada.
+- **Enter** nos campos de letra, cifra e introdução sempre abre nova linha.
+- **Tela parada:** o editor não tem mais rolagem interna (não pula ao digitar);
+  o app não redesenha a tela enquanto alguém está digitando.

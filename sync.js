@@ -142,8 +142,13 @@ if(typeof cloudCantadas==='function') window.cloudCantadas=cloudCantadas=()=>clo
    TEMPO REAL: um canal só, aplicando a linha que veio na mensagem
 ============================================================ */
 let _tela=0;
+/* não redesenha a tela enquanto a pessoa está digitando (a tela não pula e o teclado não fecha) */
+function digitando(){ const a=document.activeElement; return !!(a && a!==document.body && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !a.closest('.sm-menu,#sidemenu')); }
+let _pendente=false;
+document.addEventListener('focusout',()=>{ if(_pendente) setTimeout(()=>{ if(!digitando() && _pendente){ _pendente=false; atualizaTela(); } },900); },true);
 function atualizaTela(){
   clearTimeout(_tela);
+  if(digitando() || (typeof _editando!=='undefined' && _editando)){ _pendente=true; try{ atualizaBadge(); }catch(_){} return; }
   _tela=setTimeout(()=>{
     try{ if($('#appShell').classList.contains('hidden')) return; }catch(_){ return; }
     try{ montaMenu(); atualizaBadge(); }catch(_){}
