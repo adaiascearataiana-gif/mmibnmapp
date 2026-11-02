@@ -35,7 +35,7 @@ function slotHTML(m,k,t){
       '<button class="vz-b" onclick="vzArquivo(\''+k+'\')">📁 Enviar arquivo</button><input type="file" id="vzArq_'+k+'" hidden accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" onchange="vzArquivoEscolhido(\''+k+'\',this)">'+
       '<button class="vz-b" onclick="vzLink(\''+k+'\')">🔗 Link</button></div>'+
     '<div class="vz-prev" id="vzPrev_'+k+'">'+(p.blob||p.url? previaHTML(k) : '')+'</div>'+
-    '<div class="vz-cant"><label>Quem canta</label><input id="vzCan_'+k+'" autocomplete="off" placeholder="Digite o nome (só quem tem voz no cadastro)" value="'+e(cnome)+'" data-id="'+e(cid)+'" oninput="vzBusca(\''+k+'\')" onfocus="vzBusca(\''+k+'\')">'+
+    '<div class="vz-cant"><label>Quem canta</label><input id="vzCan_'+k+'" autocomplete="off" placeholder="Digite o nome (só quem tem voz no cadastro)" value="'+e(cnome)+'" data-id="'+e(cid)+'" oninput="vzBusca(\''+k+'\')" onfocus="vzFecha(\''+k+'\')" onblur="setTimeout(()=>vzFecha(),180)">'+
       '<div class="vz-sug" id="vzSug_'+k+'"></div></div>'+
     '<button class="vz-salvar" onclick="vzSalvar(\''+k+'\')">💾 Salvar '+NOME_SLOT[k]+'</button></div>';
 }
@@ -44,16 +44,20 @@ function previaHTML(k){ const p=PEND[k]||{}; const src=p.blob? URL.createObjectU
 function redesenha(){ const c=document.querySelector('.vz-card'); const m=(DB.musicas||[]).find(x=>x.id===MID); if(c&&m) c.outerHTML=cartao(m); }
 
 /* ---------- cantor com prévia ---------- */
+/* fecha as listas de sugestão (todas, ou todas menos a do campo k) */
+window.vzFecha=function(exceto){ document.querySelectorAll('.vz-sug').forEach(b=>{ if(!exceto || b.id!=='vzSug_'+exceto) b.innerHTML=''; }); };
 window.vzBusca=function(k){
   const inp=$id('vzCan_'+k), box=$id('vzSug_'+k); if(!inp||!box) return;
+  vzFecha(k);
   inp.dataset.id=''; PEND[k]=Object.assign(PEND[k]||{},{cantor_id:'',cantor_nome:inp.value,mexeu:true});
+  if(!inp.value.trim()){ box.innerHTML=''; return; }            /* só mostra a lista quando começa a digitar */
   const lista=cantores(inp.value);
-  box.innerHTML=lista.length? lista.map(u=>'<button type="button" onclick="vzEscolhe(\''+k+'\',\''+e(u.id)+'\')">'+(u.foto?'<img src="'+e(u.foto)+'" alt="">':'<span class="ini">'+e((u.nome||'?').charAt(0))+'</span>')+'<span><b>'+e(u.nome)+'</b><small>'+e((u.vocal||[]).join(', '))+'</small></span></button>').join('')
+  box.innerHTML=lista.length? lista.map(u=>'<button type="button" onmousedown="event.preventDefault()" onclick="vzEscolhe(\''+k+'\',\''+e(u.id)+'\')">'+(u.foto?'<img src="'+e(u.foto)+'" alt="">':'<span class="ini">'+e((u.nome||'?').charAt(0))+'</span>')+'<span><b>'+e(u.nome)+'</b><small>'+e((u.vocal||[]).join(', '))+'</small></span></button>').join('')
     : '<div class="vz-nada">Ninguém com voz cadastrada com esse nome.</div>';
 };
 window.vzEscolhe=function(k,uid){
   const u=(DB.usuarios||[]).find(x=>x.id===uid); if(!u) return;
-  const inp=$id('vzCan_'+k); inp.value=u.nome; inp.dataset.id=u.id; $id('vzSug_'+k).innerHTML='';
+  const inp=$id('vzCan_'+k); inp.value=u.nome; inp.dataset.id=u.id; vzFecha(); inp.blur();
   PEND[k]=Object.assign(PEND[k]||{},{cantor_id:u.id,cantor_nome:u.nome,mexeu:true});
 };
 document.addEventListener('click',ev=>{ if(!ev.target.closest('.vz-cant')) document.querySelectorAll('.vz-sug').forEach(b=>b.innerHTML=''); });
