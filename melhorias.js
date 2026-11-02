@@ -767,9 +767,26 @@ function linhasDoHtml(el){
       anda(c);
       if(bloco && L[L.length-1]!=='') L.push('');
     } }); })(el);
-  while(L.length && L[L.length-1].trim()==='') L.pop();
-  while(L.length && L[0].trim()==='') L.shift();
-  return L.map(l=>l.replace(/\s+$/,''));
+  let ls=L.map(limpaLinha);
+  while(ls.length && ls[ls.length-1].trim()==='') ls.pop();
+  while(ls.length && ls[0].trim()==='') ls.shift();
+  ls=desespaca(ls);
+  return ls.map(l=>l.replace(/^(\s*)(intro|introdu[cç][aã]o|refr[aã]o|pr[eé]-refr[aã]o|ponte|final|solo|coro|verso|parte\s*\d+|primeira parte|segunda parte|terceira parte|interl[uú]dio|tab|riff)\]/i,'$1[$2]'));
+}
+/* caracteres invisíveis, espaços especiais e símbolos de sustenido/bemol do PDF/site */
+function limpaLinha(l){
+  return String(l).normalize('NFKC').replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF\u00AD]/g,'')
+    .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\t]/g,' ').replace(/\u266F/g,'#').replace(/\u266D/g,'b').replace(/\s+$/,'');
+}
+/* cifra que veio "e s p a ç a d a" (uma letra sim, um espaço não — comum em PDF):
+   volta ao normal mantendo cada acorde em cima da mesma sílaba */
+function desespaca(ls){
+  const cands=ls.filter(l=>l.replace(/\s/g,'').length>=6);
+  if(cands.length<2) return ls;
+  const dobrada=l=>{ let impar=0,par=0; for(let i=0;i<l.length;i++){ if(l[i]!==' '){ if(i%2) impar++; else par++; } } return Math.min(impar,par)===0; };
+  const n=cands.filter(dobrada).length;
+  if(n/cands.length<0.7) return ls;
+  return ls.map(l=>{ const out=[]; for(let i=0;i<l.length;i++){ if(l[i]!==' '){ let c=Math.floor(i/2); while(out[c]!==undefined && out[c]!==' ') c++; out[c]=l[i]; } } for(let i=0;i<out.length;i++) if(out[i]===undefined) out[i]=' '; return out.join('').replace(/\s+$/,''); });
 }
 window.__linhasDoHtml=linhasDoHtml;
 /* reconstrói a cifra: só os acordes ganham destaque; a letra fica normal */
@@ -806,7 +823,7 @@ let _rz=0; addEventListener('resize',()=>{ clearTimeout(_rz); _rz=setTimeout(aju
 const st=document.createElement('style'); st.textContent=`
 .cifra-box.cf-fit{white-space:pre;overflow-x:auto;line-height:1.55;-webkit-text-size-adjust:none;text-size-adjust:none}
 .cifra-box.cf-fit div,.cifra-box.cf-fit p{white-space:pre;margin:0}
-.cifra-box.cf-fit,.cifra-box.cf-fit *{font-weight:400!important;font-style:normal!important;color:#262626!important;text-decoration:none!important;background:none!important;font-family:'Courier New',ui-monospace,monospace!important}
+.cifra-box.cf-fit,.cifra-box.cf-fit *{letter-spacing:0!important;word-spacing:normal!important;font-weight:400!important;font-style:normal!important;color:#262626!important;text-decoration:none!important;background:none!important;font-family:'Courier New',ui-monospace,monospace!important}
 .cifra-box.cf-fit{background:#fffdf5!important}
 .cifra-box.cf-fit .cf-ac{font-weight:800!important;color:#a8350a!important}
 .cifra-box.cf-fit .cf-lb{color:#6b7c74!important}
@@ -848,6 +865,20 @@ function linhasDaPagina(items){
   its.forEach(it=>{ const l=linhas.find(L=>Math.abs(L.y-it.y)<Math.min(L.fs,it.fs)*0.45); if(l){ l.its.push(it); l.fs=Math.max(l.fs,it.fs); } else linhas.push({y:it.y,fs:it.fs,its:[it]}); });
   linhas.sort((a,b)=>b.y-a.y);
   linhas.forEach(L=>{ L.its.sort((a,b)=>a.x-b.x); L.letras=[].concat(...L.its.map(letrasDoItem)); L.texto=L.letras.map(o=>o.c).join(''); });
+  /* PDF com fonte de largura fixa (Cifra Club e a maioria das cifras): cada letra vai para a sua coluna exata */
+  const advs=its.filter(i=>i.width>0 && i.str.length>=2).map(i=>i.width/i.str.length).sort((a,b)=>a-b);
+  if(advs.length>=4){
+    const med=advs[Math.floor(advs.length/2)];
+    const perto=advs.filter(a=>Math.abs(a-med)/med<0.08).length/advs.length;
+    if(perto>=0.85){
+      const x0=Math.min(...its.map(i=>i.x));
+      linhas.forEach(L=>{ const out=[]; L.its.forEach(it=>{ const cw=(it.width>0&&it.str.length)? it.width/it.str.length : med;
+        [...it.str].forEach((ch,k)=>{ let c=Math.round((it.x+k*cw-x0)/med); if(c<0) c=0; while(out[c]!==undefined && out[c]!==' ' && ch!==' ') c++; if(ch!==' '||out[c]===undefined) out[c]=ch; }); });
+        for(let k=0;k<out.length;k++) if(out[k]===undefined) out[k]=' ';
+        L.grade=out.join('').replace(/\s+$/,''); });
+      linhas.mono=true;
+    }
+  }
   return linhas;
 }
 /* texto "normal": junta as letras e põe espaço onde há vão */
@@ -879,6 +910,7 @@ function montaCifra(paginas){
     linhas.forEach((L,i)=>{
       const ant=linhas[i-1];
       if(ant && (ant.y-L.y)>Math.max(ant.fs,L.fs)*2.1 && out.length && out[out.length-1]!=='') out.push('');   /* espaço entre estrofes */
+      if(linhas.mono){ out.push(L.grade); return; }
       const t=textoNormal(L);
       if(ehLinhaC(t)){
         const prox=linhas[i+1];
@@ -1032,6 +1064,15 @@ if(typeof getCifraHtml==='function'){
 })();
 /* padronizar as cifras antigas (ADM) */
 function foraDoPadrao(){ return (DB.musicas||[]).filter(m=>String(m.cifra||'').replace(/<[^>]+>/g,'').trim() && !ehPadrao(m.cifra)); }
+/* corrige sozinho as cifras já gravadas (só no aparelho do ADM, 1 vez por versão) */
+async function autoPadroniza(){
+  try{ if(!(window.ehAdminReal? ehAdminReal() : ehAdmin())) return; const k='ibnm_padroniza_v096'; if(localStorage.getItem(k)) return;
+    const ms=foraDoPadrao(); let ok=0;
+    for(const m of ms){ const c=padroniza(m.cifra); const {error}=await sb.from('musicas').update({cifra:c}).eq('id',m.id); if(!error){ m.cifra=c; ok++; } }
+    localStorage.setItem(k,'1'); if(ok) toast(ok+' cifra(s) corrigidas para o padrão do app.');
+  }catch(_){}
+}
+if(typeof iniciarApp==='function'){ const _ia=iniciarApp; window.iniciarApp=iniciarApp=function(){ _ia.apply(this,arguments); setTimeout(autoPadroniza,6000); }; }
 window.padronizarTodas=async function(){
   const ms=foraDoPadrao(); if(!ms.length) return toast('Todas as cifras já estão no padrão.');
   if(!confirm('Padronizar a formatação de '+ms.length+' cifra(s)?\n\nTira negrito, cores e fontes aplicados à mão e mantém o alinhamento. Na tela, só os acordes ficam destacados.')) return;

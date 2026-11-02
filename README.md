@@ -303,3 +303,15 @@ edições do Cantor aparecerem para todos.
   negrito laranja; a letra normal.
 - Painel do ADM: **🧹 Formatação das cifras** — padroniza de uma vez as
   cifras antigas com formatação manual.
+
+## v0.9.6
+- Cifras importadas de PDF/sites que vinham "e s p a ç a d a s" (uma letra,
+  um espaço) agora voltam ao normal, com cada acorde em cima da sílaba
+  certa — e todos os acordes são reconhecidos e destacados.
+- Limpeza de caracteres invisíveis, espaços especiais e ♯/♭ do PDF/site;
+  "Intro]" sem colchete é corrigido para "[Intro]".
+- Importar PDF: PDFs com fonte de largura fixa (Cifra Club etc.) são lidos
+  coluna por coluna — fica exatamente como no PDF.
+- Fonte única do app na cifra (sem espaçamento de letras herdado).
+- As cifras já gravadas são corrigidas sozinhas quando o ADM abre o app
+  (uma vez); o botão 🧹 do Painel continua disponível.
