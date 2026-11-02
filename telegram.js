@@ -60,6 +60,33 @@ function analisa(json){
   return itens.filter(i=>i.titulo && !/^general$/i.test(i.titulo));
 }
 
+/* ---------- JSON genérico: lista de músicas ----------
+   Aceita: [ {...}, {...} ]  ou  { "musicas": [ ... ] }
+   Campos (qualquer um destes nomes): titulo/title/nome, artista/artist/autor/cantor,
+   letra/lyrics/texto, cifra/chords, tom/key, youtube/link/video */
+const CAMPOS={titulo:['titulo','título','title','nome','name','musica','música','song'],artista:['artista','artist','autor','cantor','banda','interprete','intérprete','ministerio','ministério'],
+  letra:['letra','letras','lyrics','texto','text','conteudo','conteúdo'],cifra:['cifra','cifras','chords','acordes'],tom:['tom','key','tonalidade'],youtube:['youtube','link','video','vídeo','url']};
+function pega(o,campo){ const ks=Object.keys(o||{}); for(const nome of CAMPOS[campo]){ const k=ks.find(x=>x.toLowerCase().trim()===nome); if(k!=null && o[k]!=null) return Array.isArray(o[k])? o[k].join('\n') : String(o[k]); } return ''; }
+function analisaGenerico(json){
+  let arr=Array.isArray(json)? json : null;
+  if(!arr && json && typeof json==='object'){ const k=Object.keys(json).find(x=>Array.isArray(json[x]) && json[x].length && typeof json[x][0]==='object'); if(k) arr=json[k]; }
+  if(!arr) return [];
+  return arr.filter(o=>o && typeof o==='object').map(o=>{
+    let titulo=pega(o,'titulo'), artista=pega(o,'artista');
+    if(titulo && !artista){ const sa=separaArtista(titulo); titulo=sa.titulo; artista=sa.artista; } else titulo=limpaTitulo(titulo);
+    const letra=limpaLetra(pega(o,'letra'),titulo), cifra=String(pega(o,'cifra')||'').replace(/\r/g,'').trim();
+    return {titulo:cap(titulo),artista:cap(artista),letra,cifraDada:cifra,tom:pega(o,'tom').trim(),youtube:pega(o,'youtube').trim(),midias:0};
+  }).filter(i=>i.titulo);
+}
+function leArquivo(json){ return (json && Array.isArray(json.messages))? {itens:analisa(json),origem:'telegram'} : {itens:analisaGenerico(json),origem:'json'}; }
+window.tgModelo=function(){
+  const modelo={musicas:[
+    {titulo:'Grandioso És Tu',artista:'Cantor Cristão',letra:'Senhor meu Deus, quando eu maravilhado\nContemplo a Tua imensa criação'},
+    {titulo:'Porque Ele Vive',artista:'Harpa Cristã',letra:'Deus enviou Seu Filho amado\nPra perdoar, pra me salvar',tom:'C',youtube:'https://youtu.be/...'}
+  ]};
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(modelo,null,2)],{type:'application/json'})); a.download='modelo-musicas.json'; a.click();
+};
+
 /* ---------- comparação com o que já existe no app ---------- */
 function marca(itens){
   const porTitulo=new Map((DB.musicas||[]).map(m=>[sem(m.titulo),m]));
@@ -68,16 +95,16 @@ function marca(itens){
     it.i=i; const k=sem(it.titulo);
     it.existe=porTitulo.get(k)||null;
     it.repetida=vistos.has(k); vistos.add(k);
-    it.temCifra=it.letra.split('\n').some(l=>(window.__ehLinhaCifra||(()=>false))(l));
-    it.status= it.repetida? 'rep' : it.existe? (it.existe.letra? 'existe' : 'semletra') : (it.letra? 'nova' : 'vazia');
+    it.temCifra=!!it.cifraDada || it.letra.split('\n').some(l=>(window.__ehLinhaCifra||(()=>false))(l));
+    it.status= it.repetida? 'rep' : it.existe? (it.existe.letra? 'existe' : 'semletra') : ((it.letra||it.cifraDada||IMP_ORIGEM==='json')? 'nova' : 'vazia');
     it.marcada = it.status==='nova' || it.status==='semletra';
   });
   return itens;
 }
 
 /* ---------- tela ---------- */
-let ITENS=null, FILTRO='todas';
-const ROT={nova:['🆕','Nova','#1c6b47','#e1f4ea'],semletra:['✍️','Já existe sem letra — completa a letra','#7a4a00','#fff3e6'],existe:['✔️','Já existe com letra','#456','#eef1ef'],vazia:['∅','Sem letra no Telegram','#8a2b1e','#fde4df'],rep:['⧉','Repetida no Telegram','#456','#eef1ef']};
+let ITENS=null, FILTRO='todas', IMP_ORIGEM='telegram';
+const ROT={nova:['🆕','Nova','#1c6b47','#e1f4ea'],semletra:['✍️','Já existe sem letra — completa a letra','#7a4a00','#fff3e6'],existe:['✔️','Já existe com letra','#456','#eef1ef'],vazia:['∅','Sem letra','#8a2b1e','#fde4df'],rep:['⧉','Repetida no arquivo','#456','#eef1ef']};
 function lista(){
   const vis=ITENS.filter(it=>FILTRO==='todas'||it.status===FILTRO);
   if(!vis.length) return '<p class="tg-vz">Nada neste filtro.</p>';
@@ -107,10 +134,10 @@ window.tgTodas=function(v){ ITENS.forEach(it=>{ if(FILTRO==='todas'||it.status==
 window.tgArquivo=async function(inp){
   const f=inp.files&&inp.files[0]; inp.value=''; if(!f) return;
   let json; try{ json=JSON.parse(await f.text()); }catch(_){ toast('Esse arquivo não é o result.json do Telegram (formato JSON).'); return; }
-  const it=analisa(json);
-  if(!it.length){ toast('Não encontrei músicas nesse arquivo.'); return; }
+  const r=leArquivo(json); IMP_ORIGEM=r.origem; const it=r.itens;
+  if(!it.length){ toast('Não encontrei músicas nesse arquivo. Veja o modelo de arquivo.'); return; }
   ITENS=marca(it); FILTRO='todas'; desenha();
-  toast(it.length+' música(s) encontradas no Telegram.');
+  toast(it.length+' música(s) encontradas '+(r.origem==='telegram'?'no Telegram':'no arquivo')+'.');
 };
 window.tgImportar=async function(){
   const sel=ITENS.filter(i=>i.marcada); if(!sel.length) return toast('Marque ao menos uma música.');
@@ -119,36 +146,40 @@ window.tgImportar=async function(){
   const novas=sel.filter(i=>!i.existe), completar=sel.filter(i=>i.existe);
   const uid=(typeof _sessaoId!=='undefined')?_sessaoId:null;
   for(let k=0;k<novas.length;k+=40){
-    const lote=novas.slice(k,k+40).map(it=>({id:crypto.randomUUID(),titulo:it.titulo,artista:it.artista,cifra:it.temCifra?it.letra:'',letra:it.letra,youtube:'',audios:[],dados:{publicada:pub,origem:'telegram'},created_by:uid}));
+    const lote=novas.slice(k,k+40).map(it=>({id:crypto.randomUUID(),titulo:it.titulo,artista:it.artista,cifra:it.cifraDada||(it.temCifra?it.letra:''),letra:it.letra,youtube:it.youtube||'',audios:[],dados:Object.assign({publicada:pub,origem:IMP_ORIGEM},it.tom?{tom:it.tom}:{}),created_by:uid}));
     const {error}=await sb.from('musicas').insert(lote);
     if(error){ erros+=lote.length; if(prog) prog.innerHTML='<div class="err-msg">Erro: '+e(error.message)+'</div>'; }
-    else { feitas+=lote.length; lote.forEach(r=>{ if(!DB.musicas.some(m=>m.id===r.id)) DB.musicas.push({id:r.id,titulo:r.titulo,artista:r.artista,cifra:r.cifra,letra:r.letra,youtube:'',audios:[],publicada:pub,criado:new Date().toISOString()}); }); }
+    else { feitas+=lote.length; lote.forEach(r=>{ if(!DB.musicas.some(m=>m.id===r.id)) DB.musicas.push({id:r.id,titulo:r.titulo,artista:r.artista,cifra:r.cifra,letra:r.letra,youtube:r.youtube,audios:[],publicada:pub,criado:new Date().toISOString()}); }); }
     if(prog && !error) prog.textContent='Importando… '+feitas+' de '+sel.length;
   }
   for(const it of completar){
-    const upd={letra:it.letra}; if(it.temCifra && !it.existe.cifra) upd.cifra=it.letra;
+    const upd={}; if(it.letra) upd.letra=it.letra; if(!it.existe.cifra && (it.cifraDada||it.temCifra)) upd.cifra=it.cifraDada||it.letra; if(it.youtube && !it.existe.youtube) upd.youtube=it.youtube;
+    if(!Object.keys(upd).length) continue;
     const {error}=await sb.from('musicas').update(upd).eq('id',it.existe.id);
     if(error) erros++; else { feitas++; Object.assign(it.existe,upd); }
     if(prog) prog.textContent='Importando… '+feitas+' de '+sel.length;
   }
   try{ DB.musicas.sort((a,b)=>a.titulo.localeCompare(b.titulo,'pt')); }catch(_){}
   toast(feitas+' música(s) importada(s)'+(erros?' · '+erros+' com erro':'')+'.');
-  ITENS=marca(ITENS.map(i=>({titulo:i.titulo,artista:i.artista,letra:i.letra,midias:i.midias,data:i.data}))); desenha();
+  ITENS=marca(ITENS.map(i=>({titulo:i.titulo,artista:i.artista,letra:i.letra,cifraDada:i.cifraDada,tom:i.tom,youtube:i.youtube,midias:i.midias,data:i.data}))); desenha();
+  if(feitas) setTimeout(()=>{ if(confirm(feitas+' música(s) importada(s). Ir para a lista de músicas para completar cifra, tom e áudio?')) go('musicas'); },300);
 };
 if(typeof ROTAS!=='undefined'){
   ROTAS.telegram=function(){
     if(!ehAdmin()) return '<div class="page"><div class="empty">Acesso restrito ao ADM.</div></div>';
     setTimeout(desenha,0);
-    return '<div class="page"><div class="page-ttl">📥 Importar letras do Telegram</div>'+
-      '<div class="card tg-passo"><h3>1. Exportar no Telegram (computador)</h3><ol>'+
+    return '<div class="page"><div class="page-ttl">📥 Importar músicas</div>'+
+      '<div class="card tg-passo"><h3>Escolha o arquivo</h3><label class="btn btn-primary tg-file">📄 Escolher arquivo .json<input type="file" accept=".json,application/json" hidden onchange="tgArquivo(this)"></label>'+
+        '<p class="tg-dica">Aceita o <b>result.json</b> do Telegram ou uma lista de músicas em JSON (título e letra; artista, cifra, tom e YouTube são opcionais). Você revisa a lista antes de importar e completa os outros campos depois.</p>'+
+        '<button class="mini-btn sec" style="margin-top:8px" onclick="tgModelo()">⬇️ Baixar modelo de arquivo JSON</button></div>'+
+      '<div id="tgBox"></div>'+
+      '<details class="card tg-passo"><summary><b>Como exportar do Telegram (computador)</b></summary><ol>'+
         '<li>Instale o <b>Telegram Desktop</b> (telegram.org) e abra o grupo <b>Acervo MMIBNM</b>.</li>'+
         '<li>Toque nos <b>⋮</b> → <b>Exportar histórico do chat</b>.</li>'+
         '<li>Desmarque fotos, vídeos, mensagens de voz e arquivos.</li>'+
         '<li>Em <b>Formato</b>, escolha <b>JSON (legível por máquina)</b> → <b>Exportar</b>.</li>'+
-        '<li>Vai ser criado o arquivo <b>result.json</b>.</li></ol></div>'+
-      '<div class="card tg-passo"><h3>2. Escolher o arquivo aqui</h3><label class="btn btn-primary tg-file">📄 Escolher result.json<input type="file" accept=".json,application/json" hidden onchange="tgArquivo(this)"></label>'+
-        '<p class="tg-dica">Cada tópico (♫ Título) vira uma música. "Título - Artista" e "Título (Artista)" separam o artista sozinhos. Você revisa a lista antes de importar.</p></div>'+
-      '<div id="tgBox"></div></div>';
+        '<li>Vai ser criado o arquivo <b>result.json</b>. Cada tópico (♫ Título) vira uma música.</li></ol></details>'+
+      '<details class="card tg-passo"><summary><b>Como montar o JSON</b></summary><pre class="tg-pre">[\n  { "titulo": "Grandioso És Tu",\n    "artista": "Cantor Cristão",\n    "letra": "Senhor meu Deus..." },\n  { "titulo": "Porque Ele Vive",\n    "letra": "Deus enviou..." }\n]</pre><p class="tg-dica">Também vale "title", "nome", "artist", "lyrics", "texto". "Título - Artista" no título separa o artista sozinho.</p></details></div>';
   };
 }
 /* atalhos: menu do ADM e Painel do ADM */
@@ -157,15 +188,20 @@ if(typeof montaMenu==='function'){
   window.montaMenu=montaMenu=function(){ _mm.apply(this,arguments);
     if(!ehAdmin() || document.querySelector('#sidemenu [data-telegram]')) return;
     const adm=[...document.querySelectorAll('#sidemenu .sm-item')].find(b=>/go\('admin'\)/.test(b.getAttribute('onclick')||''));
-    if(adm) adm.insertAdjacentHTML('beforebegin','<button class="sm-item" data-telegram onclick="go(\'telegram\')"><span class="ic">📥</span>Importar do Telegram</button>'); };
+    if(adm) adm.insertAdjacentHTML('beforebegin','<button class="sm-item" data-telegram onclick="go(\'telegram\')"><span class="ic">📥</span>Importar músicas (JSON)</button>'); };
 }
 if(typeof ROTAS!=='undefined' && ROTAS.admin){
   const _ad=ROTAS.admin;
   ROTAS.admin=function(){ const h=_ad.apply(this,arguments); if(!ehAdmin()) return h;
-    const card='<div class="card"><h3>📥 Letras do Telegram</h3><p style="font-size:13px;color:#556;margin-bottom:10px">Importe de uma vez as letras do grupo do Telegram (arquivo exportado).</p><button class="mini-btn" onclick="go(\'telegram\')">Importar letras</button></div>';
+    const card='<div class="card"><h3>📥 Importar músicas</h3><p style="font-size:13px;color:#556;margin-bottom:10px">Crie várias músicas de uma vez com título e letra, a partir de um arquivo JSON ou do Telegram.</p><button class="mini-btn" onclick="go(\'telegram\')">Importar arquivo</button></div>';
     const i=h.indexOf('<div class="card">'); return i>=0? h.slice(0,i)+card+h.slice(i) : h+card; };
 }
-window.__tgAnalisa=analisa;
+window.__tgAnalisa=analisa; window.__impAnalisa=json=>leArquivo(json);
+if(typeof ROTAS!=='undefined' && ROTAS.musicas){
+  const _mu=ROTAS.musicas;
+  ROTAS.musicas=function(){ const h=_mu.apply(this,arguments); if(!ehAdmin()) return h;
+    return h.replace('\u2795 Adicionar música</button>','\u2795 Adicionar música</button><button class="mini-btn sec" style="margin:0 0 12px 6px" onclick="go(\'telegram\')">📥 Importar várias (JSON)</button>'); };
+}
 const st=document.createElement('style'); st.textContent=`
 .tg-passo ol{margin:6px 0 0 18px;font-size:13.5px;color:#334;line-height:1.6}
 .tg-file{display:inline-flex;align-items:center;justify-content:center;cursor:pointer;width:auto;padding:0 18px}
@@ -188,5 +224,7 @@ const st=document.createElement('style'); st.textContent=`
 .tg-st{font-size:10.5px;font-weight:800;border-radius:8px;padding:2px 7px;background:#eef1ef;color:#456}
 .tg-vz{font-size:13px;color:#8a9;padding:10px}
 #tgProg{font-size:13px;color:#556;margin-top:8px}
+.tg-passo summary{cursor:pointer;font-size:14px;color:var(--verde-escuro)}
+.tg-pre{background:#f4f7f5;border-radius:8px;padding:10px;font-size:12px;overflow-x:auto;margin-top:8px}
 `; document.head.appendChild(st);
 })();

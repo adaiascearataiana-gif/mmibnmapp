@@ -271,3 +271,21 @@ edições do Cantor aparecerem para todos.
   "Título (Artista)" separam o artista; mensagens do tópico viram a letra
   (com acordes, entra também como cifra). Lista para revisar antes:
   🆕 novas, ✍️ já existe sem letra (completa), ✔️ já tem, ∅ sem letra.
+
+## v0.9.2
+- **📥 Importar músicas (JSON):** botão "Importar várias (JSON)" na lista de
+  Músicas (ADM), no menu e no Painel do ADM. Aceita o result.json do Telegram
+  ou uma lista de músicas em JSON (título e letra; artista, cifra, tom e
+  YouTube opcionais; nomes em português ou inglês). Botão para baixar um
+  modelo. Revisão antes de importar; depois completa os outros campos.
+
+## v0.9.3
+- **🎸 Buscar cifras (ADM):** menu, Painel do ADM e botão na lista de Músicas.
+  Lista as músicas sem cifra; para cada uma: link direto para a cifra no
+  Cifra Club (artista/título), busca no Cifra Club e no Google, botão
+  "📋 Colar cifra copiada". O app confere o texto colado com a letra
+  cadastrada (✅ confere X% / ⚠️ / ❌ outra música), mostra a prévia com o
+  link da original e só importa quando o ADM toca em "Conferi — importar".
+  A cifra entra com o alinhamento original e continua editável.
+- Música sem cifra mostra o mesmo cartão na própria tela (ADM); ao salvar
+  uma letra numa música sem cifra, o app já abre o assistente.
