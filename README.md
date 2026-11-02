@@ -289,3 +289,17 @@ edições do Cantor aparecerem para todos.
   A cifra entra com o alinhamento original e continua editável.
 - Música sem cifra mostra o mesmo cartão na própria tela (ADM); ao salvar
   uma letra numa música sem cifra, o app já abre o assistente.
+
+## v0.9.4
+- Destaque dos acordes agora funciona em **qualquer cifra**, inclusive as
+  coladas/editadas antes (um bloco por linha, linhas com <br>, negrito/cor
+  aplicados à mão): o app lê a cifra linha por linha e destaca só os acordes
+  (negrito, laranja-queimado), com a letra normal e o alinhamento original.
+
+## v0.9.5
+- **Toda cifra gravada no padrão:** ao salvar/publicar no editor (e em toda
+  importação), a cifra é gravada limpa — uma linha por bloco, espaços
+  originais, sem negrito/cor/fonte manuais. Na tela, só os acordes ficam em
+  negrito laranja; a letra normal.
+- Painel do ADM: **🧹 Formatação das cifras** — padroniza de uma vez as
+  cifras antigas com formatação manual.

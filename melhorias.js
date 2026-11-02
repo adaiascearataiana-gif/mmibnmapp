@@ -755,18 +755,32 @@ function marcaColchetes(root){
     const sp=document.createElement('span'); sp.innerHTML=escH(v).replace(/\[([^\]\s]+)\]/g,(m,c)=>ehAc(c)?'[<span class="cf-ac">'+c+'</span>]':m);
     n.replaceWith(...sp.childNodes); });
 }
+/* lê a cifra linha por linha, venha ela como for (um <div> por linha, <br>, <p>, <font>, texto puro…) */
+function linhasDoHtml(el){
+  const L=['']; const BLOCO=/^(DIV|P|LI|H[1-6]|PRE|BLOCKQUOTE|TR)$/;
+  (function anda(n){ n.childNodes.forEach(c=>{
+    if(c.nodeType===3){ const partes=c.nodeValue.replace(/\u00a0/g,' ').split('\n'); partes.forEach((t,i)=>{ if(i>0) L.push(''); L[L.length-1]+=t; }); }
+    else if(c.nodeType===1){
+      if(c.tagName==='BR'){ L.push(''); return; }
+      const bloco=BLOCO.test(c.tagName);
+      if(bloco && L[L.length-1]!=='') L.push('');
+      anda(c);
+      if(bloco && L[L.length-1]!=='') L.push('');
+    } }); })(el);
+  while(L.length && L[L.length-1].trim()==='') L.pop();
+  while(L.length && L[0].trim()==='') L.shift();
+  return L.map(l=>l.replace(/\s+$/,''));
+}
+window.__linhasDoHtml=linhasDoHtml;
+/* reconstrói a cifra: só os acordes ganham destaque; a letra fica normal */
 function marcarAcordes(el){
-  /* blocos (cada <div>/<p> é uma linha) */
-  el.querySelectorAll('div,p').forEach(d=>{ if(d.querySelector('div,p')) return; const t=(d.textContent||'').replace(/\u00a0/g,' ');
-    if(ehLinhaDeAcordes(t)){ d.innerHTML=htmlLinhaAcordes(t); d.classList.add('cf-ch'); }
-    else if(/^\s*[A-Ga-g]?\|[-\d|hpbr\/\\~x\s]+\|?\s*$/.test(t)) d.classList.add('cf-tab');
-    else if(/^\s*\[[^\]]+\]\s*$/.test(t)) d.classList.add('cf-sec'); });
-  /* texto solto (cifra em texto puro e 1ª linha fora de bloco) */
-  const soltos=[...el.childNodes].filter(n=>n.nodeType===3 || (n.nodeType===1 && n.matches('span.ch')));
-  soltos.forEach(n=>{ const v=(n.textContent||''); if(!v.trim()) return;
-    const sp=document.createElement('span');
-    sp.innerHTML=v.split('\n').map(l=>{ const t=l.replace(/\u00a0/g,' '); return ehLinhaDeAcordes(t)? htmlLinhaAcordes(t) : escH(l); }).join('\n');
-    n.replaceWith(...sp.childNodes); });
+  const ls=linhasDoHtml(el);
+  el.innerHTML=ls.map(l=>{
+    if(ehLinhaDeAcordes(l)) return '<span class="cf-ch">'+htmlLinhaAcordes(l)+'</span>';
+    if(/^\s*[A-Ga-g]?\|[-\d|hpbr\/\\~x\s]+\|?\s*$/.test(l)) return '<span class="cf-tab">'+escH(l)+'</span>';
+    if(/^\s*\[[^\]]+\]\s*$/.test(l)) return '<span class="cf-sec">'+escH(l)+'</span>';
+    return escH(l);
+  }).join('\n');
   marcaColchetes(el);
 }
 window.__marcarAcordes=function(el){ marcarAcordes(el); };
@@ -979,5 +993,56 @@ if(typeof sb!=='undefined' && sb && sb.from){
     if(upd) q.update=(o,...r)=>upd(fix(o),...r);
     return q;
   };
+}
+})();
+
+
+/* ============================================================
+   (v0.9.5) TODA CIFRA GRAVADA NO PADRÃO
+   Ao salvar/publicar no editor, a cifra é gravada limpa: uma linha por
+   bloco, espaços originais, sem negrito/cor/fonte aplicados à mão.
+   A exibição destaca só os acordes (negrito, laranja) — sempre igual.
+   + botão para padronizar as cifras que já estão no app.
+============================================================ */
+(function(){
+'use strict';
+const esc1 = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function padroniza(html){
+  if(!window.__linhasDoHtml) return html;
+  const box=document.createElement('div'); box.innerHTML=String(html||'');
+  if(!/<[a-z]/i.test(html||'')) box.textContent=String(html||'');            /* texto puro */
+  const ls=window.__linhasDoHtml(box);
+  return ls.map(l=>'<div>'+(l? esc1(l) : '<br>')+'</div>').join('');
+}
+window.padronizaCifra=padroniza;
+const ehPadrao = h => !h || padroniza(h)===h;
+if(typeof getCifraHtml==='function'){
+  const _g=getCifraHtml;
+  window.getCifraHtml=getCifraHtml=function(){ const h=_g.apply(this,arguments); return window.__comIntro? padroniza(h) : h; };
+}
+/* tudo que entra por importação também (JSON/Telegram/assistente) */
+(function(){
+  const _from=sb && sb.from && sb.from.bind(sb); if(!_from) return;
+  sb.from=function(t){ const q=_from(t); if(t!=='musicas') return q;
+    const fix=o=>{ if(o && typeof o==='object' && typeof o.cifra==='string' && o.cifra.trim()) o=Object.assign({},o,{cifra:padroniza(o.cifra)}); return o; };
+    const ins=q.insert&&q.insert.bind(q), upd=q.update&&q.update.bind(q);
+    if(ins) q.insert=(o,...r)=>ins(Array.isArray(o)?o.map(fix):fix(o),...r);
+    if(upd) q.update=(o,...r)=>upd(fix(o),...r);
+    return q; };
+})();
+/* padronizar as cifras antigas (ADM) */
+function foraDoPadrao(){ return (DB.musicas||[]).filter(m=>String(m.cifra||'').replace(/<[^>]+>/g,'').trim() && !ehPadrao(m.cifra)); }
+window.padronizarTodas=async function(){
+  const ms=foraDoPadrao(); if(!ms.length) return toast('Todas as cifras já estão no padrão.');
+  if(!confirm('Padronizar a formatação de '+ms.length+' cifra(s)?\n\nTira negrito, cores e fontes aplicados à mão e mantém o alinhamento. Na tela, só os acordes ficam destacados.')) return;
+  let ok=0;
+  for(const m of ms){ const c=padroniza(m.cifra); const {error}=await sb.from('musicas').update({cifra:c}).eq('id',m.id); if(!error){ m.cifra=c; ok++; } }
+  toast(ok+' cifra(s) padronizada(s).'); try{ go('admin'); }catch(_){}
+};
+if(typeof ROTAS!=='undefined' && ROTAS.admin){
+  const _ad=ROTAS.admin;
+  ROTAS.admin=function(){ const h=_ad.apply(this,arguments); if(!ehAdmin()) return h; const n=foraDoPadrao().length;
+    const card='<div class="card"><h3>🧹 Formatação das cifras</h3><p style="font-size:13px;color:#556;margin-bottom:10px">'+(n? n+' cifra(s) com formatação manual (negrito/cor/fonte). Padronize para todas ficarem iguais.' : '✅ Todas as cifras estão no padrão.')+'</p>'+(n?'<button class="mini-btn" onclick="padronizarTodas()">Padronizar '+n+' cifra(s)</button>':'')+'</div>';
+    const i=h.indexOf('<div class="card">'); return i>=0? h.slice(0,i)+card+h.slice(i) : h+card; };
 }
 })();
