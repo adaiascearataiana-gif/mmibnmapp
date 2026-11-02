@@ -46,6 +46,26 @@ a{color:var(--verde-med)}
 .field input,.field select,.field textarea{width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.25);
   background:rgba(255,255,255,.95);color:var(--txt);font-size:15px;outline:none}
 .field input:focus,.field select:focus{border-color:var(--dourado);box-shadow:0 0 0 3px rgba(241,196,15,.25)}
+.field .olho-senha{position:absolute;right:6px;bottom:7px;background:none;border:0;padding:6px;font-size:17px;line-height:1;color:inherit;opacity:.75;cursor:pointer}
+.field .olho-senha:hover,.field .olho-senha:focus{opacity:1}
+/* ---------- Conectividade (Painel do ADM) ---------- */
+.conect-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #eef1ef}
+.conect-row:last-child{border-bottom:0}
+.conect-row .cd{width:12px;height:12px;border-radius:50%;margin-top:5px;flex:none;background:#c9ced6}
+.conect-row.ok .cd{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.18)}
+.conect-row.atencao .cd{background:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,.18)}
+.conect-row.erro .cd{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.18)}
+.conect-row b{font-size:14px;color:var(--verde-escuro)}
+.conect-row .st{font-size:12px;font-weight:800;margin-left:6px}
+.conect-row.ok .st{color:#16a34a}
+.conect-row.atencao .st{color:#ea580c}
+.conect-row.erro .st{color:#dc2626}
+.conect-row .det{font-size:12.5px;color:#556;margin-top:2px}
+.conect-sol{font-size:12.5px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:6px 8px;margin-top:6px;color:#9a3412}
+.conect-sol.erro{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+.conect-sol b{font-size:12px}
+.conect-sol ul{margin:4px 0 0;padding-left:18px}
+.conect-sol li{margin:2px 0}
 .field .hint{font-size:11.5px;opacity:.8;margin-top:4px}
 .row2{display:flex;gap:10px}.row2>*{flex:1}
 .check-inline{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;opacity:.95;margin-top:8px}
@@ -376,7 +396,11 @@ function telaLogin(){
       <h2>Entrar</h2><div class="sub">Acesse com seu e-mail e senha</div>
       <div id="loginErr"></div>
       <div class="field"><label>E-mail</label><input type="email" id="liEmail" placeholder="voce@email.com"></div>
-      <div class="field"><label>Senha</label><input type="password" id="liSenha" placeholder="Sua senha"></div>
+      <div class="field" style="position:relative">
+        <label>Senha</label>
+        <input type="password" id="liSenha" placeholder="Sua senha" style="padding-right:44px" autocomplete="current-password">
+        <button type="button" class="olho-senha" onclick="olhoSenha('liSenha',this)" aria-label="Mostrar ou ocultar senha" title="Mostrar senha">👁️</button>
+      </div>
       <button class="btn btn-primary" onclick="fazerLogin()">Entrar</button>
       <div style="text-align:center;margin:12px 0 2px"><a onclick="telaRecupera()" style="font-size:13.5px;color:var(--dourado);text-decoration:underline;cursor:pointer">Esqueci minha senha</a></div>
       <div class="divider">ou</div>
@@ -427,6 +451,14 @@ function maskTel(el){ let v=el.value.replace(/\D/g,'').slice(0,11);
 function checaSenha(s){ const r={len:s.length>=8,up:/[A-Z]/.test(s),num:/[0-9]/.test(s),spec:/[^A-Za-z0-9]/.test(s)};
   document.querySelectorAll('#pwdRules li').forEach(li=>li.classList.toggle('ok',r[li.dataset.r])); return r; }
 function senhaValida(s){ const r=checaSenha(s); return r.len&&r.up&&r.num&&r.spec; }
+/* olho da senha: mostra/oculta o que foi digitado (login) */
+function olhoSenha(id,btn){
+  const i=document.getElementById(id); if(!i) return;
+  const visivel=i.type==='text';
+  i.type=visivel?'password':'text';
+  if(btn){ btn.textContent=visivel?'👁️':'🙈'; btn.title=visivel?'Mostrar senha':'Ocultar senha'; btn.setAttribute('aria-pressed', visivel?'false':'true'); }
+  try{ i.focus(); }catch(_){}
+}
 function erro(id,msg){ $('#'+id).innerHTML='<div class="err-msg">'+esc(msg)+'</div>'; }
 </script>
 <script>
@@ -1135,6 +1167,7 @@ ROTAS.admin = function(){ if(!ehAdmin()) return '<div class="empty">Acesso restr
         <button class="mini-btn" onclick="go('escala')">\uD83D\uDCCB Escala</button>
         <button class="mini-btn" onclick="const n=notificaEscalados(true);toast(n+' escalado(s) notificado(s).')">\uD83D\uDD14 Avisar escala</button>
       </div></div>
+    ${conectCard()}
     ${cardSimulacao()}
     <div class="card"><h3>Membros (${us.length})</h3>
       ${us.map(u=>`<div class="info-row"><span class="v" style="font-weight:700;text-align:left">${esc(u.nome)}${u.admin?' <span class="admin-tag">ADM</span>':''}<br><span style="font-weight:400;font-size:12px;color:#789">${esc(u.email)}</span></span>
@@ -1147,6 +1180,122 @@ ROTAS.admin = function(){ if(!ehAdmin()) return '<div class="empty">Acesso restr
       <div class="info-row"><span class="k">Playlist publicada</span><span class="v">${DB.playlist.publicada?'Sim':'Não'}</span></div>
     </div></div>`;
 };
+/* ============== CONECTIVIDADE (Painel do ADM) ============== */
+function conectCard(){
+  setTimeout(()=>{ try{ conectVerifica(); }catch(_){} }, 60);
+  return '<div class="card"><h3>🔗 Conectividade</h3>'+
+    '<div id="conectBody">'+
+      ['Supabase (banco de dados)','Google Drive','GitHub (repositório do app)'].map(n=>
+        '<div class="conect-row"><span class="cd"></span><div><b>'+n+'</b><div class="det">Verificando…</div></div></div>').join('')+
+    '</div>'+
+    '<button class="mini-btn sec" style="margin-top:8px" onclick="conectVerifica(true)">🔄 Verificar de novo</button>'+
+    '</div>';
+}
+async function chkSupabase(){
+  try{
+    const t0=Date.now();
+    const {error}=await sb.from('musicas').select('id',{count:'exact',head:true});
+    const ms=Date.now()-t0;
+    if(error){
+      const m=String(error.message||error);
+      const quota=/quota|exceeded|402|429|restricted|limit/i.test(m);
+      return {estado:'erro', det:m, sol: quota
+        ? ['Abra o Supabase → Billing/Usage e libere a cota da organização',
+           'Sem cota, o projeto pode ficar restrito e o app para de sincronizar',
+           'Enquanto isso, o que já está no aparelho continua funcionando']
+        : ['Confira a internet do aparelho',
+           'Veja o Supabase → Logs para o erro exato',
+           'Se a chave do app mudou, atualize o index.html']};
+    }
+    if(ms>2500) return {estado:'atencao', det:'Respondendo, mas lento ('+ms+' ms)', sol:['Teste de novo em alguns minutos','Rede instável — tente Wi-Fi']};
+    return {estado:'ok', det:'Respondendo ('+ms+' ms)'};
+  }catch(err){ return {estado:'erro', det:String((err&&err.message)||err), sol:['Sem resposta do Supabase','Confira a internet e tente de novo']}; }
+}
+function chkDrive(){
+  let cid=''; try{ cid=driveClientId(); }catch(_){}
+  if(!cid) return {estado:'erro', det:'Client ID do Google não configurado', sol:['Painel do ADM → 📁 Google Drive → cole o Client ID','Use o mesmo Client ID do login com Google']};
+  let con=false; try{ con=!!(window.__drive&&window.__drive.conectado&&window.__drive.conectado()); }catch(_){}
+  if(con) return {estado:'ok', det:'Configurado e conectado neste aparelho'};
+  return {estado:'atencao', det:'Configurado, mas este aparelho ainda não está autorizado', sol:['Abra um envio ao Drive (ou toque em Conectar) para autorizar','Se pedir de novo, a autorização expirou — reconecte']};
+}
+async function chkGithub(){
+  try{
+    const r=await fetch('https://api.github.com/repos/adaiascearataiana-gif/mmibnmapp',{headers:{Accept:'application/vnd.github+json'}});
+    if(r.status===200){
+      const j=await r.json();
+      const ult=j.pushed_at? fmtDataHora(j.pushed_at):'';
+      return {estado:'ok', det:'Repositório acessível'+(ult? ' · última atualização '+ult:'')};
+    }
+    if(r.status===403||r.status===429) return {estado:'atencao', det:'GitHub respondeu com limite de requisições (rate limit)', sol:['Aguarde ~1 min e toque em "Verificar de novo"','Só afesta esta verificação — não afeta o app']};
+    if(r.status===404) return {estado:'erro', det:'Repositório não encontrado (404)', sol:['Confira se adaiascearataiana-gif/mmibnmapp está público','Se o repositório mudou de nome, avise para atualizar este painel']};
+    return {estado:'erro', det:'GitHub respondeu HTTP '+r.status, sol:['Tente de novo em instantes','Veja se o GitHub está fora do ar: githubstatus.com']};
+  }catch(err){ return {estado:'erro', det:'Sem resposta (offline ou rede bloqueada)', sol:['Confira a internet do aparelho','Algumas redes bloqueiam api.github.com — tente outra rede']}; }
+}
+async function conectVerifica(forcar){
+  const box=document.getElementById('conectBody'); if(!box) return;
+  const itens=[
+    {nm:'Supabase (banco de dados)', f:()=>chkSupabase()},
+    {nm:'Google Drive', f:()=>Promise.resolve(chkDrive())},
+    {nm:'GitHub (repositório do app)', f:()=>chkGithub()}
+  ];
+  box.innerHTML=itens.map(it=>'<div class="conect-row"><span class="cd"></span><div><b>'+it.nm+'</b><div class="det">Verificando…</div></div></div>').join('');
+  const res=await Promise.all(itens.map(it=>it.f().catch(()=>({estado:'erro',det:'Falha na verificação',sol:['Tente de novo']}))));
+  let problemas=0;
+  box.innerHTML=itens.map((it,i)=>{
+    const r=res[i]||{estado:'erro',det:'?',sol:[]};
+    if(r.estado!=='ok') problemas++;
+    const lbl=r.estado==='ok'?'🟢 Conectado':(r.estado==='atencao'?'🟠 Atenção':'🔴 Desconectado');
+    return '<div class="conect-row '+r.estado+'"><span class="cd"></span><div style="flex:1;min-width:0"><b>'+it.nm+'</b><span class="st">'+lbl+'</span>'+
+      '<div class="det">'+esc(r.det||'')+'</div>'+
+      (r.sol&&r.sol.length? '<div class="conect-sol'+(r.estado==='erro'?' erro':'')+'"><b>Soluções:</b><ul>'+r.sol.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ul></div>':'')+
+      '</div></div>';
+  }).join('');
+  if(problemas) toast('⚠️ Conectividade: '+problemas+' serviço(s) precisam de atenção. Veja o card Conectividade.');
+}
+/* ============== AVISO SEMANAL: CADASTRO INCOMPLETO (segunda-feira) ============== */
+function cadastroFaltando(u){
+  const f=[];
+  if(!u) return ['dados básicos'];
+  if(!String(u.nome||'').trim()) f.push('nome completo');
+  if(!String(u.nasc||'').trim()) f.push('data de nascimento');
+  if(String(u.tel||'').replace(/\D/g,'').length<10) f.push('telefone');
+  if(!(u.vocal&&u.vocal.length) && !(u.instr&&u.instr.length)) f.push('função no Ministério (voz/instrumento)');
+  return f; /* foto NÃO é obrigatória */
+}
+function _segundaISO(d){ d=d||new Date(); const x=new Date(d); const w=(x.getDay()+6)%7; x.setDate(x.getDate()-w); const p=n=>String(n).padStart(2,'0'); return x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate()); }
+async function avisoCadastroIncompleto(){
+  try{
+    const hoje=new Date();
+    if(hoje.getDay()!==1) return;                 /* somente segunda-feira */
+    const seg=_segundaISO(hoje);
+    const mk='avisoCad_'+seg;
+    if(localStorage.getItem(mk)) return;          /* já enviado deste aparelho nesta semana */
+    if(typeof sb==='undefined'||!sb) return;
+    const {data:ps,error}=await sb.from('perfis').select('email,nome,nasc,tel,vocal,instr,admin');
+    if(error||!ps) return;
+    const alvos=ps.map(p=>({p,f:cadastroFaltando(p)})).filter(x=>x.f.length && x.p.email);
+    if(!alvos.length){ localStorage.setItem(mk,'1'); return; }  /* tudo completo: não envia mais */
+    const souAdm=!!ehAdmin();
+    let rpcOk=true;
+    for(const {p,f} of alvos){
+      const email=String(p.email).toLowerCase();
+      const corpo='Falta(m) no seu cadastro: '+f.join(', ')+'. Abra o Perfil e complete — quando estiver tudo certo, este aviso para sozinho.';
+      if(rpcOk){
+        try{
+          const {error:e1}=await sb.rpc('enviar_aviso',{p_chave:'cadseg_'+seg+'_'+email, p_emails:[email], p_ic:'📝', p_titulo:'Complete seu cadastro', p_corpo:corpo, p_link:'go:perfil', p_popup:false});
+          if(!e1) continue;
+          if(/enviar_aviso|function|not found|42883|PGRST202/i.test(String(e1.message||e1))) rpcOk=false;
+        }catch(_){ rpcOk=false; }
+      }
+      /* sem rpc: ADM avisa todos; membro incompleto avisa só a si mesmo (evita spam cruzado) */
+      if(!souAdm && email!==_sessaoEmail) continue;
+      try{
+        await sb.from('notificacoes').insert({destino_email:email, ic:'📝', titulo:'Complete seu cadastro', corpo, data:new Date().toISOString(), lida:false, link:'go:perfil', popup:false});
+      }catch(_){}
+    }
+    localStorage.setItem(mk,'1');
+  }catch(_){}
+}
 function toggleAdmin(email){ const u=DB.usuarios.find(x=>x.email===email); if(!u) return;
   u.admin=!u.admin; saveDB(); toast(u.admin?'Agora é ADM.':'ADM removido.'); go('admin'); }
 </script>
@@ -1377,6 +1526,7 @@ async function bootSessao(){
   _booted=true;
   iniciarApp();
   ligarRealtime();
+  setTimeout(()=>{ try{ avisoCadastroIncompleto(); }catch(_){} }, 8000);
 }
 async function garantirPerfil(user){
   const md=user.user_metadata||{};

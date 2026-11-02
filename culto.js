@@ -94,7 +94,9 @@ const css=`
 .pl-evv-h .mv button{border:1px solid #c9ced6;background:#fff;border-radius:7px;min-width:30px;height:30px;font-weight:800;color:var(--verde-escuro);cursor:pointer}
 .pl-evv-vazio{font-size:12.5px;color:#9aa;padding:4px 2px 6px}
 .pl-evv-ft{font-size:11.5px;color:#789;font-weight:700;margin-top:6px}
-.pl-ev-done{margin-top:8px;width:100%;border:1px solid #1c6b47;background:#e1f4ea;color:#1c6b47;font-weight:900;border-radius:10px;min-height:42px;font-size:14px;cursor:pointer}
+.pl-ev-todo{margin-top:8px;width:100%;border:1.5px solid #ea580c;background:#fff7ed;color:#c2410c;font-weight:900;border-radius:10px;min-height:44px;font-size:14.5px;letter-spacing:.6px;cursor:pointer}
+.pl-ev-todo:active{background:#ffedd5;transform:translateY(1px)}
+.pl-ev-ok{margin-top:8px;width:100%;border:1.5px solid #1c6b47;background:#e1f4ea;color:#1c6b47;font-weight:900;border-radius:10px;min-height:44px;font-size:14.5px;letter-spacing:.4px;display:flex;align-items:center;justify-content:center;text-align:center}
 .pl-ev-done:active{background:#cdeede}
 /* projetor */
 .proj{position:fixed;inset:0;z-index:12000;background:#05110d;color:#f4f1e8;display:flex;flex-direction:column;user-select:none;-webkit-user-select:none}
@@ -368,8 +370,8 @@ function cardEventos(sl,titulo,ctx){
     h+='</div>';
     if(a && !(_plReord&&_plReordCtx===ctx)){
       h+= done
-        ? '<div class="pl-evv-ft">🏁 Encerrado'+(ev.concluido_em? ' em '+fmtDataHora(ev.concluido_em):'')+' · registrado no histórico</div>'
-        : '<button class="pl-ev-done" onclick="concluirEvento(\''+ctx+'\','+i+')">✅ Evento concluído — encerrar e enviar músicas ao histórico</button>';
+        ? '<div class="pl-ev-ok">✅ EVENTO CONCLUÍDO - HISTÓRICO ENVIADO</div>'
+        : '<button class="pl-ev-todo" onclick="concluirEvento(\''+ctx+'\','+i+')">CONCLUIR EVENTO</button>';
     }
     h+='</div>';
   });
@@ -395,8 +397,11 @@ if(typeof ROTAS!=='undefined'){
     const bt=a?'<button class="mini-btn" style="margin-bottom:14px" onclick="modalPlaylist(\''+(prox?'prox':'')+'\')">✏️ '+(prox?'Montar playlist da próxima semana':'Montar / editar playlist desta semana')+'</button>':'';
     const topo='<div class="page-ttl">📅 Playlist</div>'+tabs+bt;
     if(!sl||!sl.itens.length) return '<div class="page">'+topo+'<div class="empty"><div class="big">🎼</div>'+(prox?'A playlist da próxima semana ainda não foi publicada.':'Nenhuma playlist publicada para esta semana.')+'</div></div>';
+    /* título usa a 1ª e a última data dos eventos (se houver) */
+    const _dts=(sl.eventos||[]).map(x=>String(x.data||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort();
+    const _dt1=_dts.length? _dts[0] : sl.inicio, _dt2=_dts.length? _dts[_dts.length-1] : sl.fim;
     const eu=escaladoNoPeriodo(sl);
-    return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">'+(prox?'PLAYLIST DA PRÓXIMA SEMANA':'PLAYLIST DA SEMANA')+'</div><div class="dt">'+fmtData(sl.inicio)+' - '+fmtData(sl.fim)+'</div></div>'+
+    return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">'+(prox?'PLAYLIST DA PRÓXIMA SEMANA':'PLAYLIST DA SEMANA')+'</div><div class="dt">'+fmtData(_dt1)+' - '+fmtData(_dt2)+'</div></div>'+
       (eu?'<div class="pl-eu">📍 Você está escalado(a) neste período'+(eu!==true?' — '+e(eu):'')+'. Toque nas músicas para ver letra, cifra e áudio.</div>':'')+
       cardSetlistSmart(sl,(sl.eventos&&sl.eventos.length)? 'Eventos da semana ('+sl.itens.length+' música(s)/hino(s))' : 'Ordem do culto ('+sl.itens.length+')',prox?'prox':'')+'</div>';
   };
