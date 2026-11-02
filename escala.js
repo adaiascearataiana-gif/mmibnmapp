@@ -225,6 +225,57 @@ function cartoes(E){
   return h;
 }
 
+/* ---------- modo TABELA: limpa, com nomes um embaixo do outro ---------- */
+function tabela(E){
+  const u=usuarioAtual(); const p=pref(); const C=acharColunas(E.colunas);
+  const ds=datasDasLinhas(E); const vig=indiceVigente(E); const hj=inicioDoDia(new Date());
+  const papeis=E.colunas.map((c,i)=>i).filter(i=>i!==C.data && i!==C.dia && i!==C.evento);
+  let itens=E.linhas.map((l,i)=>({l,i,dt:ds[i]}));
+  const minha=it=>papeis.some(k=>nomes(it.l.celulas[E.colunas[k]]).some(n=>souEu(n,u)));
+  if(p.filtro==='proximas'){ const corte=vig>=0? vig : itens.findIndex(it=>it.dt && it.dt>=hj); itens = corte>=0? itens.slice(corte) : itens.filter(it=>!it.dt||it.dt>=hj); }
+  if(p.filtro==='minhas') itens=itens.filter(minha);
+  const seg='<div class="esc-seg">'+[['proximas','Próximas'],['todas','Todas'],['minhas','Minhas']].map(([k,t])=>'<button class="'+(p.filtro===k?'on':'')+'" onclick="escalaFiltro(\''+k+'\')">'+t+'</button>').join('')+'</div>';
+  let h='<div class="esc-bar">'+seg+'<button class="esc-modo" onclick="escalaModo()">▤ Cartões</button></div>';
+  if(!itens.length) return h+'<div class="esc-vazia">'+(p.filtro==='minhas'?'Você não aparece na escala por enquanto.':'Nenhum culto para mostrar.')+'</div>';
+  h+='<div class="esc-tw"><table class="esc-tb"><thead><tr><th class="c1">Culto</th>'+papeis.map(k=>'<th>'+e(titulo(E.colunas[k]))+'</th>').join('')+'</tr></thead><tbody>'+
+    itens.map(({l,i,dt})=>{
+      const ev=C.evento>=0? l.celulas[E.colunas[C.evento]] : '';
+      const diaTxt=C.dia>=0? l.celulas[E.colunas[C.dia]] : (dt?DIAS_PT[dt.getDay()]:'');
+      const passado=dt && dt<hj && i!==vig;
+      const data=dt? '<b class="d">'+dt.getDate()+'</b><span class="m">'+MES_PT[dt.getMonth()].toUpperCase()+'</span>' : '<b class="d sm">'+e(l.celulas[E.colunas[C.data]]||'—')+'</b>';
+      return '<tr class="'+(i===vig?'vig':'')+(passado?' pas':'')+'"'+(i===vig?' id="escVig"':'')+'><td class="c1"><div class="c1w"><div class="dbox">'+data+'</div><div class="ev"><b>'+e(titulo(ev)||'Culto')+'</b><small>'+e(titulo(diaTxt))+(i===vig?' · <i>esta semana</i>':'')+'</small></div></div></td>'+
+        papeis.map(k=>{ const ns=nomes(l.celulas[E.colunas[k]]);
+          return '<td>'+(ns.length? ns.map(n=>'<span class="tn'+(souEu(n,u)?' eu':'')+'">'+e(window.capTitulo?capTitulo(n):n)+'</span>').join('') : '<span class="tv">a definir</span>')+'</td>'; }).join('')+'</tr>';
+    }).join('')+'</tbody></table></div>';
+  return h;
+}
+const cssTab=document.createElement('style'); cssTab.textContent=`
+.esc-tw{overflow:auto;max-height:calc(100dvh - var(--ibnm-topbar,64px) - 80px);background:#fff;border-radius:14px;box-shadow:0 3px 14px rgba(11,61,46,.10);border:1px solid #e3ece7;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.esc-tb{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:13.5px}
+.esc-tb th{position:sticky;top:0;z-index:2;background:var(--verde-escuro);color:#fff;font-size:12px;font-weight:800;letter-spacing:.02em;text-align:left;padding:11px 12px;white-space:nowrap}
+.esc-tb th.c1{left:0;z-index:4}
+.esc-tb td{padding:10px 12px;vertical-align:top;background:#fff;border-bottom:1px solid #e9efec;min-width:118px}
+.esc-tb td+td{border-left:1px solid #f1f5f3}
+.esc-tb tbody tr:nth-child(even) td{background:#f8fbf9}
+.esc-tb td.c1{position:sticky;left:0;z-index:1;min-width:128px;max-width:150px;box-shadow:6px 0 8px -6px rgba(0,0,0,.18)}
+.esc-tb .c1w{display:flex;gap:10px;align-items:center}
+.esc-tb .dbox{flex:none;width:46px;border-radius:10px;background:var(--verde-escuro);color:#fff;text-align:center;padding:5px 0;line-height:1}
+.esc-tb .dbox .d{display:block;font-size:19px;font-weight:900}
+.esc-tb .dbox .d.sm{font-size:11px}
+.esc-tb .dbox .m{display:block;font-size:10px;font-weight:800;margin-top:2px;letter-spacing:.06em}
+.esc-tb .ev b{display:block;font-size:13px;color:var(--verde-escuro);line-height:1.2}
+.esc-tb .ev small{display:block;font-size:11.5px;color:#6b8378;margin-top:2px}
+.esc-tb .ev i{font-style:normal;color:#8a6a00;font-weight:800}
+.esc-tb .tn{display:block;width:max-content;max-width:180px;background:#e9f5ef;color:#0b3d2e;font-weight:700;font-size:13.5px;border-radius:14px;padding:4px 10px;margin:0 0 5px}
+.esc-tb .tn:last-child{margin-bottom:0}
+.esc-tb .tn.eu{background:var(--dourado);color:#3a2f00}
+.esc-tb .tv{font-size:12px;color:#9aa;font-style:italic}
+.esc-tb tr.vig td{background:#fff8dc!important;border-bottom-color:#f0d97a}
+.esc-tb tr.vig td.c1{box-shadow:inset 4px 0 0 var(--dourado),6px 0 8px -6px rgba(0,0,0,.18)}
+.esc-tb tr.vig .dbox{background:var(--dourado);color:#3a2f00}
+.esc-tb tr.pas td{opacity:.55}
+`; document.head.appendChild(cssTab);
+
 if(typeof ROTAS!=='undefined' && ROTAS.escala){
   const _esc=ROTAS.escala;
   ROTAS.escala=function(){
@@ -234,9 +285,9 @@ if(typeof ROTAS!=='undefined' && ROTAS.escala){
     const a=html.indexOf('<div class="escala-wrap">'); if(a<0) return html;
     const b=html.indexOf('</table></div>',a); if(b<0) return html;
     if(p.modo==='tabela'){
-      setTimeout(()=>{ const w=document.querySelector('.esc-tabela .escala-wrap'); if(w) scrollTo(0, w.getBoundingClientRect().top+scrollY-(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ibnm-topbar'))||64)-62); },80);
-      const b2=html.indexOf('</table></div>',a)+'</table></div>'.length;
-      return html.slice(0,a)+'<div class="esc-tabela"><div class="esc-bar"><span style="flex:1;font-size:13px;color:#5d7c6e;font-weight:700">Arraste a tabela para os lados</span><button class="esc-modo" onclick="escalaModo()">▤ Cartões</button></div>'+html.slice(a,b2)+'</div>'+html.slice(b2);
+      const b3=html.indexOf('</table></div>',a)+'</table></div>'.length;
+      if(p.filtro==='todas') setTimeout(()=>{ const v=document.getElementById('escVig'), w=document.querySelector('.esc-tw'); if(v&&w) w.scrollTop=v.offsetTop-44; },60);
+      return html.slice(0,a)+tabela(E)+html.slice(b3);
     }
     html=html.replace('A linha vigente da semana aparece destacada. Atualiza toda segunda-feira às 00:01.','O culto desta semana aparece em dourado; seu nome também.');
     const a2=html.indexOf('<div class="escala-wrap">');

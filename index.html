@@ -318,7 +318,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
    Persistencia local (localStorage). Pontos de integracao
    para Google Login / Google Drive marcados com [INTEGRACAO].
 ============================================================ */
-const VERSION = 'v0.9.6';
+const VERSION = 'v0.9.7';
 const DB_KEY = 'ibnm_mm_db_v1';
 const SES_KEY = 'ibnm_mm_sessao';
 const LOGO = document.getElementById('logoTpl').innerHTML;
@@ -363,7 +363,8 @@ $('#verFoot').textContent = 'Ministério de Música IBNM — '+VERSION;
 <script>
 /* ============== TELAS DE AUTENTICACAO ============== */
 const VOCAL = ['Soprano','Contralto','Tenor','Barítono','Baixo'];
-const INSTR = ['Bateria','Piano','Contrabaixo','Violão','Guitarra'];
+const INSTR = ['Bateria','Piano','Contrabaixo','Violão','Guitarra','Mesa de som'];
+const rotFuncao = v => v==='Mesa de som' ? '🎛️ Mesa de som' : v;
 
 function telaLogin(){
   $('#authScreens').innerHTML = `
@@ -389,7 +390,7 @@ function telaLogin(){
 
 function telaCadastro(){
   const vocalChk = VOCAL.map(v=>`<label class="check-inline"><input type="checkbox" class="cbVocal" value="${v}"> ${v}</label>`).join('');
-  const instrChk = INSTR.map(v=>`<label class="check-inline"><input type="checkbox" class="cbInstr" value="${v}"> ${v}</label>`).join('');
+  const instrChk = INSTR.map(v=>`<label class="check-inline"><input type="checkbox" class="cbInstr" value="${v}"> ${rotFuncao(v)}</label>`).join('');
   $('#authScreens').innerHTML = `
   <div class="scr-auth">
     <div class="logo-wrap"><div class="logo-emblema" style="width:88px;height:88px">${LOGO}</div></div>
@@ -404,7 +405,7 @@ function telaCadastro(){
       <div class="field"><label>Função no Ministério de Música</label>
         <div style="background:rgba(255,255,255,.08);border-radius:10px;padding:10px 12px;margin-top:4px">
           <div style="font-weight:700;font-size:13px;opacity:.9">🎤 Vocalista</div>${vocalChk}
-          <div style="font-weight:700;font-size:13px;opacity:.9;margin-top:10px">🎸 Instrumentista</div>${instrChk}
+          <div style="font-weight:700;font-size:13px;opacity:.9;margin-top:10px">🎸 Instrumentista / 🎛️ Técnica</div>${instrChk}
         </div><div class="hint">Pode marcar mais de uma opção.</div></div>
       <div class="field"><label>Senha</label><input type="password" id="cSenha" oninput="checaSenha(this.value)" placeholder="Mínimo 8 caracteres">
         <ul class="pwd-rules" id="pwdRules">
@@ -667,14 +668,14 @@ function removerFoto(){ const u=usuarioAtual(); u.foto=''; saveDB(); $('#topAvat
 function modalEditarPerfil(){
   const u=usuarioAtual();
   const vocalChk=VOCAL.map(v=>`<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" class="eVocal" value="${v}" ${u.vocal.includes(v)?'checked':''}> ${v}</label>`).join('');
-  const instrChk=INSTR.map(v=>`<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" class="eInstr" value="${v}" ${u.instr.includes(v)?'checked':''}> ${v}</label>`).join('');
+  const instrChk=INSTR.map(v=>`<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" class="eInstr" value="${v}" ${u.instr.includes(v)?'checked':''}> ${rotFuncao(v)}</label>`).join('');
   abrirModal(`<h3>Editar perfil</h3>
     <div class="field"><label>Nome completo</label><input id="ePnome" value="${esc(u.nome)}"></div>
     <div class="field"><label>Data de nascimento</label><input type="date" id="ePnasc" value="${u.nasc||''}"></div>
     <div class="field"><label>Telefone</label><input id="ePtel" value="${esc(u.tel||'')}" oninput="maskTel(this)">
       <label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" id="ePwpp" ${u.wpp?'checked':''}> É WhatsApp</label></div>
     <div class="field"><label>Função no MM</label><div style="font-size:12px;font-weight:700;margin-top:4px">\uD83C\uDFA4 Vocalista</div>${vocalChk}
-      <div style="font-size:12px;font-weight:700;margin-top:8px">\uD83C\uDFB8 Instrumentista</div>${instrChk}</div>
+      <div style="font-size:12px;font-weight:700;margin-top:8px">\uD83C\uDFB8 Instrumentista / 🎛️ Técnica</div>${instrChk}</div>
     <div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarPerfil()">Salvar</button></div>`);
 }
 function salvarPerfil(){ const u=usuarioAtual();

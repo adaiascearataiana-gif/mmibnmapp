@@ -315,3 +315,13 @@ edições do Cantor aparecerem para todos.
 - Fonte única do app na cifra (sem espaçamento de letras herdado).
 - As cifras já gravadas são corrigidas sozinhas quando o ADM abre o app
   (uma vez); o botão 🧹 do Painel continua disponível.
+
+## v0.9.7
+- **Função "🎛️ Mesa de som"** no cadastro, completar cadastro, editar perfil
+  e edição do ADM (mesmas regras de vozes e instrumentos). Quem está na
+  escala (coluna "Mesa de Som"/"Som" ou qualquer outra) recebe os alertas
+  da escala normalmente; filtros da Central e da tabela de membros incluem.
+- **Escala em tabela redesenhada:** sem linhas cortando; cabeçalho e coluna
+  do culto fixos; cada nome numa etiqueta, um embaixo do outro; linhas
+  alternadas; semana atual em dourado; seu nome destacado; filtros
+  Próximas/Todas/Minhas também na tabela.

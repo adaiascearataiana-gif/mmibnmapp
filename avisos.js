@@ -261,7 +261,7 @@ if(typeof confirmarPresenca==='function'){
 /* ================= ESCALA: aviso prioritário + 1 semana antes ================= */
 function textoEscala(i,u){
   const info=window.__escLinhaInfo? __escLinhaInfo(i) : null; const l=escalaAtiva().linhas[i];
-  const cols=colsDoUsuarioNaLinha(l,u).map(c=>String(c).toLowerCase().replace(/(^|\s)(\S)/g,(m,a,b)=>a+b.toUpperCase()));
+  const cols=colsDoUsuarioNaLinha(l,u).map(c=>{ const t=String(c).toLowerCase(); return window.capTitulo? capTitulo(t) : t.replace(/(^|\s)(\S)/g,(m,a,b)=>a+b.toUpperCase()); });
   return {quando: info? (info.dia?info.dia+', ':'')+info.data+' · '+info.evento : '', funcoes: cols.join(', ')};
 }
 async function enviarAvisosEscala(){

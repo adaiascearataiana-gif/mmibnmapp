@@ -193,14 +193,14 @@ function gate(){
   const velho=$id('cadGate');
   if(!falta.length){ if(velho) velho.remove(); return; }
   if(velho) return;
-  const ck=(lista,cls,marc)=>lista.map(v=>'<label class="check-inline"><input type="checkbox" class="'+cls+'" value="'+e(v)+'" '+(marc.includes(v)?'checked':'')+'> '+e(v)+'</label>').join('');
+  const ck=(lista,cls,marc)=>lista.map(v=>'<label class="check-inline"><input type="checkbox" class="'+cls+'" value="'+e(v)+'" '+(marc.includes(v)?'checked':'')+'> '+e(typeof rotFuncao==='function'?rotFuncao(v):v)+'</label>').join('');
   const g=document.createElement('div'); g.id='cadGate'; g.className='cad-gate';
   g.innerHTML='<div class="cg-card"><div class="cg-ic">📝</div><h2>Complete seu cadastro</h2>'+
     '<p>Para usar o app do Ministério, preencha todos os dados abaixo. Faltando: <b>'+e(falta.join(', '))+'</b>.</p><div id="cgErr"></div>'+
     '<div class="field"><label>Nome completo <span class="req">*</span></label><input id="cgNome" value="'+e(u.nome)+'" placeholder="Nome e sobrenome"></div>'+
     '<div class="field"><label>Data de nascimento <span class="req">*</span></label><input type="date" id="cgNasc" value="'+e(u.nasc||'')+'"></div>'+
     '<div class="field"><label>Telefone <span class="req">*</span></label><input id="cgTel" inputmode="numeric" value="'+e(u.tel||'')+'" placeholder="( 00 ) 00000-0000" oninput="maskTel(this)">'+radiosWpp('cgWpp',telOk(u.tel)?!!u.wpp:null,false,u.wpp_num)+'</div>'+
-    '<div class="field"><label>Função no Ministério <span class="req">*</span></label><div class="cg-box"><b>🎤 Vocalista</b>'+ck(VOCAL,'cgVocal',u.vocal||[])+'<b>🎸 Instrumentista</b>'+ck(INSTR,'cgInstr',u.instr||[])+'</div></div>'+
+    '<div class="field"><label>Função no Ministério <span class="req">*</span></label><div class="cg-box"><b>🎤 Vocalista</b>'+ck(VOCAL,'cgVocal',u.vocal||[])+'<b>🎸 Instrumentista / 🎛️ Técnica</b>'+ck(INSTR,'cgInstr',u.instr||[])+'</div></div>'+
     '<button class="btn btn-primary" id="cgOk">Salvar e continuar</button><button class="btn btn-dark" style="margin-top:8px" onclick="logout()">Sair</button></div>';
   document.body.appendChild(g); ligaCap(['cgNome']);
   $id('cgOk').onclick=async()=>{
@@ -322,13 +322,13 @@ window.membroExcluir=async function(id){
 };
 window.membroEditar=function(id){
   const u=(DB.usuarios||[]).find(x=>x.id===id); if(!u) return;
-  const ck=(lista,cls,marc)=>lista.map(v=>'<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" class="'+cls+'" value="'+e(v)+'" '+(marc.includes(v)?'checked':'')+'> '+e(v)+'</label>').join('');
+  const ck=(lista,cls,marc)=>lista.map(v=>'<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" class="'+cls+'" value="'+e(v)+'" '+(marc.includes(v)?'checked':'')+'> '+e(typeof rotFuncao==='function'?rotFuncao(v):v)+'</label>').join('');
   abrirModal('<h3>Editar membro</h3><div id="mbErr"></div>'+
     '<div class="field"><label>E-mail (login)</label><input value="'+e(u.email)+'" disabled></div>'+
     '<div class="field"><label>Nome completo <span class="req">*</span></label><input id="mbNome" value="'+e(u.nome)+'"></div>'+
     '<div class="field"><label>Data de nascimento <span class="req">*</span></label><input type="date" id="mbNasc" value="'+e(String(u.nasc||'').slice(0,10))+'"></div>'+
     '<div class="field"><label>Telefone <span class="req">*</span></label><input id="mbTel" value="'+e(u.tel||'')+'" oninput="maskTel(this)">'+radiosWpp('mbWpp',telOk(u.tel)?!!u.wpp:null,false,u.wpp_num)+'</div>'+
-    '<div class="field"><label>Função no Ministério <span class="req">*</span></label><div style="font-size:12px;font-weight:700;margin-top:4px">🎤 Vocalista</div>'+ck(VOCAL,'mbVocal',u.vocal||[])+'<div style="font-size:12px;font-weight:700;margin-top:8px">🎸 Instrumentista</div>'+ck(INSTR,'mbInstr',u.instr||[])+'</div>'+
+    '<div class="field"><label>Função no Ministério <span class="req">*</span></label><div style="font-size:12px;font-weight:700;margin-top:4px">🎤 Vocalista</div>'+ck(VOCAL,'mbVocal',u.vocal||[])+'<div style="font-size:12px;font-weight:700;margin-top:8px">🎸 Instrumentista / 🎛️ Técnica</div>'+ck(INSTR,'mbInstr',u.instr||[])+'</div>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="membroSalvar(\''+e(u.id)+'\')">Salvar</button></div>');
   ligaCap(['mbNome']);
 };
