@@ -274,6 +274,42 @@ function linhaCantada(id,ev,sl){
   const m=(DB.musicas||[]).find(x=>x.id===id)||{};
   return {data,dia,evento,musica:m.titulo||'',artista:m.artista||'',tom:v?rotuloSemitom(v):'',web:m.youtube||''};
 }
+/* Grava os eventos do setlist em "Músicas já cantadas" (idempotente):
+   só insere música+data que ainda não existe. Chamado automaticamente a
+   cada salvamento da playlist e também pelo concluirEvento. */
+let _gravandoEv=false;
+async function gravarEventos(sl){
+  if(!sl||!Array.isArray(sl.eventos)||!sl.eventos.length) return 0;
+  if(_gravandoEv) return 0;
+  _gravandoEv=true;
+  try{
+    const normC=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    const ex=await sb.from('musicas_cantadas').select('musica,data').limit(10000);
+    if(ex.error) throw ex.error;
+    const tem=new Set((ex.data||[]).map(r=>normC(r.musica)+'|'+String(r.data||'').trim()));
+    const rows=[];
+    (sl.eventos||[]).forEach(ev=>{
+      if(!ev||!(ev.itens||[]).length) return;
+      ev.itens.forEach(id=>{
+        const r=linhaCantada(id,ev,sl);
+        if(!r.musica||!r.data) return;
+        const k=normC(r.musica)+'|'+String(r.data).trim();
+        if(tem.has(k)) return;
+        tem.add(k);
+        rows.push(r);
+      });
+    });
+    if(!rows.length) return 0;
+    const ult=await sb.from('musicas_cantadas').select('ordem').order('ordem',{ascending:false}).limit(1);
+    if(ult.error) throw ult.error;
+    const base=(ult.data&&ult.data[0]&&typeof ult.data[0].ordem==='number')? ult.data[0].ordem : 0;
+    rows.forEach((r,k)=>{ r.ordem=base+k+1; });
+    const {error}=await sb.from('musicas_cantadas').insert(rows);
+    if(error) throw error;
+    try{ if(typeof cloudCantadas==='function') await cloudCantadas(); }catch(_){}
+    return rows.length;
+  }finally{ _gravandoEv=false; }
+}
 /* ADM encerra o evento: grava as músicas em musicas_cantadas e marca como concluído */
 window.concluirEvento=async function(ctx,i){
   if(!adm()) return;
@@ -286,18 +322,16 @@ window.concluirEvento=async function(ctx,i){
   if(!window.confirm('Encerrar o evento "'+nm+'"'+(ev.data?' em '+dataBR(ev.data):'')+'?\n\nAs '+ev.itens.length+' música(s) serão enviadas automaticamente para "Músicas já cantadas".\n(Ação só pode ser desfeita pelo ADM)')) return;
   const rows=ev.itens.map(id=>linhaCantada(id,ev,sl)).filter(r=>r.musica);
   if(!rows.length) return toast('Nada para registrar.');
+  let gravadas=0;
   try{
-    const ult=await sb.from('musicas_cantadas').select('ordem').order('ordem',{ascending:false}).limit(1);
-    const base=(ult.data&&ult.data[0]&&typeof ult.data[0].ordem==='number')? ult.data[0].ordem : 0;
-    rows.forEach((r,k)=>{ r.ordem=base+k+1; });
-    const {error}=await sb.from('musicas_cantadas').insert(rows);
-    if(error) throw error;
+    gravadas=await gravarEventos({inicio:sl.inicio,fim:sl.fim,tons:sl.tons||{},eventos:[ev]});
   }catch(err){ return toast('Erro ao gravar no histórico: '+(err.message||err)); }
   ev.concluido=true; ev.concluido_em=new Date().toISOString();
   const evs=JSON.parse(JSON.stringify(sl.eventos));
   await salvarConfig(sl.chave||'setlist',packSl(sl,evs));
   if(typeof cloudCantadas==='function'){ try{ await cloudCantadas(); }catch(_){} }
-  toast('🎉 Evento "'+nm+'" concluído! '+rows.length+' música(s) no histórico.');
+  if(gravadas) toast('🎉 Evento "'+nm+'" concluído! '+gravadas+' música(s) no histórico.');
+  else toast(rows[0]&&rows[0].data ? '🎉 Evento "'+nm+'" concluído! Já constava no histórico.' : '⚠️ Evento "'+nm+'" concluído, mas sem data para registrar.');
   redesenhar();
 };
 /* ADM: reordenar eventos direto na visualização */
@@ -838,4 +872,29 @@ if(typeof MENU!=='undefined' && Array.isArray(MENU) && !MENU.find(m=>m.id==='fer
   ROTAS.ferramentas=function(){ setTimeout(()=>abrirFerramentas(),30); return ROTAS.inicio(); };
 }
 if(typeof _booted!=='undefined' && _booted){ try{ montaMenu(); }catch(_){} }
+
+/* ---------- automático: ao salvar a playlist, cada evento já é
+   registrado em "Músicas já cantadas" no seu respectivo dia ---------- */
+(function(){
+  try{
+    if(typeof window==='undefined'||typeof window.salvarConfig!=='function') return;
+    const _sc=window.salvarConfig;
+    const novo=function(chave,valor){
+      const r=_sc.apply(this,arguments);
+      try{
+        if((chave==='setlist'||chave==='setlist_prox')&&valor&&Array.isArray(valor.eventos)&&valor.eventos.length){
+          setTimeout(()=>{
+            Promise.resolve(r)
+              .then(()=>gravarEventos(valor))
+              .then(n=>{ if(n>0&&typeof toast==='function') toast(n+' música(s) nova(s) já em "Músicas já cantadas"'); })
+              .catch(()=>{});
+          },0);
+        }
+      }catch(_){}
+      return r;
+    };
+    window.salvarConfig=novo;
+    try{ salvarConfig=novo; }catch(_){}
+  }catch(_){}
+})();
 })();
