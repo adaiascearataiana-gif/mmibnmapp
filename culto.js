@@ -482,7 +482,6 @@ window.modalPlaylist=function(qual){
     aberto: evs.length? evs[0].id : null, trocando:null};
   abrirModal('<h3>'+(prox?'🗓️ Playlist da próxima semana':'📅 Playlist desta semana')+'</h3>'+
     (prox?'<p class="pl-dica">Ao publicar, as músicas ficam disponíveis no app. Marque 🔔 abaixo para avisar os membros.</p>':'')+
-    '<div class="row2"><div class="field"><label>Início</label><input type="date" id="plIni" value="'+_ed.inicio+'"></div><div class="field"><label>Fim</label><input type="date" id="plFim" value="'+_ed.fim+'"></div></div>'+
     '<div class="pl-dica">📌 <b>Eventos da semana</b> — dê o nome (CULTO, EBD, ANIVERSÁRIO…), escolha a data, busque as músicas com o evento aberto e reordene com ↑↓. Ao salvar, os nomes ficam guardados e já aparecem na próxima playlist.</div>'+
     '<div id="plEvts"></div>'+
     '<button type="button" class="pl-ev-add" onclick="plEvAdd()">➕ Adicionar evento</button>'+
@@ -613,8 +612,11 @@ window._plData=function(){};
 window.plAddMus=function(){}; window.plAddHino=function(){};
 function linkYoutube(v){ v=String(v||'').trim(); if(!v) return ''; if(!/^https?:\/\//i.test(v)) v='https://'+v; return /(^https?:\/\/)?([a-z0-9-]+\.)*(youtube\.com|youtu\.be)\//i.test(v)? v : null; }
 window.publicarPlaylist=async function(){
-  _ed.inicio=document.getElementById('plIni').value; _ed.fim=document.getElementById('plFim').value;
-  const _dsEv=(_ed.evs||[]).map(function(x){return String(x.data||'');}).filter(Boolean).sort(); if(_dsEv.length){ _ed.inicio=_dsEv[0]; _ed.fim=_dsEv[_dsEv.length-1]; document.getElementById('plIni').value=_ed.inicio; document.getElementById('plFim').value=_ed.fim; }
+  const _iniEl=document.getElementById('plIni'), _fimEl=document.getElementById('plFim');
+  const _dsEv=(_ed.evs||[]).map(function(x){return String(x.data||'');}).filter(Boolean).sort();
+  if(_dsEv.length){ _ed.inicio=_dsEv[0]; _ed.fim=_dsEv[_dsEv.length-1]; }
+  else { _ed.inicio=_iniEl?_iniEl.value:String(_ed.inicio||''); _ed.fim=_fimEl?_fimEl.value:String(_ed.fim||''); }
+  if(_iniEl) _iniEl.value=_ed.inicio; if(_fimEl) _fimEl.value=_ed.fim;
   const yt=linkYoutube(document.getElementById('plYt').value);
   if(!_ed.inicio||!_ed.fim) return toast('Informe início e fim.');
   if(_ed.fim<_ed.inicio) return toast('A data final está antes da inicial.');
