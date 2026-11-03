@@ -229,11 +229,11 @@ function linhaItem(id,i,sl,ctx){
   let tom='';
   if(v && f.hino && window.Cantor){ try{ const h=hino(id.slice(3)); tom='Tom '+Cantor.keyInfo(h,v).key; }catch(_){} }
   else if(v) tom='Tom '+rotuloSemitom(v);
-  return '<div class="song-row sl-item" onclick="abrirItem(\''+id+'\',\''+(ctx||'')+'\')"><span class="ord">'+(i+1)+'</span><div class="s-ic">'+f.ic+'</div><div style="flex:1;min-width:0"><div class="s-nm">'+e(f.t)+'</div><div class="s-ar">'+e(f.s)+' '+disponivel(id)+'</div></div>'+(tom?'<span class="sl-tom">'+e(tom)+'</span>':'')+'</div>';
+  return '<div class="song-row sl-item" onclick="abrirItem(\''+id+'\',\''+(ctx||'')+'\')"><span class="ord">'+(i+1)+'</span><div class="s-ic"><i>'+f.ic+'</i></div><div style="flex:1;min-width:0"><div class="s-nm">'+e(f.t)+'</div><div class="s-ar">'+e(f.s)+' '+disponivel(id)+'</div></div>'+(tom?'<span class="sl-tom">'+e(tom)+'</span>':'')+'</div>';
 }
 function cardSetlist(sl,titulo,ctx){
   ctx=ctx||'';
-  return '<div class="card"><h3>'+titulo+'</h3>'+sl.itens.map((id,i)=>linhaItem(id,i,sl,ctx)).join('')+
+  return '<div class="card"><h3 class="ttl-sl">'+titulo+'</h3>'+sl.itens.map((id,i)=>linhaItem(id,i,sl,ctx)).join('')+
     '<div class="sl-acts" style="margin:10px 0 0"><button class="gold" onclick="abrirItem(\''+sl.itens[0]+'\',\''+ctx+'\')">▶ Começar pelo 1º</button><button onclick="projetarSetlist(\''+ctx+'\')">📺 Projetar tudo</button>'+
     (sl.youtube?'<a class="sl-yt" href="'+e(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist no YouTube</a>':'')+'</div></div>';
 }
@@ -387,7 +387,7 @@ window.plReordMov=function(i,d){
 function cardEventos(sl,titulo,ctx){
   ctx=ctx||''; const a=adm();
   const evs=(_plReord&&_plReordCtx===ctx&&_plReordEvs)? _plReordEvs : (sl.eventos||[]);
-  let h='<div class="card"><h3>'+titulo+'</h3>';
+  let h='<div class="card"><h3 class="ttl-sl">'+titulo+'</h3>';
   evs.forEach((ev,i)=>{
     const done=!!ev.concluido;
     h+='<div class="pl-evv'+(done?' ok':'')+'"><div class="pl-evv-h"><span class="nn">'+(i+1)+'</span>'+
@@ -434,15 +434,15 @@ if(typeof ROTAS!=='undefined'){
     const eu=escaladoNoPeriodo(sl);
     return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">'+(prox?'SETLIST DA PRÓXIMA SEMANA':'SETLIST DA SEMANA')+'</div><div class="dt">'+fmtData(_dt1)+' - '+fmtData(_dt2)+'</div>'+(sl.youtube?'<a class="yt-home" href="'+e(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist do YouTube</a>':'')+'</div>'+
       (eu?'<div class="pl-eu">📍 Você está escalado(a) neste período'+(eu!==true?' — '+e(eu):'')+'. Toque nas músicas para ver letra, cifra e áudio.</div>':'')+
-      cardSetlistSmart(sl,(sl.eventos&&sl.eventos.length)? 'Eventos da semana ('+sl.itens.length+' música(s)/hino(s))' : 'Ordem do culto ('+sl.itens.length+')',prox?'prox':'')+'</div>';
+      cardSetlistSmart(sl,(sl.eventos&&sl.eventos.length)? 'Eventos da semana ('+sl.itens.length+' música(s)/hino(s))' : 'Ordem dos Eventos da semana ('+sl.itens.length+')',prox?'prox':'')+'</div>';
   };
   if(ROTAS.inicio){
     const _ini=ROTAS.inicio;
     ROTAS.inicio=function(){
       let html=_ini.apply(this,arguments); const sl=setlist();
       const k=html.indexOf('<div class="card"><h3>Músicas do SETLIST</h3>');
-      if(k>=0){ const fim=html.lastIndexOf('</div>'); html=html.slice(0,k)+(sl?cardSetlistSmart(sl,'Ordem do culto'):'')+html.slice(fim); }
-      else if(sl){ const fim=html.lastIndexOf('</div>'); html=html.slice(0,fim)+cardSetlistSmart(sl,'Ordem do culto')+html.slice(fim); }
+      if(k>=0){ const fim=html.lastIndexOf('</div>'); html=html.slice(0,k)+(sl?cardSetlistSmart(sl,'Ordem dos Eventos da semana'):'')+html.slice(fim); }
+      else if(sl){ const fim=html.lastIndexOf('</div>'); html=html.slice(0,fim)+cardSetlistSmart(sl,'Ordem dos Eventos da semana')+html.slice(fim); }
       const px=setlist('prox');
       if(px){ const eu=escaladoNoPeriodo(px); const fim=html.lastIndexOf('</div>');
         html=html.slice(0,fim)+'<div class="card pl-proxcard" onclick="go(\'playlist\',\'prox\')"><h3>🗓️ SETLIST da próxima semana</h3><p>'+fmtData(px.inicio)+' - '+fmtData(px.fim)+' · '+px.itens.length+' música(s)/hino(s)'+(eu?'<br><b>📍 Você está escalado(a) — já pode ensaiar!</b>':'')+'</p><span class="lk">Ver letras e cifras ›</span></div>'+html.slice(fim); }

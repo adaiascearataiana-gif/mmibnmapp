@@ -714,8 +714,8 @@ function renderFavoritosUnificado(){
   const favIds=(u&&typeof DB!=='undefined'&&DB.favoritos&&DB.favoritos[u.email])||[];
   const musicas=(typeof DB!=='undefined'&&DB.musicas?DB.musicas:[]).filter(m=>favIds.indexOf(m.id)>=0);
   const hinos=HINOS.filter(h=>favs.has(h.n));
-  const rowMusica=m=>'<div class="song-row" onclick="abrirMusica(\''+m.id+'\')"><div class="s-ic">🎵</div><div style="flex:1"><div class="s-nm">'+esc(m.titulo)+'</div><div class="s-ar">'+esc(m.artista||'')+'</div></div><span class="star on" onclick="toggleFav(\''+m.id+'\',event)">★</span></div>';
-  const rowHino=h=>'<div class="song-row" onclick="cantorAbrir('+h.n+')"><div class="s-ic">📖</div><div style="flex:1"><div class="s-nm">'+h.n+' · '+esc(h.titulo)+'</div><div class="s-ar">Cantor Cristão'+(h.ritmo?' · '+esc(h.ritmo):'')+'</div></div><span class="star on" onclick="cantorFavUnificado('+h.n+',event)">★</span></div>';
+  const rowMusica=m=>'<div class="song-row" onclick="abrirMusica(\''+m.id+'\')"><div class="s-ic"><i>🎵</i></div><div style="flex:1"><div class="s-nm">'+esc(m.titulo)+'</div><div class="s-ar">'+esc(m.artista||'')+'</div></div><span class="star on" onclick="toggleFav(\''+m.id+'\',event)">★</span></div>';
+  const rowHino=h=>'<div class="song-row" onclick="cantorAbrir('+h.n+')"><div class="s-ic"><i>📖</i></div><div style="flex:1"><div class="s-nm">'+h.n+' · '+esc(h.titulo)+'</div><div class="s-ar">Cantor Cristão'+(h.ritmo?' · '+esc(h.ritmo):'')+'</div></div><span class="star on" onclick="cantorFavUnificado('+h.n+',event)">★</span></div>';
   const vazio=(!musicas.length && !hinos.length)
     ? '<div class="empty"><div class="big">⭐</div>Você ainda não tem favoritos.<br>Toque na estrela ★ de uma música ou de um hino para salvá-los aqui.</div>'
     : '';
