@@ -382,6 +382,7 @@ function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(
 function hashSenha(s){ let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h)+s.charCodeAt(i); return 'h'+(h>>>0).toString(36); }
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3200); }
 function fmtData(iso){ if(!iso) return ''; const d=new Date(iso); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'); }
+function fmtRange(pl){ if(!pl) return ''; const evs=Array.isArray(pl.eventos)?pl.eventos:[]; const ds=evs.map(function(x){return String((x&&x.data)||'');}).filter(Boolean).sort(); return fmtData(ds.length?ds[0]:pl.inicio)+' - '+fmtData(ds.length?ds[ds.length-1]:pl.fim); }
 function fmtDataHora(iso){ const d=new Date(iso); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 const AVATAR_PADRAO = 'data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="#145c43"/><circle cx="60" cy="46" r="24" fill="#fff"/><path d="M20 112c0-24 18-36 40-36s40 12 40 36" fill="#fff"/></svg>');
 
@@ -626,7 +627,7 @@ ROTAS.inicio = function(){
   const u=usuarioAtual(); const pl=DB.playlist;
   const temPl = pl.publicada && pl.musicas.length;
   let plBox = temPl
-    ? `<div class="semana-badge"><div class="lbl">PLAYLIST DA SEMANA</div><div class="dt">${fmtData(pl.inicio)} - ${fmtData(pl.fim)}</div></div>`
+    ? `<div class="semana-badge"><div class="lbl">PLAYLIST DA SEMANA</div><div class="dt">${fmtRange(pl)}</div></div>`
     : `<div class="card"><div class="empty" style="padding:20px"><div class="big">\uD83C\uDFBC</div>Nenhuma playlist publicada ainda.</div></div>`;
   const naEscala = usuarioNaEscalaVigente(u);
   return `<div class="page">
@@ -648,7 +649,7 @@ ROTAS.playlist = function(){
   const pl=DB.playlist; const adm=ehAdmin();
   let body;
   if(pl.publicada && pl.musicas.length){
-    body = `<div class="semana-badge"><div class="lbl">PLAYLIST DA SEMANA</div><div class="dt">${fmtData(pl.inicio)} - ${fmtData(pl.fim)}</div></div>
+    body = `<div class="semana-badge"><div class="lbl">PLAYLIST DA SEMANA</div><div class="dt">${fmtRange(pl)}</div></div>
       ${pl.musicas.map(id=>{const m=DB.musicas.find(x=>x.id===id);return m?`<div class="song-row" onclick="abrirMusica('${m.id}')"><div class="s-ic">\uD83C\uDFB5</div><div style="flex:1"><div class="s-nm">${esc(m.titulo)}</div><div class="s-ar">${esc(m.artista||'')}</div></div><span class="star ${ehFav(m.id)?'on':''}">\u2605</span></div>`:''}).join('')}`;
   } else body = `<div class="empty"><div class="big">\uD83C\uDFBC</div>Nenhuma playlist publicada ainda.</div>`;
   return `<div class="page"><div class="page-ttl">\uD83D\uDCC5 Playlist da Semana</div>

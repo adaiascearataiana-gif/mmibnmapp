@@ -494,7 +494,8 @@ window.modalPlaylist=function(qual){
 };
 function evAberto(){ return (_ed&&Array.isArray(_ed.evs))? (_ed.evs.find(x=>x.id===_ed.aberto)||null) : null; }
 function jaNoEv(id){ const ev=evAberto(); return !!ev && ev.itens.indexOf(String(id))>=0; }
-function renderEvts(){
+function syncEdDatas(){ if(!_ed||!Array.isArray(_ed.evs)) return; const ds=_ed.evs.map(function(x){return String((x&&x.data)||'');}).filter(Boolean).sort(); if(!ds.length) return; _ed.inicio=ds[0]; _ed.fim=ds[ds.length-1]; const a=document.getElementById('plIni'), b=document.getElementById('plFim'); if(a) a.value=_ed.inicio; if(b) b.value=_ed.fim; }
+function renderEvts(){ syncEdDatas();
   const box=document.getElementById('plEvts'); if(!box||!_ed) return;
   if(!_ed.evs.length){ box.innerHTML='<p style="font-size:13px;color:#9aa;padding:6px 2px">Nenhum evento ainda — toque em <b>Adicionar evento</b>.</p>'; return; }
   box.innerHTML=_ed.evs.map((ev,i)=>{
@@ -527,7 +528,7 @@ window.plEvAdd=function(){
   if(inp){ inp.focus(); inp.select(); }
 };
 window.plEvNome=function(id,v){ const ev=_ed.evs.find(x=>x.id===id); if(ev) ev.nome=v; };
-window.plEvData=function(id,v){ const ev=_ed.evs.find(x=>x.id===id); if(ev) ev.data=v; };
+window.plEvData=function(id,v){ const ev=_ed.evs.find(x=>x.id===id); if(ev) ev.data=v; syncEdDatas(); };
 window.plEvMov=function(id,d){
   const i=_ed.evs.findIndex(x=>x.id===id), j=i+d;
   if(i<0||j<0||j>=_ed.evs.length) return;
@@ -613,6 +614,7 @@ window.plAddMus=function(){}; window.plAddHino=function(){};
 function linkYoutube(v){ v=String(v||'').trim(); if(!v) return ''; if(!/^https?:\/\//i.test(v)) v='https://'+v; return /(^https?:\/\/)?([a-z0-9-]+\.)*(youtube\.com|youtu\.be)\//i.test(v)? v : null; }
 window.publicarPlaylist=async function(){
   _ed.inicio=document.getElementById('plIni').value; _ed.fim=document.getElementById('plFim').value;
+  const _dsEv=(_ed.evs||[]).map(function(x){return String(x.data||'');}).filter(Boolean).sort(); if(_dsEv.length){ _ed.inicio=_dsEv[0]; _ed.fim=_dsEv[_dsEv.length-1]; document.getElementById('plIni').value=_ed.inicio; document.getElementById('plFim').value=_ed.fim; }
   const yt=linkYoutube(document.getElementById('plYt').value);
   if(!_ed.inicio||!_ed.fim) return toast('Informe início e fim.');
   if(_ed.fim<_ed.inicio) return toast('A data final está antes da inicial.');
