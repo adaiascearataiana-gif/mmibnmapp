@@ -104,7 +104,7 @@ function cardMateriais(){
 function cardPlaylist(){
   const at=window.setlistDe? setlistDe() : null, px=window.setlistDe? setlistDe('prox') : null;
   const bt=(q,sl,t)=> sl? '<div class="ct-linha"><span><b>'+t+'</b><small>'+fmt(sl.inicio)+' - '+fmt(sl.fim)+' · '+sl.itens.length+' música(s)/hino(s)</small></span><button class="mini-btn" onclick="ctEnviaPlaylist(\''+q+'\')">Avisar</button></div>' : '<div class="ct-linha"><span><b>'+t+'</b><small>ainda não publicada</small></span></div>';
-  return '<div class="card ct-card"><h3>📅 Playlist</h3>'+bt('',at,'Esta semana')+bt('prox',px,'Próxima semana')+'<div class="ct-env">'+selPara('ctPlPara','todos')+'</div></div>';
+  return '<div class="card ct-card"><h3>📅 SETLIST</h3>'+bt('',at,'Esta semana')+bt('prox',px,'Próxima semana')+'<div class="ct-env">'+selPara('ctPlPara','todos')+'</div></div>';
 }
 function cardEscala(){
   const i0=window.__escIdxSemana? __escIdxSemana(0) : -1;
@@ -164,7 +164,7 @@ window.ctEnviaMateriais=async function(){
 };
 window.ctEnviaPlaylist=async function(q){
   const sl=setlistDe(q==='prox'?'prox':''); if(!sl) return;
-  await envia(q==='prox'?'🗓️':'📅',q==='prox'?'Playlist da próxima semana':'Playlist desta semana','Culto de '+fmt(sl.inicio)+' a '+fmt(sl.fim)+': '+sl.itens.length+' música(s)/hino(s) com letra e cifra já estão no app.',alvosPor($id('ctPlPara').value),q==='prox'?'go:playlist:prox':'go:playlist:atual',popupMarcado());
+  await envia(q==='prox'?'🗓️':'📅',q==='prox'?'SETLIST da próxima semana':'SETLIST desta semana','Culto de '+fmt(sl.inicio)+' a '+fmt(sl.fim)+': '+sl.itens.length+' música(s)/hino(s) com letra e cifra já estão no app.',alvosPor($id('ctPlPara').value),q==='prox'?'go:playlist:prox':'go:playlist:atual',popupMarcado());
 };
 window.ctEnviaEscala=async function(){ await envia('📋','Escala atualizada','A escala do Ministério foi atualizada. Toque para conferir.',alvosPor($id('ctEscPara').value),'go:escala',popupMarcado()); };
 window.ctEnviaPresenca=async function(){
@@ -213,7 +213,7 @@ function pendencias(u){
   }catch(_){}
   if(!u.foto) p.push({ic:'📷',t:'Coloque sua foto de perfil',d:'Ajuda o ministério a te reconhecer na escala e na lista de membros.',bts:'<button class="btn btn-primary" onclick="lembreteAcao(\'foto\')">Ir ao meu perfil</button>'});
   if(!u.wpp && !u.wpp_num) p.push({ic:'📱',t:'Informe seu WhatsApp',d:'Seu telefone não é WhatsApp e falta o número (ou marque "Não tenho WhatsApp").',bts:'<button class="btn btn-primary" onclick="lembreteAcao(\'wpp\')">Informar agora</button>'});
-  if(('Notification' in window) && Notification.permission==='default') p.push({ic:'🔔',t:'Ative as notificações',d:'Para saber da escala, playlist e avisos mesmo com o app fechado.',bts:'<button class="btn btn-primary" onclick="lembreteAcao(\'notif\')">Ativar</button>'});
+  if(('Notification' in window) && Notification.permission==='default') p.push({ic:'🔔',t:'Ative as notificações',d:'Para saber da escala, SETLIST e avisos mesmo com o app fechado.',bts:'<button class="btn btn-primary" onclick="lembreteAcao(\'notif\')">Ativar</button>'});
   return p;
 }
 const chave = u => 'ibnm_lembrete7_'+u.email;

@@ -63,9 +63,11 @@ if(typeof ROTAS!=='undefined' && ROTAS.cantadas){
    EDIÇÃO DOS REGISTROS
    ============================================================ */
 let _regs = [];
+let _q = '', _lstSt = 0;
 
 window.tmpAcEditar = async function(){
   if(!adm()) return;
+  _q = ''; _lstSt = 0;
   abrirModal('<h3>✏️ Editar registros</h3><div class="tmp-ac-dica">Toque em ✏️ para editar os campos. Use 🗑 ao lado do lápis para excluir.</div><div id="tmpAcBox">Carregando…</div>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Fechar</button></div>');
   try{
@@ -78,9 +80,15 @@ window.tmpAcEditar = async function(){
 
 window.tmpAcLista = function(q){
   const box = document.getElementById('tmpAcBox'); if(!box) return;
-  const nq = sem(q);
+  const wy = window.scrollY;
+  /* preserva a posição da lista ao re-renderizar (excluir/busca) */
+  const prev = box.querySelector('.tmp-ac-lst');
+  if(prev){ if((q||'')===_q) _lstSt = prev.scrollTop; else _lstSt = 0; }
+  else if((q||'')!==_q) _lstSt = 0;
+  _q = q||'';
+  const nq = sem(_q);
   const r = _regs.filter(x=> !nq || sem([x.musica,x.artista,x.evento,x.data,x.dia].join(' ')).includes(nq));
-  box.innerHTML = '<input class="tmp-ac-busca" type="search" placeholder="🔎 Buscar registro…" value="'+e(q||'')+'" oninput="tmpAcLista(this.value)">'+
+  box.innerHTML = '<input class="tmp-ac-busca" type="search" placeholder="🔎 Buscar registro…" value="'+e(_q)+'" oninput="tmpAcLista(this.value)">'+
     '<div class="tmp-ac-lst">'+
     (r.length? r.map(x=>{
       const idx = _regs.indexOf(x);
@@ -89,13 +97,16 @@ window.tmpAcLista = function(q){
         '<button onclick="tmpAcAbrir('+idx+')">✏️</button><button class="tmp-ac-del" onclick="tmpAcExcluir('+idx+')" aria-label="Excluir registro">🗑</button></div>';
     }).join('') : '<div class="tmp-ac-r"><span class="tx"><b>Nenhum registro.</b></span></div>')+
     '</div>';
+  const lst = box.querySelector('.tmp-ac-lst'); if(lst) lst.scrollTop = _lstSt;
   const inp = box.querySelector('.tmp-ac-busca');
-  if(inp && q){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  if(inp && _q){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  window.scrollTo(0, wy);
 };
 
 window.tmpAcAbrir = function(i){
   const x = _regs[i]; if(!x) return;
   const box = document.getElementById('tmpAcBox'); if(!box) return;
+  const _l = box.querySelector('.tmp-ac-lst'); if(_l) _lstSt = _l.scrollTop;
   box.innerHTML = '<div class="tmp-ac-form">'+
     '<div class="field"><label>Música</label><input id="txMus" value="'+e(x.musica||'')+'"></div>'+
     '<div class="field"><label>Artista</label><input id="txArt" value="'+e(x.artista||'')+'"></div>'+
@@ -106,7 +117,7 @@ window.tmpAcAbrir = function(i){
     '<div class="field"><label>Link (web/YouTube)</label><input id="txWeb" inputmode="url" value="'+e(x.web||'')+'"></div>'+
     '</div>'+
     '<div class="modal-acts" style="flex-wrap:wrap">'+
-      '<button class="btn btn-dark" onclick="tmpAcLista(\'\')">← Voltar</button>'+
+      '<button class="btn btn-dark" onclick="tmpAcLista(_q)">← Voltar</button>'+
       '<button class="btn btn-primary" onclick="tmpAcSalvar('+i+')">💾 Salvar</button>'+
     '</div>';
 };
@@ -128,7 +139,7 @@ window.tmpAcSalvar = async function(i){
     Object.assign(x, reg);
     try{ await cloudCantadas(); }catch(_){}
     toast('Registro atualizado ✓');
-    tmpAcLista('');
+    tmpAcLista(_q);
   }catch(err){ toast('Erro ao salvar: '+(err.message||err)); }
 };
 
@@ -141,7 +152,7 @@ window.tmpAcExcluir = async function(i){
     _regs.splice(i,1);
     try{ await cloudCantadas(); }catch(_){}
     toast('Registro excluído.');
-    tmpAcLista('');
+    tmpAcLista(_q);
   }catch(err){ toast('Erro ao excluir: '+(err.message||err)); }
 };
 

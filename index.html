@@ -76,8 +76,8 @@ a{color:var(--verde-med)}
 /* ---------- Partitura (página do hino em PDF) ---------- */
 .part-zoom{margin-bottom:8px}
 .part-box{max-height:72vh;overflow:auto;text-align:center;background:#f4f6f5;border-radius:10px;padding:6px;touch-action:pan-x pan-y}
-.part-box img{width:100%;transition:width .15s;cursor:zoom-in;display:block;margin:0 auto}
-.part-box img.zoom{width:260%;max-width:none;cursor:zoom-out}
+.part-box img{width:100%;cursor:zoom-in;display:block;margin:0 auto;transform-origin:0 0;touch-action:pan-y;user-select:none;-webkit-user-drag:none}
+.part-box img.zoom{cursor:zoom-out}
 .part-dica{font-size:12px;color:#789;text-align:center;margin-top:6px}
 .field .hint{font-size:11.5px;opacity:.8;margin-top:4px}
 .row2{display:flex;gap:10px}.row2>*{flex:1}
@@ -150,6 +150,11 @@ a{color:var(--verde-med)}
 .semana-badge{background:linear-gradient(120deg,var(--verde),var(--verde-claro));color:#fff;border-radius:var(--radius);padding:16px 18px;text-align:center;margin-bottom:16px;box-shadow:var(--sombra)}
 .semana-badge .lbl{font-size:12px;letter-spacing:2px;opacity:.9}
 .semana-badge .dt{font-size:24px;font-weight:900;margin-top:4px}
+.semana-badge .yt-home{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;background:#c4302b;color:#fff;padding:12px;border-radius:10px;font-weight:800;font-size:14.5px;text-decoration:none;box-shadow:0 3px 10px rgba(0,0,0,.18)}
+.semana-badge .yt-home:active{transform:scale(.98)}
+.semana-badge .pl-home-lk{display:block;margin-top:9px;color:#fff;opacity:.92;font-size:13px;cursor:pointer;text-decoration:underline}
+.pl-acesso{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.pl-acesso .mini-btn{padding:11px 8px;font-size:13.5px}
 
 /* ===== PERFIL ===== */
 .perfil-top{text-align:center;padding:8px 0 4px}
@@ -586,7 +591,7 @@ function atualizaBadge(){ const n=naoLidas(), b=$('#notifBadge'); b.textContent=
 
 const MENU = [
   {id:'inicio', ic:'\uD83C\uDFE0', nm:'Início'},
-  {id:'playlist', ic:'\uD83D\uDCC5', nm:'Playlist da Semana'},
+  {id:'playlist', ic:'\uD83D\uDCC5', nm:'SETLIST'},
   {id:'musicas', ic:'\uD83C\uDFB5', nm:'Músicas', sub:[
      {id:'musicas', ic:'\uD83C\uDFBC', nm:'Todas as músicas'},
      {id:'cantor', ic:'\uD83D\uDCD6', nm:'Cantor Cristão'} ]},
@@ -653,22 +658,25 @@ const ROTAS = {};
 ROTAS.inicio = function(){
   const u=usuarioAtual(); const pl=DB.playlist;
   const temPl = pl.publicada && pl.musicas.length;
+  const _sl = (typeof setlist==='function') ? setlist() : null;
+  const _slp = (typeof setlist==='function') ? setlist('prox') : null;
+  const _yt = (_sl && _sl.youtube) || (_slp && _slp.youtube) || '';
   let plBox = temPl
-    ? `<div class="semana-badge"><div class="lbl">PLAYLIST DA SEMANA</div><div class="dt">${fmtRange(pl)}</div></div>`
-    : `<div class="card"><div class="empty" style="padding:20px"><div class="big">\uD83C\uDFBC</div>Nenhuma playlist publicada ainda.</div></div>`;
+    ? `<div class="semana-badge"><div class="lbl">SETLIST</div><div class="dt">${fmtRange(pl)}</div>${_yt?`<a class="yt-home" href="${esc(_yt)}" target="_blank" rel="noopener">▶ Playlist do YouTube</a>`:''}<span class="pl-home-lk" onclick="go('playlist')">Ver SETLIST completo ›</span></div>`
+    : `<div class="card"><div class="empty" style="padding:20px"><div class="big">\uD83C\uDFBC</div>Nenhum SETLIST publicado ainda.</div></div>`;
   const naEscala = usuarioNaEscalaVigente(u);
   return `<div class="page">
     <div class="page-ttl">Olá, ${esc(u.nome.split(' ')[0])}! \uD83D\uDC4B</div>
     ${plBox}
-    ${naEscala? `<div class="card" style="border-left:4px solid var(--dourado)"><h3>\uD83D\uDCCD Você está na escala desta semana!</h3><p style="font-size:14px;color:#556">Função: <b>${esc(naEscala)}</b>. Veja os detalhes na Escala Semanal.</p><button class="mini-btn" style="margin-top:10px" onclick="go('escala')">Ver escala</button></div>`:''}
     <div class="card"><h3>Acesso rápido</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
+      <div class="pl-acesso">
         <button class="mini-btn" onclick="go('musicas')">\uD83C\uDFB5 Músicas</button>
         <button class="mini-btn" onclick="go('favoritos')">\u2B50 Favoritos</button>
         <button class="mini-btn" onclick="go('escala')">\uD83D\uDCCB Escala</button>
         <button class="mini-btn" onclick="go('perfil')">\uD83D\uDC64 Perfil</button>
       </div></div>
-    ${temPl? `<div class="card"><h3>Músicas da playlist</h3>${pl.musicas.map(id=>{const m=DB.musicas.find(x=>x.id===id);return m?`<div class="song-row" onclick="abrirMusica('${m.id}')"><div class="s-ic">\uD83C\uDFB5</div><div style="flex:1"><div class="s-nm">${esc(m.titulo)}</div><div class="s-ar">${esc(m.artista||'')}</div></div></div>`:''}).join('')}</div>`:''}
+    ${naEscala? `<div class="card" style="border-left:4px solid var(--dourado)"><p style="margin:0;font-size:14px;color:#444">📍 <b>Você está na escala desta semana</b> — função: <b>${esc(naEscala)}</b>.</p><button class="mini-btn" style="margin-top:8px" onclick="go('escala')">Ver escala</button></div>`:''}
+    ${temPl? `<div class="card"><h3>Músicas do SETLIST</h3>${pl.musicas.map(id=>{const m=DB.musicas.find(x=>x.id===id);return m?`<div class="song-row" onclick="abrirMusica('${m.id}')"><div class="s-ic">\uD83C\uDFB5</div><div style="flex:1"><div class="s-nm">${esc(m.titulo)}</div><div class="s-ar">${esc(m.artista||'')}</div></div></div>`:''}).join('')}</div>`:''}
   </div>`;
 };
 
@@ -676,10 +684,10 @@ ROTAS.playlist = function(){
   const pl=DB.playlist; const adm=ehAdmin();
   let body;
   if(pl.publicada && pl.musicas.length){
-    body = `<div class="semana-badge"><div class="lbl">PLAYLIST DA SEMANA</div><div class="dt">${fmtRange(pl)}</div></div>
+    body = `<div class="semana-badge"><div class="lbl">SETLIST</div><div class="dt">${fmtRange(pl)}</div></div>
       ${pl.musicas.map(id=>{const m=DB.musicas.find(x=>x.id===id);return m?`<div class="song-row" onclick="abrirMusica('${m.id}')"><div class="s-ic">\uD83C\uDFB5</div><div style="flex:1"><div class="s-nm">${esc(m.titulo)}</div><div class="s-ar">${esc(m.artista||'')}</div></div><span class="star ${ehFav(m.id)?'on':''}">\u2605</span></div>`:''}).join('')}`;
-  } else body = `<div class="empty"><div class="big">\uD83C\uDFBC</div>Nenhuma playlist publicada ainda.</div>`;
-  return `<div class="page"><div class="page-ttl">\uD83D\uDCC5 Playlist da Semana</div>
+  } else body = `<div class="empty"><div class="big">\uD83C\uDFBC</div>Nenhum SETLIST publicado ainda.</div>`;
+  return `<div class="page"><div class="page-ttl">\uD83D\uDCC5 SETLIST</div>
     ${adm? `<button class="mini-btn" style="margin-bottom:14px" onclick="modalPlaylist()">\u270F\uFE0F Montar / editar playlist</button>`:''}
     ${body}</div>`;
 };
@@ -930,29 +938,120 @@ function partituraDe(m){
   }
   return n? ('partituras/n'+n+'.png') : '';
 }
-let _pz=100;
+let _pz=100, _pzZ=1, _pzX=0, _pzY=0, _pzST=null, _pzMoved=0, _pzLastX=0, _pzLastY=0;
+function _pzImg(){ return document.getElementById('partImg'); }
+function _pzBox(){ const im=_pzImg(); return im? im.parentElement : null; }
+function _pzApply(){
+  const im=_pzImg(); if(!im) return;
+  im.style.transform = (_pzZ<=1.001&&!_pzX&&!_pzY) ? '' : 'translate('+_pzX+'px,'+_pzY+'px) scale('+_pzZ+')';
+  im.style.touchAction = _pzZ>1.01 ? 'none' : 'pan-y';
+  im.classList.toggle('zoom', _pzZ>1.01);
+  _pz=Math.round(_pzZ*100);
+  const lb=document.getElementById('pzLbl'); if(lb) lb.textContent=_pz+'%';
+}
+function _pzClamp(){
+  const im=_pzImg(), box=_pzBox(); if(!im||!box) return;
+  const w=im.offsetWidth*_pzZ, h=im.offsetHeight*_pzZ, bw=box.clientWidth, bh=box.clientHeight;
+  _pzX = (w<=bw) ? (bw-w)/2 : Math.min(Math.max(_pzX, bw-w), 0);
+  _pzY = (h<=bh) ? (bh-h)/2 : Math.min(Math.max(_pzY, bh-h), 0);
+}
+function _pzToTop(){ /* ao entrar em zoom, dobra o scroll nativo no transform (não pula) */
+  const box=_pzBox(); if(!box) return;
+  if(_pzZ<=1.001 && box.scrollTop){ _pzST=box.scrollTop; _pzY=-box.scrollTop; box.scrollTop=0; }
+}
+function _pzReset(){
+  _pzZ=1; _pzX=0; _pzY=0;
+  const box=_pzBox(); if(box && _pzST!=null) box.scrollTop=_pzST;
+  _pzST=null; _pzApply();
+}
 function partSetZoom(w){
-  _pz=Math.max(100,Math.min(500,w));
-  const im=document.getElementById('partImg');
-  if(im){ im.style.width=_pz+'%'; im.classList.remove('zoom'); }
-  const lb=document.getElementById('pzLbl');
-  if(lb) lb.textContent=Math.round(_pz)+'%';
+  const nz=Math.max(1,Math.min(5,w/100));
+  const im=_pzImg(), box=_pzBox();
+  if(!im||!box){ _pzZ=nz; _pz=Math.round(nz*100); const lb0=document.getElementById('pzLbl'); if(lb0) lb0.textContent=_pz+'%'; return; }
+  if(nz<=1.001) return _pzReset();
+  _pzToTop();
+  const cx=box.clientWidth/2, cy=box.clientHeight/2;
+  const px=(cx-_pzX)/_pzZ, py=(cy-_pzY)/_pzZ;
+  _pzZ=nz; _pzX=cx-px*_pzZ; _pzY=cy-py*_pzZ;
+  _pzClamp(); _pzApply();
 }
 function partZoom(step){
   if(step===0) return partSetZoom(100);
-  if(step==='tap') return partSetZoom(_pz>100?100:220);
+  if(step==='tap'){
+    if(_pzMoved>8){ _pzMoved=0; return; } /* foi arrasto: não alterna o zoom */
+    if(_pzZ>1.001) return partSetZoom(100);
+    const box=_pzBox(); if(!box) return partSetZoom(220);
+    const r=box.getBoundingClientRect();
+    const tx=_pzLastX|| (r.left+r.width/2), ty=_pzLastY|| (r.top+r.height/2);
+    _pzToTop();
+    const qx=(tx-r.left-_pzX)/_pzZ, qy=(ty-r.top-_pzY)/_pzZ;
+    _pzZ=2.2; _pzX=(tx-r.left)-qx*_pzZ; _pzY=(ty-r.top)-qy*_pzZ;
+    _pzClamp(); _pzApply();
+    return;
+  }
   partSetZoom(_pz*(step>0?1.35:1/1.35));
 }
 function _pzDist(t){ const dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY; return Math.sqrt(dx*dx+dy*dy)||1; }
 function _pzInit(){
-  const im=document.getElementById('partImg'); if(!im||im._pzOn) return; im._pzOn=1;
-  let d0=0, w0=100;
-  im.addEventListener('touchstart',function(e){ if(e.touches.length===2){ d0=_pzDist(e.touches); w0=_pz; } },{passive:true});
-  im.addEventListener('touchmove',function(e){ if(e.touches.length===2&&d0){ e.preventDefault(); partSetZoom(w0*_pzDist(e.touches)/d0); } },{passive:false});
-  im.addEventListener('touchend',function(){ if(!d0) return; d0=0; },{passive:true});
+  const im=_pzImg(); if(!im||im._pzOn) return; im._pzOn=1;
+  let d0=0, z0=1, qx=0, qy=0, drag=0, lx=0, ly=0;
+  im.addEventListener('touchstart',function(e){
+    const t0=e.touches&&e.touches[0]; if(t0){ _pzLastX=t0.clientX; _pzLastY=t0.clientY; }
+    _pzMoved=0;
+    if(e.touches.length===2){
+      d0=_pzDist(e.touches); z0=_pzZ;
+      const box=_pzBox(); if(!box) return;
+      const r=box.getBoundingClientRect();
+      const mx=(e.touches[0].clientX+e.touches[1].clientX)/2-r.left;
+      const my=(e.touches[0].clientY+e.touches[1].clientY)/2-r.top;
+      _pzToTop();
+      qx=(mx-_pzX)/_pzZ; qy=(my-_pzY)/_pzZ; drag=0;
+    } else if(e.touches.length===1 && _pzZ>1.001){
+      drag=1; lx=e.touches[0].clientX; ly=e.touches[0].clientY;
+    }
+  },{passive:true});
+  im.addEventListener('touchmove',function(e){
+    if(e.touches.length===2 && d0){
+      e.preventDefault();
+      const box=_pzBox(); if(!box) return;
+      const r=box.getBoundingClientRect();
+      const nz=Math.max(1,Math.min(5, z0*_pzDist(e.touches)/d0));
+      if(nz<=1.001){ d0=0; _pzReset(); return; }
+      const mx=(e.touches[0].clientX+e.touches[1].clientX)/2-r.left;
+      const my=(e.touches[0].clientY+e.touches[1].clientY)/2-r.top;
+      _pzZ=nz; _pzX=mx-qx*nz; _pzY=my-qy*nz; _pzClamp(); _pzApply();
+      _pzMoved+=8;
+    } else if(e.touches.length===1 && drag){
+      e.preventDefault();
+      const t=e.touches[0];
+      const dx=t.clientX-lx, dy=t.clientY-ly;
+      lx=t.clientX; ly=t.clientY;
+      _pzX+=dx; _pzY+=dy; _pzClamp(); _pzApply();
+      _pzMoved+=Math.abs(dx)+Math.abs(dy);
+      _pzLastX=t.clientX; _pzLastY=t.clientY;
+    }
+  },{passive:false});
+  im.addEventListener('touchend',function(){ d0=0; drag=0; },{passive:true});
+  /* desktop: rodo dá zoom no ponto do cursor; mouse arrasta com zoom */
+  im.addEventListener('wheel',function(e){
+    const box=_pzBox(); if(!box) return;
+    e.preventDefault();
+    const r=box.getBoundingClientRect();
+    _pzToTop();
+    const qx2=(e.clientX-r.left-_pzX)/_pzZ, qy2=(e.clientY-r.top-_pzY)/_pzZ;
+    const nz=Math.max(1,Math.min(5, _pzZ*(e.deltaY<0?1.15:1/1.15)));
+    if(nz<=1.001){ _pzReset(); return; }
+    _pzZ=nz; _pzX=(e.clientX-r.left)-qx2*_pzZ; _pzY=(e.clientY-r.top)-qy2*_pzZ;
+    _pzClamp(); _pzApply();
+  },{passive:false});
+  let md=false;
+  im.addEventListener('mousedown',function(e){ _pzLastX=e.clientX; _pzLastY=e.clientY; if(_pzZ>1.001){ md=true; lx=e.clientX; ly=e.clientY; e.preventDefault(); } });
+  im.addEventListener('mousemove',function(e){ _pzLastX=e.clientX; _pzLastY=e.clientY; });
+  window.addEventListener('mousemove',function(e){ if(!md) return; const dx=e.clientX-lx, dy=e.clientY-ly; lx=e.clientX; ly=e.clientY; _pzX+=dx; _pzY+=dy; _pzMoved+=Math.abs(dx)+Math.abs(dy); _pzClamp(); _pzApply(); });
+  window.addEventListener('mouseup',function(){ md=false; });
 }
 function abrirPartitura(url, titulo){
-  _pz=100;
+  _pz=100; _pzZ=1; _pzX=0; _pzY=0; _pzST=null; _pzMoved=0;
   abrirModal('<h3>\uD83D\uDCDC '+esc(titulo||'Partitura')+'</h3>'+
     '<div class="zoom-bar part-zoom"><button type="button" onclick="partZoom(-1)">A\u2212</button><span class="zh" id="pzLbl">100%</span><button type="button" onclick="partZoom(1)">A+</button><button type="button" class="rst" onclick="partZoom(0)">Resetar</button></div>'+
     '<div class="part-box"><img id="partImg" src="'+esc(url)+'" alt="Partitura de '+esc(titulo||'')+'" style="width:100%" onclick="partZoom(&#39;tap&#39;)" onerror="this.parentElement.innerHTML=\'<p style=&quot;padding:30px;color:#789&quot;>Partitura ainda n&atilde;o dispon&iacute;vel neste aparelho.</p>\'"></div>'+
@@ -1002,7 +1101,7 @@ function renderMusica(){
       <button class="${abaAtual==='letra'?'active':''}" onclick="abrirMusica('${m.id}','letra')"><span class="ic">\uD83D\uDCDD</span>Letra</button>
       <button class="${abaAtual==='audio'?'active':''}" onclick="abrirMusica('${m.id}','audio')"><span class="ic">\uD83C\uDFA7</span>Áudio</button></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px">
-      ${adm?`<button class="mini-btn" style="margin:0" onclick="enviarPraPlaylist('${m.id}')">➕ Enviar para a playlist</button>`:''}
+      ${adm?`<button class="mini-btn" style="margin:0" onclick="enviarPraPlaylist('${m.id}')">➕ Enviar para o SETLIST</button>`:''}
       <button class="mini-btn" style="margin:0" onclick="musWhats('${m.id}')">📱 WhatsApp</button></div>
     ${corpo}</div>`;
 }
@@ -1331,7 +1430,7 @@ function verificaEscalaSemanal(){
 /* ============== PLAYLIST (ADM) ============== */
 function modalPlaylist(){ const pl=DB.playlist;
   const opts=DB.musicas.map(m=>`<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" class="plChk" value="${m.id}" ${pl.musicas.includes(m.id)?'checked':''}> ${esc(m.titulo)}</label>`).join('')||'<p style="font-size:13px;color:#9aa">Cadastre músicas primeiro.</p>';
-  abrirModal(`<h3>Playlist da semana</h3>
+  abrirModal(`<h3>SETLIST da semana</h3>
     <div class="row2"><div class="field"><label>Início</label><input type="date" id="plIni" value="${pl.inicio?pl.inicio.slice(0,10):''}"></div>
       <div class="field"><label>Fim</label><input type="date" id="plFim" value="${pl.fim?pl.fim.slice(0,10):''}"></div></div>
     <div class="field"><label>Músicas</label><div style="max-height:200px;overflow-y:auto;border:1px solid #dde;border-radius:8px;padding:8px">${opts}</div></div>
@@ -1343,7 +1442,7 @@ function publicarPlaylist(){ const ini=$('#plIni').value, fim=$('#plFim').value;
   if(!mus.length) return toast('Selecione ao menos uma música.');
   DB.playlist={inicio:new Date(ini).toISOString(),fim:new Date(fim).toISOString(),musicas:mus,publicada:true}; saveDB();
   notificarTodos('\uD83D\uDCC5','PLAYLIST DISPONÍVEL','A playlist da próxima semana ('+fmtData(DB.playlist.inicio)+' - '+fmtData(DB.playlist.fim)+') já está no app. Você pode estar na escala. Verifique!');
-  fecharModal(); toast('Playlist publicada e todos notificados!'); go('playlist');
+  fecharModal(); toast('SETLIST publicado e todos notificados!'); go('playlist');
 }
 
 /* ============== PAINEL DO ADM ============== */
@@ -1496,10 +1595,10 @@ function telaBoasVindas(primeira){
   _bvStep=0; _bvPrimeira=!!primeira;
   const u=usuarioAtual(); const nome=u? esc(u.nome.split(' ')[0]) : '';
   const steps=[
-    {ic:'\uD83C\uDFB5',h:'Bem-vindo(a), '+nome+'!',p:'Este é o app do <b>Ministério de Música IBNM</b>. Aqui você acompanha a playlist da semana, cifras, letras, áudios e a escala. Veja em poucos passos como usar.'},
+    {ic:'\uD83C\uDFB5',h:'Bem-vindo(a), '+nome+'!',p:'Este é o app do <b>Ministério de Música IBNM</b>. Aqui você acompanha o SETLIST da semana, cifras, letras, áudios e a escala. Veja em poucos passos como usar.'},
     {ic:'\u2630',h:'Menu de navegação',list:[
       {e:'\u2630',t:'Toque no ícone no canto superior esquerdo para abrir o <b>menu</b> — ele desce e abre as seções.'},
-      {e:'\uD83D\uDCC5',t:'<b>Playlist da Semana</b>: as músicas escolhidas para os cultos da semana.'},
+      {e:'\uD83D\uDCC5',t:'<b>SETLIST</b>: as músicas escolhidas para os cultos da semana.'},
       {e:'\uD83D\uDCCB',t:'<b>Escala Semanal</b>: veja em qual dia você está escalado(a).'} ]},
     {ic:'\uD83C\uDFBC',h:'Cifras, letras e áudios',list:[
       {e:'\uD83C\uDFB5',t:'Em <b>Músicas</b>, use o alfabeto ou a busca para achar a música.'},
@@ -1507,7 +1606,7 @@ function telaBoasVindas(primeira){
       {e:'\u2B50',t:'Toque na <b>estrela</b> para salvar em <b>Favoritos</b>.'} ]},
     {ic:'\uD83D\uDD14',h:'Perfil e avisos',list:[
       {e:'\uD83D\uDC64',t:'No <b>Perfil</b> você coloca sua foto, edita sua função no MM e troca a senha.'},
-      {e:'\uD83D\uDD14',t:'O <b>sino</b> mostra avisos: nova playlist, nova música e quando você entra na escala.'},
+      {e:'\uD83D\uDD14',t:'O <b>sino</b> mostra avisos: novo SETLIST, nova música e quando você entra na escala.'},
       {e:'\uD83D\uDCCD',t:'Se você estiver na escala da semana, receberá uma notificação automaticamente.'} ]},
   ];
   const dots = steps.map((_,i)=>`<span class="bv-dot ${i===0?'on':''}"></span>`).join('');
@@ -1569,7 +1668,7 @@ function cardSimulacao(){
       <button class="mini-btn" onclick="simDisparoEscala()">\uD83D\uDCCD Disparar escala agora</button>
       <button class="mini-btn" onclick="simEscalaTodos()">\uD83D\uDCE3 Avisar todos (escala no app)</button>
       <button class="mini-btn" onclick="simMinhaEscala()">\uD83D\uDC64 Testar só p/ mim</button>
-      <button class="mini-btn" onclick="simPlaylist()">\uD83D\uDCC5 Testar playlist</button>
+      <button class="mini-btn" onclick="simPlaylist()">\uD83D\uDCC5 Testar SETLIST</button>
       <button class="mini-btn sec" onclick="simLimparMarcas()">\u267B\uFE0F Resetar avisos da semana</button>
     </div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #cdd">
@@ -1622,7 +1721,7 @@ function simPlaylist(){
   if(!DB.playlist.publicada) return toast('Publique uma playlist primeiro.');
   notificarTodos('\uD83D\uDCC5','PLAYLIST DISPONÍVEL','(Teste) A playlist da próxima semana ('+fmtData(DB.playlist.inicio)+' - '+fmtData(DB.playlist.fim)+') já está no app. Você pode estar na escala. Verifique!');
   atualizaBadge();
-  toast('Aviso de playlist reenviado a '+DB.usuarios.length+' membro(s).'); go('admin');
+  toast('Aviso de SETLIST reenviado a '+DB.usuarios.length+' membro(s).'); go('admin');
 }
 function simLimparMarcas(){
   const seg=segundaDaSemana(new Date()).toISOString().slice(0,10); let n=0;
@@ -1773,7 +1872,7 @@ function agendarReload(){
     await cloudCarregarTudo();
     if(!$('#appShell').classList.contains('hidden')){
       montaMenu(); atualizaBadge();
-      if(!_editando && _viewAtual){ try{ _viewAtual(); }catch(e){} }
+      if(!_editando && _viewAtual && !document.querySelector('.modal-bg.show')){ const _y=scrollY; try{ _viewAtual(); }catch(e){} scrollTo(0,_y); }
     }
   },350);
 }
@@ -1837,8 +1936,8 @@ async function publicarPlaylist(){ const ini=$('#plIni').value, fim=$('#plFim').
   const {error}=await sb.from('playlist').insert({inicio:ini,fim:fim,musicas:mus,publicada:true,updated_at:new Date().toISOString()});
   if(error) return toast('Erro: '+error.message);
   DB.playlist={inicio:ini,fim:fim,musicas:mus,publicada:true};
-  notificarTodos('\uD83D\uDCC5','PLAYLIST DISPONIVEL','A playlist ('+fmtData(ini)+' - '+fmtData(fim)+') já está no app. Confira!');
-  fecharModal(); toast('Playlist publicada e todos notificados!'); go('playlist');
+  notificarTodos('\uD83D\uDCC5','SETLIST DISPONIVEL','O SETLIST ('+fmtData(ini)+' - '+fmtData(fim)+') já está no app. Confira!');
+  fecharModal(); toast('SETLIST publicado e todos notificados!'); go('playlist');
 }
 async function importarEscala(inp){ const f=inp.files[0]; if(!f) return;
   const r=new FileReader(); r.onload=async e=>{ try{
@@ -2148,7 +2247,7 @@ ROTAS.perfil=function(){ let html=_perfPrev();
   const btn = perm==='granted' ? '<p style="font-size:12.5px;color:var(--verde-claro)">\uD83D\uDD14 Notificações ativadas neste aparelho.</p>'
     : perm==='unsupported' ? '<p style="font-size:12.5px;color:#9aa">Notificações não suportadas neste navegador.</p>'
     : '<button class="mini-btn" onclick="pedirPermissaoNotif()">\uD83D\uDD14 Ativar notificações neste aparelho</button>';
-  const card='<div class="card"><h3>Notificações do app</h3><p style="font-size:12.5px;color:#556;margin-bottom:8px">Receba avisos de nova playlist, escala e culto ao vivo.</p>'+btn+'</div>';
+  const card='<div class="card"><h3>Notificações do app</h3><p style="font-size:12.5px;color:#556;margin-bottom:8px">Receba avisos de novo SETLIST, escala e culto ao vivo.</p>'+btn+'</div>';
   const i=html.lastIndexOf('</div>'); return i>=0 ? (html.slice(0,i)+card+html.slice(i)) : (html+card);
 };
 

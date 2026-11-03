@@ -340,7 +340,7 @@ window.concluirEvento=async function(ctx,i){
 window.enviarPraPlaylist=function(musicaId){
   if(!adm()) return;
   const m=(DB.musicas||[]).find(x=>x.id===musicaId); if(!m) return toast('Música não encontrada.');
-  const sl=setlist(); if(!sl) return toast('Nenhuma playlist montada ainda. Abra 📅 Playlist e monte a semana.');
+  const sl=setlist(); if(!sl) return toast('Nenhum SETLIST montado ainda. Abra 📅 SETLIST e monte a semana.');
   const evs=(sl.eventos&&sl.eventos.length)? sl.eventos : null;
   const envia=async function(evIdx){
     try{
@@ -351,15 +351,15 @@ window.enviarPraPlaylist=function(musicaId){
         await salvarConfig(sl.chave||'setlist', packSl(sl, JSON.parse(JSON.stringify(evs))));
         toast('\u2705 "'+m.titulo+'" enviada para '+String(ev.nome||'EVENTO')+'!');
       }else{
-        if((sl.itens||[]).indexOf(musicaId)>=0) return toast('Já está na playlist.');
+        if((sl.itens||[]).indexOf(musicaId)>=0) return toast('Já está no SETLIST.');
         sl.itens=(sl.itens||[]).concat([musicaId]);
         await salvarConfig(sl.chave||'setlist', packSl(sl, null));
-        toast('\u2705 "'+m.titulo+'" enviada para a playlist!');
+        toast('\u2705 "'+m.titulo+'" enviada para o SETLIST!');
       }
     }catch(err){ toast('Erro ao enviar: '+(err.message||err)); }
   };
   if(!evs) return envia(0);
-  abrirModal('<h3>\u2B07\uFE0F Enviar para a playlist</h3><p style="font-size:13.5px;color:#556;margin-bottom:8px">Escolha o evento que vai receber <b>'+e(m.titulo)+'</b>:</p>'+
+  abrirModal('<h3>\u2B07\uFE0F Enviar para o SETLIST</h3><p style="font-size:13.5px;color:#556;margin-bottom:8px">Escolha o evento que vai receber <b>'+e(m.titulo)+'</b>:</p>'+
     evs.map((ev,i)=>'<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__enviaPl('+i+')">\uD83D\uDCC5 '+e(String(ev.nome||'EVENTO'))+(ev.data? ' \u00B7 '+dataBR(ev.data):'')+'</button>').join('')+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button></div>');
   window.__enviaPl=function(i){ fecharModal(); envia(i); };
@@ -404,6 +404,7 @@ function cardEventos(sl,titulo,ctx){
     h+='</div>';
   });
   h+='</div>';
+  if(sl.youtube) h+='<div class="sl-acts" style="margin-top:10px"><a class="sl-yt" href="'+e(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist no YouTube</a></div>';
   if(a){
     h+='<div class="sl-acts" style="margin-top:12px">'+
       '<button onclick="modalPlaylist(\''+(ctx==='prox'?'prox':'')+'\')">➕ Adicionar evento</button>'+
@@ -423,13 +424,13 @@ if(typeof ROTAS!=='undefined'){
     const sl=prox? px : at;
     const tabs='<div class="pl-tabs"><button class="'+(!prox?'on':'')+'" onclick="go(\'playlist\',\'atual\')">📅 Esta semana</button><button class="'+(prox?'on':'')+'" onclick="go(\'playlist\',\'prox\')">🗓️ Próxima semana'+(px?' <i>●</i>':'')+'</button></div>';
     const bt=a?'<button class="mini-btn" style="margin-bottom:14px" onclick="modalPlaylist(\''+(prox?'prox':'')+'\')">✏️ '+(prox?'Montar playlist da próxima semana':'Montar / editar playlist desta semana')+'</button>':'';
-    const topo='<div class="page-ttl">📅 Playlist</div>'+tabs+bt;
-    if(!sl||!sl.itens.length) return '<div class="page">'+topo+'<div class="empty"><div class="big">🎼</div>'+(prox?'A playlist da próxima semana ainda não foi publicada.':'Nenhuma playlist publicada para esta semana.')+'</div></div>';
+    const topo='<div class="page-ttl">📅 SETLIST</div>'+tabs+bt;
+    if(!sl||!sl.itens.length) return '<div class="page">'+topo+'<div class="empty"><div class="big">🎼</div>'+(prox?'O SETLIST da próxima semana ainda não foi publicado.':'Nenhum SETLIST publicado para esta semana.')+'</div></div>';
     /* título usa a 1ª e a última data dos eventos (se houver) */
     const _dts=(sl.eventos||[]).map(x=>String(x.data||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort();
     const _dt1=_dts.length? _dts[0] : sl.inicio, _dt2=_dts.length? _dts[_dts.length-1] : sl.fim;
     const eu=escaladoNoPeriodo(sl);
-    return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">'+(prox?'PLAYLIST DA PRÓXIMA SEMANA':'PLAYLIST DA SEMANA')+'</div><div class="dt">'+fmtData(_dt1)+' - '+fmtData(_dt2)+'</div></div>'+
+    return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">'+(prox?'SETLIST DA PRÓXIMA SEMANA':'SETLIST')+'</div><div class="dt">'+fmtData(_dt1)+' - '+fmtData(_dt2)+'</div>'+(sl.youtube?'<a class="yt-home" href="'+e(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist do YouTube</a>':'')+'</div>'+
       (eu?'<div class="pl-eu">📍 Você está escalado(a) neste período'+(eu!==true?' — '+e(eu):'')+'. Toque nas músicas para ver letra, cifra e áudio.</div>':'')+
       cardSetlistSmart(sl,(sl.eventos&&sl.eventos.length)? 'Eventos da semana ('+sl.itens.length+' música(s)/hino(s))' : 'Ordem do culto ('+sl.itens.length+')',prox?'prox':'')+'</div>';
   };
@@ -437,12 +438,12 @@ if(typeof ROTAS!=='undefined'){
     const _ini=ROTAS.inicio;
     ROTAS.inicio=function(){
       let html=_ini.apply(this,arguments); const sl=setlist();
-      const k=html.indexOf('<div class="card"><h3>Músicas da playlist</h3>');
+      const k=html.indexOf('<div class="card"><h3>Músicas do SETLIST</h3>');
       if(k>=0){ const fim=html.lastIndexOf('</div>'); html=html.slice(0,k)+(sl?cardSetlistSmart(sl,'Ordem do culto'):'')+html.slice(fim); }
       else if(sl){ const fim=html.lastIndexOf('</div>'); html=html.slice(0,fim)+cardSetlistSmart(sl,'Ordem do culto')+html.slice(fim); }
       const px=setlist('prox');
       if(px){ const eu=escaladoNoPeriodo(px); const fim=html.lastIndexOf('</div>');
-        html=html.slice(0,fim)+'<div class="card pl-proxcard" onclick="go(\'playlist\',\'prox\')"><h3>🗓️ Playlist da próxima semana</h3><p>'+fmtData(px.inicio)+' - '+fmtData(px.fim)+' · '+px.itens.length+' música(s)/hino(s)'+(eu?'<br><b>📍 Você está escalado(a) — já pode ensaiar!</b>':'')+'</p><span class="lk">Ver letras e cifras ›</span></div>'+html.slice(fim); }
+        html=html.slice(0,fim)+'<div class="card pl-proxcard" onclick="go(\'playlist\',\'prox\')"><h3>🗓️ SETLIST da próxima semana</h3><p>'+fmtData(px.inicio)+' - '+fmtData(px.fim)+' · '+px.itens.length+' música(s)/hino(s)'+(eu?'<br><b>📍 Você está escalado(a) — já pode ensaiar!</b>':'')+'</p><span class="lk">Ver letras e cifras ›</span></div>'+html.slice(fim); }
       return html;
     };
   }
@@ -480,15 +481,15 @@ window.modalPlaylist=function(qual){
   if(!evs) evs=[];
   _ed={qual:prox?'prox':'',inicio:ini,fim:fim,evs,tons:Object.assign({},sl.tons),youtube:sl.youtube||'',chave:sl.chave||(prox?'setlist_prox':'setlist'),
     aberto: evs.length? evs[0].id : null, trocando:null};
-  abrirModal('<h3>'+(prox?'🗓️ Playlist da próxima semana':'📅 Playlist desta semana')+'</h3>'+
+  abrirModal('<h3>'+(prox?'🗓️ SETLIST da próxima semana':'📅 SETLIST desta semana')+'</h3>'+
     (prox?'<p class="pl-dica">Ao publicar, as músicas ficam disponíveis no app. Marque 🔔 abaixo para avisar os membros.</p>':'')+
-    '<div class="pl-dica">📌 <b>Eventos da semana</b> — dê o nome (CULTO, EBD, ANIVERSÁRIO…), escolha a data, busque as músicas com o evento aberto e reordene com ↑↓. Ao salvar, os nomes ficam guardados e já aparecem na próxima playlist.</div>'+
+    '<div class="pl-dica">📌 <b>Eventos da semana</b> — dê o nome (CULTO, EBD, ANIVERSÁRIO…), escolha a data, busque as músicas com o evento aberto e reordene com ↑↓. Ao salvar, os nomes ficam guardados e já aparecem no próximo SETLIST.</div>'+
     '<div id="plEvts"></div>'+
     '<button type="button" class="pl-ev-add" onclick="plEvAdd()">➕ Adicionar evento</button>'+
     '<div class="field"><label>▶️ Playlist do YouTube (opcional)</label><input id="plYt" type="url" inputmode="url" placeholder="Cole aqui o link da playlist do YouTube" value="'+e(_ed.youtube)+'"></div>'+
     '<label class="check-inline" style="color:var(--verde-escuro);display:block;margin:6px 0"><input type="checkbox" id="plAvisar"> 🔔 Avisar membros ao publicar (só marque se quiser notificar)</label>'+
     (prox?'<label class="check-inline" style="color:var(--verde-escuro);display:block;margin:6px 0"><input type="checkbox" id="plTodos"> Avisar também todos os membros</label>':'')+
-    '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" id="plPub" onclick="publicarPlaylist()">📢 Publicar</button></div>');
+    '<div class="modal-acts" style="flex-wrap:wrap"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" id="plPub" onclick="publicarPlaylist()">📢 Publicar</button><button class="btn btn-ghost" style="color:#c0392b;border-color:#e6b0aa" onclick="removerSetlist(\''+(prox?'prox':'')+'\')">🗑 Remover SETLIST</button></div>');
   renderEvts();
 };
 function evAberto(){ return (_ed&&Array.isArray(_ed.evs))? (_ed.evs.find(x=>x.id===_ed.aberto)||null) : null; }
@@ -536,7 +537,7 @@ window.plEvMov=function(id,d){
 window.plEvDel=function(id){
   const i=_ed.evs.findIndex(x=>x.id===id); if(i<0) return;
   const ev=_ed.evs[i];
-  if((ev.itens||[]).length && !window.confirm('Remover o evento "'+(ev.nome||'EVENTO')+'" e as músicas dele da playlist?')) return;
+  if((ev.itens||[]).length && !window.confirm('Remover o evento "'+(ev.nome||'EVENTO')+'" e as músicas dele do SETLIST?')) return;
   _ed.evs.splice(i,1);
   if(_ed.aberto===id) _ed.aberto=_ed.evs.length? _ed.evs[0].id : null;
   renderEvts();
@@ -611,6 +612,54 @@ window.plEnter=function(ev,tipo){ if(ev.key==='Enter'){ ev.preventDefault(); if(
 window._plData=function(){};
 window.plAddMus=function(){}; window.plAddHino=function(){};
 function linkYoutube(v){ v=String(v||'').trim(); if(!v) return ''; if(!/^https?:\/\//i.test(v)) v='https://'+v; return /(^https?:\/\/)?([a-z0-9-]+\.)*(youtube\.com|youtu\.be)\//i.test(v)? v : null; }
+/* ADM: remover o SETLIST inteiro (config + publicação) */
+window.removerSetlist=async function(qual){
+  if(!adm()) return;
+  const prox=qual==='prox';
+  const sl=prox? setlist('prox') : setlist();
+  if(!sl) return toast('Nenhum SETLIST '+(prox?'da próxima semana':'desta semana')+' para remover.');
+  if(!window.confirm('Remover TODO o SETLIST '+(prox?'da próxima semana':'desta semana')+'?')) return;
+  try{
+    if(prox){
+      await salvarConfig('setlist_prox',{});
+    } else {
+      await salvarConfig('setlist',{});
+      DB.playlist={inicio:'',fim:'',musicas:[],publicada:false};
+      try{ saveDB(); }catch(_){}
+      try{
+        const ult=await sb.from('playlist').select('id').order('updated_at',{ascending:false}).limit(1);
+        if(ult.data&&ult.data.length) await sb.from('playlist').update({publicada:false,musicas:[],updated_at:new Date().toISOString()}).eq('id',ult.data[0].id);
+      }catch(_){}
+    }
+    fecharModal();
+    toast('SETLIST removido.');
+    go('playlist', prox?'prox':'atual');
+  }catch(err){ toast('Erro ao remover: '+(err&&err.message||err)); }
+};
+/* ADM: remover o SETLIST inteiro (config + publicação) */
+window.removerSetlist=async function(qual){
+  if(!adm()) return;
+  const prox=qual==='prox';
+  const sl=prox? setlist('prox') : setlist();
+  if(!sl) return toast('Nenhum SETLIST '+(prox?'da próxima semana':'desta semana')+' para remover.');
+  if(!window.confirm('Remover TODO o SETLIST '+(prox?'da próxima semana':'desta semana')+'?')) return;
+  try{
+    if(prox){
+      await salvarConfig('setlist_prox',{});
+    } else {
+      await salvarConfig('setlist',{});
+      DB.playlist={inicio:'',fim:'',musicas:[],publicada:false};
+      try{ saveDB(); }catch(_){}
+      try{
+        const ult=await sb.from('playlist').select('id').order('updated_at',{ascending:false}).limit(1);
+        if(ult.data&&ult.data.length) await sb.from('playlist').update({publicada:false,musicas:[],updated_at:new Date().toISOString()}).eq('id',ult.data[0].id);
+      }catch(_){}
+    }
+    fecharModal();
+    toast('SETLIST removido.');
+    go('playlist', prox?'prox':'atual');
+  }catch(err){ toast('Erro ao remover: '+(err&&err.message||err)); }
+};
 window.publicarPlaylist=async function(){
   const _iniEl=document.getElementById('plIni'), _fimEl=document.getElementById('plFim');
   const _dsEv=(_ed.evs||[]).map(function(x){return String(x.data||'');}).filter(Boolean).sort();
@@ -634,10 +683,10 @@ window.publicarPlaylist=async function(){
     const alvos=escaladosNoPeriodo(dados); const ids=new Set(alvos.map(u=>u.id));
     const txt='Culto de '+fmtData(_ed.inicio)+' a '+fmtData(_ed.fim)+': '+itens.length+' música(s)/hino(s) com letra e cifra já estão no app.';
     const avisar=!!(document.getElementById('plAvisar')||{}).checked;
-    if(avisar && alvos.length) notificarTodos('🎼','Playlist da próxima semana',txt+' Você está escalado(a) — já pode ensaiar!',u=>ids.has(u.id),{link:'go:playlist:prox',popup:true});
-    if(avisar && todos) notificarTodos('🗓️','Playlist da próxima semana',txt,u=>!ids.has(u.id),{link:'go:playlist:prox'});
+    if(avisar && alvos.length) notificarTodos('🎼','SETLIST da próxima semana',txt+' Você está escalado(a) — já pode ensaiar!',u=>ids.has(u.id),{link:'go:playlist:prox',popup:true});
+    if(avisar && todos) notificarTodos('🗓️','SETLIST da próxima semana',txt,u=>!ids.has(u.id),{link:'go:playlist:prox'});
     fecharModal();
-    toast(!avisar? 'Playlist publicada. (nenhum aviso enviado — marque 🔔 se quiser avisar)' : (alvos.length? 'Publicada! '+alvos.length+' escalado(s) avisado(s).' : (todos?'Publicada e todos avisados.':'Publicada. Ninguém da escala encontrado nessas datas.')));
+    toast(!avisar? 'SETLIST publicado. (nenhum aviso enviado — marque 🔔 se quiser avisar)' : (alvos.length? 'Publicada! '+alvos.length+' escalado(s) avisado(s).' : (todos?'Publicada e todos avisados.':'Publicada. Ninguém da escala encontrado nessas datas.')));
     go('playlist','prox'); return;
   }
   const mus=itens.filter(id=>String(id).indexOf('cc:')!==0);
@@ -655,8 +704,8 @@ window.publicarPlaylist=async function(){
   /* se a "esta semana" vinha da lista da próxima semana que já começou, ela foi substituída */
   if(_ed.chave==='setlist_prox') await salvarConfig('setlist_prox',{});
   const _av=!!(document.getElementById('plAvisar')||{}).checked;
-  if(_av) notificarTodos('📅','PLAYLIST DISPONÍVEL','A ordem do culto ('+fmtData(_ed.inicio)+' - '+fmtData(_ed.fim)+') já está no app. Confira!',null,{link:'go:playlist'});
-  fecharModal(); toast(_av? 'Playlist publicada e membros avisados!' : 'Playlist publicada. (nenhum aviso enviado — marque 🔔 se quiser avisar)'); go('playlist','atual');
+  if(_av) notificarTodos('📅','SETLIST DISPONÍVEL','A ordem do culto ('+fmtData(_ed.inicio)+' - '+fmtData(_ed.fim)+') já está no app. Confira!',null,{link:'go:playlist'});
+  fecharModal(); toast(_av? 'SETLIST publicado e membros avisados!' : 'SETLIST publicado. (nenhum aviso enviado — marque 🔔 se quiser avisar)'); go('playlist','atual');
 };
 /* ADM: quando a semana da "próxima playlist" chega, ela passa a ser a desta semana */
 async function promoverProxima(){
@@ -670,7 +719,7 @@ setInterval(promoverProxima,10*60*1000);
 /* ================= 2) TOM DO CULTO ================= */
 window.tomCulto=function(id){ const sl=listaDe(id); return sl&&sl.tons? (sl.tons[String(id)]||0) : 0; };
 window.fixarTomCulto=async function(id,v){
-  if(!adm()) return; const sl=listaDe(id); if(!sl) return toast('Monte a playlist primeiro.');
+  if(!adm()) return; const sl=listaDe(id); if(!sl) return toast('Monte o SETLIST primeiro.');
   const tons=Object.assign({},sl.tons); if(v) tons[id]=v; else delete tons[id];
   await salvarConfig(sl.chave||'setlist',{inicio:sl.inicio,fim:sl.fim,itens:sl.itens,tons,youtube:sl.youtube||'',eventos:sl.eventos||null});
   toast(v?'Tom do culto salvo. Todos abrem neste tom.':'Tom do culto: original.'); setTimeout(redesenhar,50);
