@@ -190,7 +190,9 @@ function normSl(x,chave){ if(!x||!Array.isArray(x.itens)||!x.itens.length) retur
 function setlist(qual){
   const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{};
   const a=normSl(C.setlist,'setlist'), p=normSl(C.setlist_prox,'setlist_prox');
-  const pVale = p && p.inicio && p.inicio<=hojeISO();
+  /* prox já virou "esta semana" quando: a semana atual acabou (virou
+     domingo→segunda) OU a data de início dela já chegou */
+  const pVale = !!(p && p.inicio && (p.inicio<=hojeISO() || (a && a.fim && hojeISO()>a.fim)));
   if(qual==='prox') return pVale? null : p;
   if(pVale) return p;
   if(a) return a;
@@ -430,7 +432,7 @@ if(typeof ROTAS!=='undefined'){
     const _dts=(sl.eventos||[]).map(x=>String(x.data||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort();
     const _dt1=_dts.length? _dts[0] : sl.inicio, _dt2=_dts.length? _dts[_dts.length-1] : sl.fim;
     const eu=escaladoNoPeriodo(sl);
-    return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">'+(prox?'SETLIST DA PRÓXIMA SEMANA':'SETLIST')+'</div><div class="dt">'+fmtData(_dt1)+' - '+fmtData(_dt2)+'</div>'+(sl.youtube?'<a class="yt-home" href="'+e(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist do YouTube</a>':'')+'</div>'+
+    return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">'+(prox?'SETLIST DA PRÓXIMA SEMANA':'SETLIST DA SEMANA')+'</div><div class="dt">'+fmtData(_dt1)+' - '+fmtData(_dt2)+'</div>'+(sl.youtube?'<a class="yt-home" href="'+e(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist do YouTube</a>':'')+'</div>'+
       (eu?'<div class="pl-eu">📍 Você está escalado(a) neste período'+(eu!==true?' — '+e(eu):'')+'. Toque nas músicas para ver letra, cifra e áudio.</div>':'')+
       cardSetlistSmart(sl,(sl.eventos&&sl.eventos.length)? 'Eventos da semana ('+sl.itens.length+' música(s)/hino(s))' : 'Ordem do culto ('+sl.itens.length+')',prox?'prox':'')+'</div>';
   };
@@ -636,30 +638,6 @@ window.removerSetlist=async function(qual){
     go('playlist', prox?'prox':'atual');
   }catch(err){ toast('Erro ao remover: '+(err&&err.message||err)); }
 };
-/* ADM: remover o SETLIST inteiro (config + publicação) */
-window.removerSetlist=async function(qual){
-  if(!adm()) return;
-  const prox=qual==='prox';
-  const sl=prox? setlist('prox') : setlist();
-  if(!sl) return toast('Nenhum SETLIST '+(prox?'da próxima semana':'desta semana')+' para remover.');
-  if(!window.confirm('Remover TODO o SETLIST '+(prox?'da próxima semana':'desta semana')+'?')) return;
-  try{
-    if(prox){
-      await salvarConfig('setlist_prox',{});
-    } else {
-      await salvarConfig('setlist',{});
-      DB.playlist={inicio:'',fim:'',musicas:[],publicada:false};
-      try{ saveDB(); }catch(_){}
-      try{
-        const ult=await sb.from('playlist').select('id').order('updated_at',{ascending:false}).limit(1);
-        if(ult.data&&ult.data.length) await sb.from('playlist').update({publicada:false,musicas:[],updated_at:new Date().toISOString()}).eq('id',ult.data[0].id);
-      }catch(_){}
-    }
-    fecharModal();
-    toast('SETLIST removido.');
-    go('playlist', prox?'prox':'atual');
-  }catch(err){ toast('Erro ao remover: '+(err&&err.message||err)); }
-};
 window.publicarPlaylist=async function(){
   const _iniEl=document.getElementById('plIni'), _fimEl=document.getElementById('plFim');
   const _dsEv=(_ed.evs||[]).map(function(x){return String(x.data||'');}).filter(Boolean).sort();
@@ -678,6 +656,7 @@ window.publicarPlaylist=async function(){
   const bt=document.getElementById('plPub'); if(bt){ bt.disabled=true; bt.textContent='Publicando…'; }
   const dados={inicio:_ed.inicio,fim:_ed.fim,itens,tons:Object.assign({},_ed.tons),youtube:yt||'',eventos:evs};
   if(_ed.qual==='prox'){
+    try{ await promoverProxima(); }catch(_){} /* se a semana já virou, promove a anterior antes de gravar a nova */
     await salvarConfig('setlist_prox',dados);
     const todos=!!(document.getElementById('plTodos')||{}).checked;
     const alvos=escaladosNoPeriodo(dados); const ids=new Set(alvos.map(u=>u.id));
@@ -707,14 +686,31 @@ window.publicarPlaylist=async function(){
   if(_av) notificarTodos('📅','SETLIST DISPONÍVEL','A ordem do culto ('+fmtData(_ed.inicio)+' - '+fmtData(_ed.fim)+') já está no app. Confira!',null,{link:'go:playlist'});
   fecharModal(); toast(_av? 'SETLIST publicado e membros avisados!' : 'SETLIST publicado. (nenhum aviso enviado — marque 🔔 se quiser avisar)'); go('playlist','atual');
 };
-/* ADM: quando a semana da "próxima playlist" chega, ela passa a ser a desta semana */
+/* AUTO: na virada domingo→segunda (00:00) o SETLIST da próxima semana vira o
+   desta semana — com todas as configurações (datas, músicas, tons, YouTube,
+   eventos) — e o da próxima semana fica VAZIO p/ montar o novo. */
 async function promoverProxima(){
-  try{ if(!(window.ehAdminReal? ehAdminReal() : adm())) return; const C=APP_CFG||{}; const p=normSl(C.setlist_prox,'setlist_prox');
-    if(p && p.inicio && p.inicio<=hojeISO()){ await salvarConfig('setlist',{inicio:p.inicio,fim:p.fim,itens:p.itens,tons:p.tons,youtube:p.youtube,eventos:p.eventos||null}); await salvarConfig('setlist_prox',{}); }
+  try{ if(!(window.ehAdminReal? ehAdminReal() : adm())) return;
+    const C=APP_CFG||{}; const p=normSl(C.setlist_prox,'setlist_prox'); const a=normSl(C.setlist,'setlist');
+    if(!p||!p.inicio) return;
+    const hoje=hojeISO();
+    const semanaAcabou=!!(a&&a.fim&&hoje>a.fim);      /* virou domingo→segunda */
+    const inicioChegou=p.inicio<=hoje;                /* ou a data dela já chegou */
+    if(!(semanaAcabou||inicioChegou)) return;
+    await salvarConfig('setlist',{inicio:p.inicio,fim:p.fim,itens:p.itens,tons:p.tons,youtube:p.youtube,eventos:p.eventos||null});
+    await salvarConfig('setlist_prox',{});
+    try{ redesenhar(); }catch(_){}
+    try{ toast('📅 SETLIST da próxima semana é agora o desta semana!'); }catch(_){}
   }catch(_){}
 }
 if(typeof iniciarApp==='function'){ const _ia2=iniciarApp; window.iniciarApp=iniciarApp=function(){ _ia2.apply(this,arguments); setTimeout(promoverProxima,1500); }; }
 setInterval(promoverProxima,10*60*1000);
+try{ document.addEventListener('visibilitychange',function(){ if(!document.hidden) promoverProxima(); }); }catch(_){}
+/* relógio da meia-noite: dispara às 00:00:05 mesmo com o app aberto */
+(function agendaMeiaNoite(){
+  const prox=new Date(); prox.setDate(prox.getDate()+1); prox.setHours(0,0,5,0);
+  setTimeout(function(){ promoverProxima(); agendaMeiaNoite(); }, Math.max(1000, prox-new Date()));
+})();
 
 /* ================= 2) TOM DO CULTO ================= */
 window.tomCulto=function(id){ const sl=listaDe(id); return sl&&sl.tons? (sl.tons[String(id)]||0) : 0; };

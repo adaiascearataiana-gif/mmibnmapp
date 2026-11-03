@@ -175,6 +175,15 @@ a{color:var(--verde-med)}
 .alpha-bar button.has{border:1.5px solid var(--dourado)}
 .song-row{display:flex;align-items:center;gap:12px;background:#fff;border-radius:12px;padding:13px 15px;margin-bottom:9px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
 .song-row .s-ic{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--verde-med),var(--verde-claro));color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;box-shadow:0 2px 6px rgba(0,0,0,.28),inset 0 0 0 2.5px rgba(255,255,255,.92)}
+/* ícone do meio (emoji) vira SILHUETA BRANCA — máximo contraste com a caixinha verde */
+.song-row .s-ic{filter:grayscale(1) brightness(0) invert(1)}
+html.escuro .content .song-row .s-ic{filter:grayscale(1) brightness(0) invert(1)}
+/* ícone do meio (emoji) vira SILHUETA BRANCA — máximo contraste com a caixinha verde */
+.song-row .s-ic{filter:grayscale(1) brightness(0) invert(1)}
+html.escuro .content .song-row .s-ic{filter:grayscale(1) brightness(0) invert(1)}
+/* ícone do meio (emoji) vira SILHUETA BRANCA — máximo contraste com a caixinha verde */
+.song-row .s-ic{filter:grayscale(1) brightness(0) invert(1)}
+html.escuro .content .song-row .s-ic{filter:grayscale(1) brightness(0) invert(1)}
 .song-row .s-nm{flex:1;font-weight:700;font-size:15px;color:var(--verde-escuro)}
 .song-row .s-ar{font-size:12px;color:#789;font-weight:500}
 .star{font-size:20px;color:#d8d8d8;flex:none}
@@ -660,9 +669,13 @@ ROTAS.inicio = function(){
   const temPl = pl.publicada && pl.musicas.length;
   const _sl = (typeof setlist==='function') ? setlist() : null;
   const _slp = (typeof setlist==='function') ? setlist('prox') : null;
-  const _yt = (_sl && _sl.youtube) || (_slp && _slp.youtube) || '';
+  let _yt = (_sl && _sl.youtube) || (_slp && _slp.youtube) || '';
+  if(!_yt && typeof APP_CFG!=='undefined' && APP_CFG){ _yt=(APP_CFG.setlist&&APP_CFG.setlist.youtube)||(APP_CFG.setlist_prox&&APP_CFG.setlist_prox.youtube)||''; }
+  if(!_yt && typeof APP_CFG!=='undefined' && APP_CFG){ _yt=(APP_CFG.setlist&&APP_CFG.setlist.youtube)||(APP_CFG.setlist_prox&&APP_CFG.setlist_prox.youtube)||''; }
+  if(!_yt && typeof APP_CFG!=='undefined' && APP_CFG){ _yt=(APP_CFG.setlist&&APP_CFG.setlist.youtube)||(APP_CFG.setlist_prox&&APP_CFG.setlist_prox.youtube)||''; }
+  if(!_yt && typeof APP_CFG!=='undefined' && APP_CFG){ _yt=(APP_CFG.setlist&&APP_CFG.setlist.youtube)||(APP_CFG.setlist_prox&&APP_CFG.setlist_prox.youtube)||''; }
   let plBox = temPl
-    ? `<div class="semana-badge"><div class="lbl">SETLIST</div><div class="dt">${fmtRange(pl)}</div>${_yt?`<a class="yt-home" href="${esc(_yt)}" target="_blank" rel="noopener">▶ Playlist do YouTube</a>`:''}<span class="pl-home-lk" onclick="go('playlist')">Ver SETLIST completo ›</span></div>`
+    ? `<div class="semana-badge"><div class="lbl">SETLIST DA SEMANA</div><div class="dt">${fmtRange(pl)}</div>${_yt?`<a class="yt-home" href="${esc(_yt)}" target="_blank" rel="noopener">▶ Playlist do YouTube</a>`:''}<span class="pl-home-lk" onclick="go('playlist')">Ver SETLIST completo ›</span></div>`
     : `<div class="card"><div class="empty" style="padding:20px"><div class="big">\uD83C\uDFBC</div>Nenhum SETLIST publicado ainda.</div></div>`;
   const naEscala = usuarioNaEscalaVigente(u);
   return `<div class="page">
@@ -676,7 +689,6 @@ ROTAS.inicio = function(){
         <button class="mini-btn" onclick="go('perfil')">\uD83D\uDC64 Perfil</button>
       </div></div>
     ${naEscala? `<div class="card" style="border-left:4px solid var(--dourado)"><p style="margin:0;font-size:14px;color:#444">📍 <b>Você está na escala desta semana</b> — função: <b>${esc(naEscala)}</b>.</p><button class="mini-btn" style="margin-top:8px" onclick="go('escala')">Ver escala</button></div>`:''}
-    ${temPl? `<div class="card"><h3>Músicas do SETLIST</h3>${pl.musicas.map(id=>{const m=DB.musicas.find(x=>x.id===id);return m?`<div class="song-row" onclick="abrirMusica('${m.id}')"><div class="s-ic">\uD83C\uDFB5</div><div style="flex:1"><div class="s-nm">${esc(m.titulo)}</div><div class="s-ar">${esc(m.artista||'')}</div></div></div>`:''}).join('')}</div>`:''}
   </div>`;
 };
 
@@ -684,7 +696,7 @@ ROTAS.playlist = function(){
   const pl=DB.playlist; const adm=ehAdmin();
   let body;
   if(pl.publicada && pl.musicas.length){
-    body = `<div class="semana-badge"><div class="lbl">SETLIST</div><div class="dt">${fmtRange(pl)}</div></div>
+    body = `<div class="semana-badge"><div class="lbl">SETLIST DA SEMANA</div><div class="dt">${fmtRange(pl)}</div></div>
       ${pl.musicas.map(id=>{const m=DB.musicas.find(x=>x.id===id);return m?`<div class="song-row" onclick="abrirMusica('${m.id}')"><div class="s-ic">\uD83C\uDFB5</div><div style="flex:1"><div class="s-nm">${esc(m.titulo)}</div><div class="s-ar">${esc(m.artista||'')}</div></div><span class="star ${ehFav(m.id)?'on':''}">\u2605</span></div>`:''}).join('')}`;
   } else body = `<div class="empty"><div class="big">\uD83C\uDFBC</div>Nenhum SETLIST publicado ainda.</div>`;
   return `<div class="page"><div class="page-ttl">\uD83D\uDCC5 SETLIST</div>
@@ -2193,7 +2205,22 @@ async function salvarDriveCfg(){
 function registrarSW(){
   if(!('serviceWorker' in navigator)) return;
   if(location.protocol!=='https:' && location.hostname!=='localhost') return;
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){
+    var chk=function(){ try{ reg.update(); }catch(e){} };
+    chk();
+    setInterval(chk, 3600000);
+    document.addEventListener('visibilitychange',function(){ if(!document.hidden) chk(); });
+    var marca=function(w){ if(!w) return; w.addEventListener('statechange',function(){ if(this.state==='installed'&&navigator.serviceWorker.controller) window._swNovo=1; }); };
+    marca(reg.installing);
+    reg.addEventListener('updatefound',function(){ marca(reg.installing); });
+  }).catch(function(){});
+  /* Ao entrar uma versão nova do SW: recarrega o app já atualizado (1x só). */
+  var _jaControlada = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(!_jaControlada){ _jaControlada=true; return; }
+    if(window._swRel) return;
+    window._swRel=1; location.reload();
+  });
 }
 function pedirPermissaoNotif(){
   if(!('Notification' in window)) return toast('Seu aparelho não suporta notificações.');
