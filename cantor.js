@@ -447,8 +447,12 @@ function abrirHino(n, keepScroll){
     const lab = p.tipo==='coro' ? 'Coro' : String(++ei);
     return '<section class="cc-part cc-'+p.tipo+'"><span class="pn">'+lab+'</span>'+p.linhas.map((l,li)=>'<p class="ln" data-pi="'+pi+'" data-li="'+li+'">'+lineHTML(getLine(h,pi,li),st,flats)+(editMode?'<button class="lnedit" aria-label="Editar linha inteira">✎</button>':'')+'</p>').join('')+'</section>';
   }).join('');
+  const modoLetra = !prefs.cifras && !editMode && !!h.letra;
+  const corpoSong = modoLetra
+    ? h.letra.split('\n').map(l=>'<p class="ln">'+esc(l)+'</p>').join('')
+    : partes;
   const i=HINOS.indexOf(h), prev=HINOS[i-1], next=HINOS[i+1];
-  const introImg = introExiste(h.n) ? '<div class="cc-intro"><span class="tag">Intro</span><img loading="lazy" src="cc-intro/p'+String(h.n).padStart(3,'0')+'.jpg" alt="Introdução do hino '+h.n+'"></div>' : '';
+  const introImg = introExiste(h.n) ? '<div class="cc-intro"><span class="tag">Intro</span><img loading="lazy" src="cc-intro/p'+String(h.n).padStart(3,'0')+'.jpg" alt="Introdução do hino '+h.n+'" onerror="this.closest(\'.cc-intro\').style.display=\'none\'"></div>' : '';
   const missingBox = h.missing ? '<div class="cc-missing">⚠️ '+(h.creditos&&h.creditos[0]?esc(h.creditos[0]):'Página não incluída no PDF de origem.')+'</div>' : '';
   const ytl=ytLinks[n];
   let vivoAqui=false, vivoOutro=false; try{ vivoAqui=!!(AO_VIVO&&AO_VIVO.ativo&&AO_VIVO.musica_id==='cc:'+n); vivoOutro=!!(AO_VIVO&&AO_VIVO.ativo)&&!vivoAqui; }catch(e){}
@@ -472,6 +476,7 @@ function abrirHino(n, keepScroll){
     introImg + missingBox +
     '<div class="cc-tools">'+
       '<button class="tog" id="tc" aria-pressed="'+prefs.cifras+'" onclick="cantorCifras('+n+')">Cifras</button>'+
+      '<button class="tog cc-part" onclick="cantorPartitura('+n+')">📜 PARTITURA</button>'+
       '<span class="chip" '+(prefs.cifras?'':'hidden')+'><button onclick="cantorTransp('+n+',-1)" aria-label="Baixar meio tom">−</button><span class="lbl">Tom <b>'+esc(key)+'</b></span><button onclick="cantorTransp('+n+',1)" aria-label="Subir meio tom">+</button></span>'+
       (st?'<button class="tog" onclick="cantorTomOriginal('+n+')">Tom original</button>':'')+
       '<button class="tog" id="tsc" aria-pressed="'+(scrollOn?'true':'false')+'" onclick="cantorScroll()">'+(scrollOn?'⏸ Pausar rolagem':'▶ Rolagem')+'</button>'+
@@ -481,7 +486,7 @@ function abrirHino(n, keepScroll){
       (adm?'<button class="tog cc-edit" id="ted" aria-pressed="'+editMode+'" onclick="cantorEditToggle('+n+')">'+(editMode?'Concluir edição':'Editar cifras')+'</button>':'')+
     '</div>'+
     (editMode?'<div class="cc-hint">Toque numa sílaba para pôr ou trocar o acorde. Toque em ✎ para editar a linha inteira.'+(isEdited(n)?'<br><button class="tog" onclick="cantorRst('+n+')">Restaurar cifras originais deste hino</button>':'')+'</div>':'')+
-    '<div class="cc-song '+(prefs.cifras||editMode?'':'nochords')+' '+(editMode?'editing':'')+'" style="--cc-fs:'+prefs.fs+'px">'+partes+'</div>'+
+    '<div class="cc-song '+(prefs.cifras||editMode?'':'nochords')+(modoLetra?' letra-pdf':'')+' '+(editMode?'editing':'')+'" style="--cc-fs:'+prefs.fs+'px">'+corpoSong+'</div>'+
     '<nav class="cc-nav">'+(prev?'<a href="javascript:void(0)" onclick="cantorAbrir('+prev.n+')"><small>Anterior</small>'+prev.n+' · '+esc(prev.titulo)+'</a>':'<span></span>')+(next?'<a class="r" href="javascript:void(0)" onclick="cantorAbrir('+next.n+')"><small>Próximo</small>'+next.n+' · '+esc(next.titulo)+'</a>':'<span></span>')+'</nav>'+
   '</main>';
   const c=document.getElementById('content');
@@ -671,6 +676,11 @@ window.cantorFav=function(n,ev){ if(ev){ ev.preventDefault(); ev.stopPropagation
 window.cantorFavHino=function(n){ toggleFav(+n); abrirHino(+n,true); };
 window.cantorFs=function(d){ prefs.fs=Math.min(34,Math.max(14,prefs.fs+d)); savePrefs(); abrirHino(cantorNum,true); };
 window.cantorCifras=function(n){ prefs.cifras=!prefs.cifras; savePrefs(); abrirHino(+n,true); };
+window.cantorPartitura=function(n){
+  const h=byN.get(n);
+  if(window.abrirPartitura) abrirPartitura('partituras/n'+n+'.png', (h&&h.titulo? h.titulo : 'Hino '+n));
+  else window.open('partituras/n'+n+'.png','_blank');
+};
 window.cantorTransp=function(n,d){ const tc=(window.tomCulto?(+window.tomCulto('cc:'+n)||0):0); const atual=Object.prototype.hasOwnProperty.call(prefs.tr,n)?(prefs.tr[n]||0):tc; let st=((atual+d)%12+12)%12; if(st>6) st-=12; if(st===tc) delete prefs.tr[n]; else prefs.tr[n]=st; savePrefs(); abrirHino(+n,true); };
 window.cantorTomOriginal=function(n){ const tc=(window.tomCulto?(+window.tomCulto('cc:'+n)||0):0); if(tc) prefs.tr[n]=0; else delete prefs.tr[n]; savePrefs(); abrirHino(+n,true); };
 window.cantorScroll=function(){ toggleScroll(); };

@@ -336,6 +336,34 @@ window.concluirEvento=async function(ctx,i){
   else toast(rows[0]&&rows[0].data ? '🎉 Evento "'+nm+'" concluído! Já constava no histórico.' : '⚠️ Evento "'+nm+'" concluído, mas sem data para registrar.');
   redesenhar();
 };
+/* ADM: enviar uma música (de qualquer lugar do app) para a playlist */
+window.enviarPraPlaylist=function(musicaId){
+  if(!adm()) return;
+  const m=(DB.musicas||[]).find(x=>x.id===musicaId); if(!m) return toast('Música não encontrada.');
+  const sl=setlist(); if(!sl) return toast('Nenhuma playlist montada ainda. Abra 📅 Playlist e monte a semana.');
+  const evs=(sl.eventos&&sl.eventos.length)? sl.eventos : null;
+  const envia=async function(evIdx){
+    try{
+      if(evs){
+        const ev=evs[evIdx];
+        if((ev.itens||[]).indexOf(musicaId)>=0) return toast('Já está em "'+(ev.nome||'EVENTO')+'".');
+        ev.itens=(ev.itens||[]).concat([musicaId]);
+        await salvarConfig(sl.chave||'setlist', packSl(sl, JSON.parse(JSON.stringify(evs))));
+        toast('\u2705 "'+m.titulo+'" enviada para '+String(ev.nome||'EVENTO')+'!');
+      }else{
+        if((sl.itens||[]).indexOf(musicaId)>=0) return toast('Já está na playlist.');
+        sl.itens=(sl.itens||[]).concat([musicaId]);
+        await salvarConfig(sl.chave||'setlist', packSl(sl, null));
+        toast('\u2705 "'+m.titulo+'" enviada para a playlist!');
+      }
+    }catch(err){ toast('Erro ao enviar: '+(err.message||err)); }
+  };
+  if(!evs) return envia(0);
+  abrirModal('<h3>\u2B07\uFE0F Enviar para a playlist</h3><p style="font-size:13.5px;color:#556;margin-bottom:8px">Escolha o evento que vai receber <b>'+e(m.titulo)+'</b>:</p>'+
+    evs.map((ev,i)=>'<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__enviaPl('+i+')">\uD83D\uDCC5 '+e(String(ev.nome||'EVENTO'))+(ev.data? ' \u00B7 '+dataBR(ev.data):'')+'</button>').join('')+
+    '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button></div>');
+  window.__enviaPl=function(i){ fecharModal(); envia(i); };
+};
 /* ADM: reordenar eventos direto na visualização */
 let _plReord=false, _plReordEvs=null, _plReordCtx='';
 window.plReordenar=function(ctx){
@@ -451,15 +479,16 @@ window.modalPlaylist=function(qual){
   if(!evs && sl.itens.length) evs=[{id:evtUid(),nome:'CULTO',data:'',itens:sl.itens.slice(),concluido:false}];
   if(!evs) evs=[];
   _ed={qual:prox?'prox':'',inicio:ini,fim:fim,evs,tons:Object.assign({},sl.tons),youtube:sl.youtube||'',chave:sl.chave||(prox?'setlist_prox':'setlist'),
-    aberto: evs.length? evs[0].id : null};
+    aberto: evs.length? evs[0].id : null, trocando:null};
   abrirModal('<h3>'+(prox?'🗓️ Playlist da próxima semana':'📅 Playlist desta semana')+'</h3>'+
-    (prox?'<p class="pl-dica">Ao publicar, quem está escalado entre as datas abaixo recebe a notificação e já pode ver letras, cifras e áudios.</p>':'')+
+    (prox?'<p class="pl-dica">Ao publicar, as músicas ficam disponíveis no app. Marque 🔔 abaixo para avisar os membros.</p>':'')+
     '<div class="row2"><div class="field"><label>Início</label><input type="date" id="plIni" value="'+_ed.inicio+'"></div><div class="field"><label>Fim</label><input type="date" id="plFim" value="'+_ed.fim+'"></div></div>'+
     '<div class="pl-dica">📌 <b>Eventos da semana</b> — dê o nome (CULTO, EBD, ANIVERSÁRIO…), escolha a data, busque as músicas com o evento aberto e reordene com ↑↓. Ao salvar, os nomes ficam guardados e já aparecem na próxima playlist.</div>'+
     '<div id="plEvts"></div>'+
     '<button type="button" class="pl-ev-add" onclick="plEvAdd()">➕ Adicionar evento</button>'+
     '<div class="field"><label>▶️ Playlist do YouTube (opcional)</label><input id="plYt" type="url" inputmode="url" placeholder="Cole aqui o link da playlist do YouTube" value="'+e(_ed.youtube)+'"></div>'+
-    (prox?'<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" id="plTodos"> Avisar também todos os membros</label>':'')+
+    '<label class="check-inline" style="color:var(--verde-escuro);display:block;margin:6px 0"><input type="checkbox" id="plAvisar"> 🔔 Avisar membros ao publicar (só marque se quiser notificar)</label>'+
+    (prox?'<label class="check-inline" style="color:var(--verde-escuro);display:block;margin:6px 0"><input type="checkbox" id="plTodos"> Avisar também todos os membros</label>':'')+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" id="plPub" onclick="publicarPlaylist()">📢 Publicar</button></div>');
   renderEvts();
 };
@@ -490,7 +519,7 @@ function renderEvts(){
   }).join('');
   renderLista();
 }
-window.plEvAbre=function(id){ _ed.aberto=(_ed.aberto===id? null : id); renderEvts(); };
+window.plEvAbre=function(id){ _ed.aberto=(_ed.aberto===id? null : id); _ed.trocando=null; renderEvts(); };
 window.plEvAdd=function(){
   const ev={id:evtUid(),nome:'CULTO',data:'',itens:[],concluido:false};
   _ed.evs.push(ev); _ed.aberto=ev.id; renderEvts();
@@ -515,22 +544,39 @@ window.plEvDel=function(id){
 function renderLista(){
   const box=document.getElementById('plLista'); if(!box) return;
   const ev=evAberto(); if(!ev) return;
-  box.innerHTML=(ev.itens||[]).map((id,i)=>{ const f=info(id); const v=_ed.tons[id]||0;
+  const _troc=(_ed&&_ed.trocando!=null);
+  const _banner=_troc? '<div class="pl-dica" style="border:1.5px solid #ea580c;background:#fff7ed;color:#9a3412;margin-bottom:8px">🔁 Substituindo a música #'+(_ed.trocando+1)+' — busque e toque na nova abaixo. <button type="button" class="mini-btn sec" style="margin-left:6px;vertical-align:middle" onclick="plTrocaCancel()">Cancelar</button></div>' : '';
+  box.innerHTML=_banner+(ev.itens||[]).map((id,i)=>{ const f=info(id); const v=_ed.tons[id]||0;
     return '<div class="it"><span>'+(i+1)+'. '+f.ic+'</span><span class="nm">'+e(f.t)+'</span><span style="flex-basis:100%;height:0"></span>'+
       '<button type="button" onclick="plTom('+i+',-1)" aria-label="Baixar tom">−</button><span class="st">'+(v?rotuloSemitom(v):'tom')+'</span><button type="button" onclick="plTom('+i+',1)" aria-label="Subir tom">+</button>'+
-      '<button type="button" onclick="plMov('+i+',-1)" aria-label="Subir na ordem">↑</button><button type="button" onclick="plMov('+i+',1)" aria-label="Descer na ordem">↓</button><button type="button" onclick="plDel('+i+')" aria-label="Remover" style="color:#c0392b">✕</button></div>'; }).join('')
+      '<button type="button" onclick="plMov('+i+',-1)" aria-label="Subir na ordem">↑</button><button type="button" onclick="plMov('+i+',1)" aria-label="Descer na ordem">↓</button><button type="button" onclick="plTrocar('+i+')" aria-label="Substituir" title="Substituir esta música" style="color:#ea580c">🔁</button><button type="button" onclick="plDel('+i+')" aria-label="Remover" style="color:#c0392b">✕</button></div>'; }).join('')
     || '<p style="font-size:13px;color:#9aa;padding:8px">Busque abaixo e toque na música ou no hino para adicionar.</p>';
   const qt=document.getElementById('qt-'+ev.id); if(qt) qt.textContent=(ev.itens||[]).length+' música(s)';
 }
 window.plTom=function(i,d){ const ev=evAberto(); if(!ev) return; const id=ev.itens[i]; let v=(((((_ed.tons[id]||0)+d)%12)+12)%12); if(v>6) v-=12; if(v) _ed.tons[id]=v; else delete _ed.tons[id]; renderLista(); };
 window.plMov=function(i,d){ const ev=evAberto(); if(!ev) return; const j=i+d; if(j<0||j>=ev.itens.length) return; const a=ev.itens; [a[i],a[j]]=[a[j],a[i]]; renderLista(); };
 window.plDel=function(i){ const ev=evAberto(); if(!ev) return; const id=ev.itens.splice(i,1)[0]; delete _ed.tons[id]; renderLista(); };
+window.plTrocar=function(i){ const ev=evAberto(); if(!ev) return; _ed.trocando=(_ed.trocando===i? null : i); renderLista(); if(_ed.trocando!=null) toast('🔁 Busque a nova música abaixo para substituir.'); };
+window.plTrocaCancel=function(){ if(_ed) _ed.trocando=null; renderLista(); };
 function plAdd(id){
   const ev=evAberto();
   if(!ev) return toast('Abra um evento (toque ▸ nele) para adicionar música.');
+  if(_ed && _ed.trocando!=null){
+    const i=_ed.trocando;
+    if(i>=(ev.itens||[]).length){ _ed.trocando=null; renderLista(); return; }
+    const antigo=ev.itens[i];
+    if(antigo===id){ _ed.trocando=null; renderLista(); return toast('Mesma música — nada a trocar.'); }
+    if(ev.itens.indexOf(id)>=0) return toast('Esta música já está neste evento.');
+    ev.itens[i]=id;
+    if(_ed.tons) delete _ed.tons[antigo];
+    _ed.trocando=null;
+    renderLista();
+    return toast('Substituído por: '+info(id).t);
+  }
   if(ev.itens.includes(id)){ toast('Já está neste evento.'); return; }
   ev.itens.push(id); renderLista(); toast('Adicionado: '+info(id).t);
 }
+window.plAdd=plAdd;
 /* busca de músicas do ministério (título ou artista) */
 function achaMus(q){
   q=semAc(q); if(!q) return [];
@@ -583,10 +629,11 @@ window.publicarPlaylist=async function(){
     const todos=!!(document.getElementById('plTodos')||{}).checked;
     const alvos=escaladosNoPeriodo(dados); const ids=new Set(alvos.map(u=>u.id));
     const txt='Culto de '+fmtData(_ed.inicio)+' a '+fmtData(_ed.fim)+': '+itens.length+' música(s)/hino(s) com letra e cifra já estão no app.';
-    if(alvos.length) notificarTodos('🎼','Playlist da próxima semana',txt+' Você está escalado(a) — já pode ensaiar!',u=>ids.has(u.id),{link:'go:playlist:prox',popup:true});
-    if(todos) notificarTodos('🗓️','Playlist da próxima semana',txt,u=>!ids.has(u.id),{link:'go:playlist:prox'});
+    const avisar=!!(document.getElementById('plAvisar')||{}).checked;
+    if(avisar && alvos.length) notificarTodos('🎼','Playlist da próxima semana',txt+' Você está escalado(a) — já pode ensaiar!',u=>ids.has(u.id),{link:'go:playlist:prox',popup:true});
+    if(avisar && todos) notificarTodos('🗓️','Playlist da próxima semana',txt,u=>!ids.has(u.id),{link:'go:playlist:prox'});
     fecharModal();
-    toast(alvos.length? 'Publicada! '+alvos.length+' escalado(s) avisado(s).' : (todos?'Publicada e todos avisados.':'Publicada. Ninguém da escala encontrado nessas datas.'));
+    toast(!avisar? 'Playlist publicada. (nenhum aviso enviado — marque 🔔 se quiser avisar)' : (alvos.length? 'Publicada! '+alvos.length+' escalado(s) avisado(s).' : (todos?'Publicada e todos avisados.':'Publicada. Ninguém da escala encontrado nessas datas.')));
     go('playlist','prox'); return;
   }
   const mus=itens.filter(id=>String(id).indexOf('cc:')!==0);
@@ -603,8 +650,9 @@ window.publicarPlaylist=async function(){
   await salvarConfig('setlist',dados);
   /* se a "esta semana" vinha da lista da próxima semana que já começou, ela foi substituída */
   if(_ed.chave==='setlist_prox') await salvarConfig('setlist_prox',{});
-  notificarTodos('📅','PLAYLIST DISPONÍVEL','A ordem do culto ('+fmtData(_ed.inicio)+' - '+fmtData(_ed.fim)+') já está no app. Confira!',null,{link:'go:playlist'});
-  fecharModal(); toast('Playlist publicada e todos notificados!'); go('playlist','atual');
+  const _av=!!(document.getElementById('plAvisar')||{}).checked;
+  if(_av) notificarTodos('📅','PLAYLIST DISPONÍVEL','A ordem do culto ('+fmtData(_ed.inicio)+' - '+fmtData(_ed.fim)+') já está no app. Confira!',null,{link:'go:playlist'});
+  fecharModal(); toast(_av? 'Playlist publicada e membros avisados!' : 'Playlist publicada. (nenhum aviso enviado — marque 🔔 se quiser avisar)'); go('playlist','atual');
 };
 /* ADM: quando a semana da "próxima playlist" chega, ela passa a ser a desta semana */
 async function promoverProxima(){
