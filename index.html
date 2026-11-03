@@ -184,6 +184,15 @@ a{color:var(--verde-med)}
 .tabs3 button{flex:1;padding:12px;border-radius:12px;background:#fff;color:var(--verde-escuro);font-weight:700;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.08);display:flex;flex-direction:column;align-items:center;gap:3px}
 .tabs3 button .ic{font-size:18px}
 .tabs3 button.active{background:var(--verde-med);color:#fff}
+.mt-tabs{display:flex;gap:6px;margin-bottom:10px}
+.mt-tabs button{flex:1;min-width:0;padding:8px 4px;border-radius:10px;background:#fff;color:var(--verde-escuro);font-weight:700;font-size:12.5px;border:1px solid #e3eae5;cursor:pointer}
+.mt-tabs button b{display:block;font-size:15px}
+.mt-tabs button.active{background:var(--verde-med);color:#fff;border-color:transparent}
+.mt-temas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.mt-temas button{padding:7px 12px;border-radius:999px;background:#fff;border:1px solid #d9e2dd;font-size:12.5px;font-weight:700;color:#345;cursor:pointer}
+.mt-temas button.active{background:#f39c12;color:#fff;border-color:transparent}
+.mt-more{display:flex;justify-content:center;padding:10px 0 4px}
+.mt-count{font-size:12.5px;color:#789}
 .sub-links{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .sub-links button{background:var(--cinza);color:var(--verde-escuro);padding:9px 16px;border-radius:20px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;border:1.5px solid transparent}
 .sub-links button:active{border-color:var(--verde-claro)}
@@ -194,6 +203,19 @@ a{color:var(--verde-med)}
 .zoom-bar button{height:34px;min-width:40px;padding:0 12px;border:1px solid #c9ced6;background:#fff;color:var(--verde-escuro);border-radius:8px;font-weight:800;font-size:15px;cursor:pointer}
 .zoom-bar button.rst{font-weight:600;font-size:13px;color:#789}
 .zoom-bar .zh{font-size:12px;color:#789;font-weight:600}
+/* ---- Mobile: segurança de layout + partitura em tela cheia ---- */
+@media (max-width:640px){
+  .song-head .t,.song-head .a,.page-ttl,.s-nm{overflow-wrap:anywhere}
+  .info-row{flex-wrap:wrap;gap:4px}
+  .tabs3{gap:6px}
+  .tabs3 button{min-width:0;font-size:13px;padding:10px 6px}
+  .modal-bg.mp{padding:0}
+  .modal-bg.mp .modal{max-width:none;width:100%;height:100%;max-height:100%;border-radius:0;padding:10px 10px 14px;display:flex;flex-direction:column}
+  .modal-bg.mp .modal .part-box{max-height:none;flex:1;min-height:0;border-radius:0}
+  .modal-bg.mp .modal .part-dica{display:none}
+  .modal-bg.mp .modal .modal-acts{position:sticky;bottom:0;background:#fff;padding-top:8px}
+  .modal-bg.mp .modal h3{position:sticky;top:-10px;background:#fff;margin:-10px -10px 8px;padding:12px 10px 6px;z-index:2}
+}
 .fs-prev{background:#fffdf5;border:1px solid #efe7c9;border-radius:10px;padding:14px;margin-bottom:12px;color:#2b2b2b;text-align:center}
 .fs-slider{width:100%;accent-color:var(--verde-med);margin:4px 0}
 .fs-row{display:flex;align-items:center;justify-content:space-between;color:#789;font-size:13px}
@@ -569,7 +591,7 @@ const MENU = [
      {id:'cantor', ic:'\uD83D\uDCD6', nm:'Cantor Cristão'} ]},
   {id:'favoritos', ic:'\u2B50', nm:'Favoritos'},
   {id:'escala', ic:'\uD83D\uDCCB', nm:'Escala do Ministério'},
-  {id:'cantadas', ic:'\uD83C\uDFB6', nm:'Músicas que já cantamos'},
+  {id:'cantadas', ic:'\uD83C\uDFB6', nm:'Histórico de músicas'},
   {id:'academia', ic:'\uD83C\uDF93', nm:'Academia de Música', sub:[
      {id:'academia', arg:'tecnicas-vocais', ic:'\uD83C\uDFA4', nm:'Técnicas vocais'},
      {id:'academia', arg:'bateria', ic:'\uD83E\uDD41', nm:'Bateria', grupo:'Instrumentos'},
@@ -601,11 +623,15 @@ function montaMenu(){
 function toggleSub(btn){ btn.classList.toggle('open'); btn.nextElementSibling.classList.toggle('open'); }
 function toggleMenu(open){ $('#sidemenu').classList.toggle('show',open); $('#overlay').classList.toggle('show',open); }
 
-function go(page,arg){ toggleMenu(false); window.scrollTo(0,0);
+let _pagAtual=null; const _scrollMem={};
+function navSave(){ if(_pagAtual!=null) _scrollMem[_pagAtual]=window.scrollY; }
+function go(page,arg){ toggleMenu(false); navSave();
   const u=usuarioAtual(); if(!u) return;
   if(page==='ajuda'){ telaBoasVindas(false); return; }
   const fn = ROTAS[page]; $('#content').innerHTML = fn? fn(arg) : '<div class="empty">Página não encontrada.</div>';
   atualizaBadge();
+  _pagAtual=page;
+  window.scrollTo(0, _scrollMem[page]||0);
 }
 
 function iniciarApp(){
@@ -751,8 +777,9 @@ function salvarSenha(){ const u=usuarioAtual();
 }
 
 /* ---------- Modal generico ---------- */
-function abrirModal(html){ $('#modalBox').innerHTML=html; $('#modalBg').classList.add('show'); }
-function fecharModal(){ $('#modalBg').classList.remove('show'); }
+function abrirModal(html){ $('#modalBox').innerHTML=html; $('#modalBox').classList.remove('modal-part'); $('#modalBg').classList.remove('mp'); $('#modalBg').classList.add('show'); }
+function fecharModal(){ $('#modalBg').classList.remove('show'); $('#modalBox').classList.remove('modal-part'); $('#modalBg').classList.remove('mp'); }
+document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ const bg=document.getElementById('modalBg'); if(bg&&bg.classList.contains('show')){ e.preventDefault(); fecharModal(); } } });
 $('#modalBg').addEventListener('click',e=>{ if(e.target===$('#modalBg')) fecharModal(); });
 </script>
 <script>
@@ -766,6 +793,8 @@ function toggleFav(id,ev){ if(ev) ev.stopPropagation(); const u=usuarioAtual();
   saveDB(); if(musicaAberta===id) abrirMusica(id,abaAtual); else go(paginaMusicas); }
 
 let paginaMusicas='musicas';
+let filtroOrigem='todos', filtroTema='', musLim=30;
+function escA(t){ return esc(t).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 ROTAS.musicas = function(){ paginaMusicas='musicas'; return renderListaMusicas(false); };
 ROTAS.favoritos = function(){ paginaMusicas='favoritos'; return renderListaMusicas(true); };
 
@@ -773,12 +802,23 @@ function renderListaMusicas(soFav){
   const adm=ehAdmin(); const u=usuarioAtual();
   let musicas = DB.musicas.slice();
   if(soFav){ const fv=DB.favoritos[u.email]||[]; musicas=musicas.filter(m=>fv.includes(m.id)); }
+  const cnt={todos:musicas.length,culto:0,telegram:0};
+  musicas.forEach(m=>{ cnt[m.origem==='telegram'?'telegram':'culto']++; });
+  const tabs=`<div class="mt-tabs">
+    <button class="${filtroOrigem==='todos'?'active':''}" onclick="setOrigem('todos')">Todos <b>${cnt.todos}</b></button>
+    <button class="${filtroOrigem==='culto'?'active':''}" onclick="setOrigem('culto')">Culto <b>${cnt.culto}</b></button>
+    <button class="${filtroOrigem==='telegram'?'active':''}" onclick="setOrigem('telegram')">Telegram <b>${cnt.telegram}</b></button></div>`;
+  const temas=[...new Set(musicas.map(m=>String(m.tema||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
+  const chips = temas.length? `<div class="mt-temas"><button class="${filtroTema?'':'active'}" onclick="setTema('')">🏷️ Todas</button>`+
+    temas.map(t=>`<button class="${filtroTema===t?'active':''}" data-t="${escA(t)}" onclick="setTema(this.dataset.t)">${esc(t)}</button>`).join('')+`</div>` : '';
   const letras='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-  const comLetra=new Set(musicas.map(m=>(m.titulo[0]||'#').toUpperCase()));
+  const comLetra=new Set(musicas.map(m=>(ntTit(m.titulo).charAt(0)||'#').toUpperCase()));
   const alpha = `<div class="alpha-bar"><button class="${filtroLetra==='TODAS'?'active':''}" onclick="setLetra('TODAS')">Tudo</button>`+
     letras.map(l=>`<button class="${filtroLetra===l?'active':''} ${comLetra.has(l)?'has':''}" onclick="setLetra('${l}')">${l}</button>`).join('')+`</div>`;
   return `<div class="page"><div class="page-ttl">${soFav?'\u2B50 Favoritos':'\uD83C\uDFB5 Músicas'}</div>
-    <input class="search-box" id="buscaMusica" placeholder="\uD83D\uDD0D Buscar música ou artista..." value="${esc(filtroBusca)}" oninput="buscarMusicas(this.value)">
+    ${tabs}
+    <input class="search-box" id="buscaMusica" placeholder="\uD83D\uDD0D Buscar por título, artista ou trecho da letra" value="${esc(filtroBusca)}" oninput="buscarMusicas(this.value)">
+    ${chips}
     ${alpha}
     ${adm&&!soFav? `<button class="mini-btn" style="margin-bottom:12px" onclick="modalNovaMusica()">\u2795 Adicionar música</button> <button class="mini-btn sec" style="margin-bottom:12px" onclick="modalTitulosParecidos()">🔍 Títulos parecidos</button>`:''}
     <div id="listaMusicas">${listaMusicasHTML(soFav)}</div></div>`;
@@ -786,18 +826,33 @@ function renderListaMusicas(soFav){
 function listaMusicasHTML(soFav){
   const u=usuarioAtual(); let musicas=DB.musicas.slice();
   if(soFav){ const fv=DB.favoritos[u.email]||[]; musicas=musicas.filter(m=>fv.includes(m.id)); }
+  musicas=musicas.filter(m=>{
+    if(filtroOrigem!=='todos' && (m.origem||'culto')!==filtroOrigem) return false;
+    if(filtroTema && String(m.tema||'').trim()!==filtroTema) return false;
+    return true;
+  });
+  const q=ntTit(filtroBusca).trim().split(/\s+/).filter(Boolean);
   let vis=musicas.filter(m=>{
-    const okL = filtroLetra==='TODAS' || (m.titulo[0]||'').toUpperCase()===filtroLetra;
-    const okB = !filtroBusca || (m.titulo+' '+(m.artista||'')).toLowerCase().includes(filtroBusca.toLowerCase());
-    return okL&&okB; });
+    const pri=(ntTit(m.titulo).charAt(0)||'#').toUpperCase();
+    const okL = filtroLetra==='TODAS' || pri===filtroLetra;
+    const alvo=ntTit(m.titulo+' '+(m.artista||'')+' '+String(m.letra||'').slice(0,4000));
+    return okL && q.every(t=>alvo.includes(t)); });
   vis.sort((a,b)=>a.titulo.localeCompare(b.titulo,'pt'));
-  return vis.length? vis.map(m=>`<div class="song-row" onclick="abrirMusica('${m.id}')">
-      <div class="s-ic">\uD83C\uDFB5</div><div style="flex:1"><div class="s-nm">${esc(m.titulo)}</div><div class="s-ar">${esc(m.artista||'')}</div></div>
+  const total=vis.length, mostrados=vis.slice(0,musLim);
+  const rows = mostrados.length? mostrados.map(m=>`<div class="song-row" onclick="abrirMusica('${m.id}')">
+      <div class="s-ic">\uD83C\uDFB5</div><div style="flex:1;min-width:0"><div class="s-nm">${esc(m.titulo)}</div><div class="s-ar">${esc(m.artista||'')}${m.tema?' · 🏷️ '+esc(m.tema):''}</div></div>
       <span class="star ${ehFav(m.id)?'on':''}" onclick="toggleFav('${m.id}',event)">\u2605</span></div>`).join('')
     : `<div class="empty"><div class="big">${soFav?'\u2B50':'\uD83C\uDFB5'}</div>${soFav?'Você ainda não tem favoritos. Toque na estrela de uma música.':'Nenhuma música encontrada.'}</div>`;
+  const rodape = total>musLim
+    ? `<div class="mt-more"><button class="mini-btn sec" onclick="musMais()">▶ Ver mais (${total-musLim} restantes)</button></div>`
+    : (total? `<div class="mt-more"><span class="mt-count">${total} música(s)</span></div>` : '');
+  return rows+rodape;
 }
-function buscarMusicas(val){ filtroBusca=val; const soFav=(typeof paginaMusicas!=='undefined' && paginaMusicas==='favoritos'); const el=document.getElementById('listaMusicas'); if(el) el.innerHTML=listaMusicasHTML(soFav); }
-function setLetra(l){ filtroLetra=l; go(paginaMusicas); }
+function buscarMusicas(val){ filtroBusca=val; musLim=30; const soFav=(typeof paginaMusicas!=='undefined' && paginaMusicas==='favoritos'); const el=document.getElementById('listaMusicas'); if(el) el.innerHTML=listaMusicasHTML(soFav); }
+function setLetra(l){ filtroLetra=l; musLim=30; go(paginaMusicas); }
+function setOrigem(o){ filtroOrigem=o; musLim=30; go(paginaMusicas); }
+function setTema(t){ filtroTema=t||''; musLim=30; go(paginaMusicas); }
+function musMais(){ musLim+=30; const el=document.getElementById('listaMusicas'); if(el) el.innerHTML=listaMusicasHTML(paginaMusicas==='favoritos'); }
 /* ---------- 🔍 Títulos parecidos (ADM): agrupa variantes para escolher quais ficam ---------- */
 function ntTit(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); }
 function chaveTit(t, art, fullSet){
@@ -879,13 +934,15 @@ function abrirPartitura(url, titulo){
     '<div class="part-box"><img id="partImg" src="'+esc(url)+'" alt="Partitura de '+esc(titulo||'')+'" onclick="this.classList.toggle(\'zoom\')" onerror="this.parentElement.innerHTML=\'<p style=&quot;padding:30px;color:#789&quot;>Partitura ainda n&atilde;o dispon&iacute;vel neste aparelho.</p>\'"></div>'+
     '<p class="part-dica">Toque na imagem para ampliar (arraste para ver o resto da página).</p>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Fechar</button></div>');
+  document.getElementById('modalBox').classList.add('modal-part');
+  document.getElementById('modalBg').classList.add('mp');
 }
 function abrirPartituraDe(id){
   const m=(DB.musicas||[]).find(x=>x.id===id); if(!m) return;
   const part=partituraDe(m); if(!part) return toast('Sem partitura cadastrada para este título.');
   abrirPartitura(part, m.titulo);
 }
-function abrirMusica(id,aba){ musicaAberta=id; abaAtual=aba||'cifra';
+function abrirMusica(id,aba){ if(typeof navSave==='function') navSave(); if(typeof _pagAtual!=='undefined') _pagAtual='musica'; musicaAberta=id; abaAtual=aba||'cifra';
   toggleMenu(false); window.scrollTo(0,0);
   $('#content').innerHTML = renderMusica(); }
 
@@ -919,7 +976,9 @@ function renderMusica(){
       ${part?`<button onclick="abrirPartitura('${part}','${esc(m.titulo).replace(/'/g,'\'')}')"><span class="ic">\uD83D\uDCD6</span>Partitura</button>`:''}
       <button class="${abaAtual==='letra'?'active':''}" onclick="abrirMusica('${m.id}','letra')"><span class="ic">\uD83D\uDCDD</span>Letra</button>
       <button class="${abaAtual==='audio'?'active':''}" onclick="abrirMusica('${m.id}','audio')"><span class="ic">\uD83C\uDFA7</span>Áudio</button></div>
-    ${adm?`<button class="mini-btn" style="margin:10px 0 2px" onclick="enviarPraPlaylist('${m.id}')">➕ Enviar para a playlist</button>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px">
+      ${adm?`<button class="mini-btn" style="margin:0" onclick="enviarPraPlaylist('${m.id}')">➕ Enviar para a playlist</button>`:''}
+      <button class="mini-btn" style="margin:0" onclick="musWhats('${m.id}')">📱 WhatsApp</button></div>
     ${corpo}</div>`;
 }
 function realcaCifra(txt){ // realca acordes (linhas com padrao de acordes)
@@ -927,7 +986,17 @@ function realcaCifra(txt){ // realca acordes (linhas com padrao de acordes)
     if(/^[\s]*([A-G][#b]?(m|maj|min|sus|dim|aug|add)?[0-9]?(\/[A-G][#b]?)?[\s]*)+$/.test(l) && l.trim())
       return '<span class="ch">'+l+'</span>'; return l; }).join('\n');
 }
-function renderCifraView(c){ if(!c) return ''; if(/<[a-z!/][\s\S]*>/i.test(c)) return limparCifraHtml(c); return realcaCifra(c); }
+function renderCifraView(c){ if(!c) return ''; if(/<[a-z!\/][\s\S]*>/i.test(c)) return limparCifraHtml(c); return realcaCifra(c); }
+function musWhatsTxt(id, aba){
+  const m=DB.musicas.find(x=>x.id===id); if(!m) return '';
+  const a=aba||abaAtual;
+  let corpo='';
+  if(a==='letra') corpo=String(m.letra||'').trim();
+  else corpo=String(m.cifra||'').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+  if(!corpo) corpo='(sem '+(a==='letra'?'letra':'cifra')+' cadastrada ainda)';
+  return '*'+m.titulo+'*'+(m.artista?' — '+m.artista:'')+'\n\n'+corpo+'\n\n— enviado do app Música Ministração';
+}
+window.musWhats=function(id, aba){ const t=musWhatsTxt(id, aba); if(!t) return; window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank'); };
 
 /* ============== PLAYER (audios do Google Drive) ============== */
 function driveUrl(id){ return 'https://drive.google.com/uc?export=download&id='+id; }
@@ -967,6 +1036,7 @@ function editorCifra(id){ if(!ehAdmin()) return; musicaAberta=id;
       <div class="field"><label>Título</label><input id="edTit" value="${esc(m.titulo)}"></div>
       <div class="field"><label>Artista</label><input id="edArt" value="${esc(m.artista||'')}"></div>
       <div class="field"><label>Link do vídeo no YouTube</label><input id="edYt" value="${esc(m.youtube||'')}" placeholder="https://youtube.com/watch?v=..."></div>
+      <div class="field"><label>Coleção / tema</label><input id="edTema" list="temasDl" value="${escA(m.tema||'')}" placeholder="Ex.: Ceia, Páscoa, Batalha espiritual"><datalist id="temasDl"><option>Ceia</option><option>Páscoa</option><option>Natal</option><option>Ação de Graças</option><option>Batalha espiritual</option><option>Adoração</option><option>Consagração</option><option>Missões</option></datalist></div>
     </div>
     <div class="card"><h3>Cifra</h3>
       <div class="editor-tb" id="edTb">
@@ -1722,12 +1792,18 @@ async function removerAudio(id,i){ const m=DB.musicas.find(x=>x.id===id); m.audi
 }
 async function salvarCifra(id,publicar){ const m=DB.musicas.find(x=>x.id===id); if(!m) return;
   m.titulo=$('#edTit').value.trim()||m.titulo; m.artista=$('#edArt').value.trim(); m.youtube=$('#edYt').value.trim();
+  m.tema=$('#edTema')?$('#edTema').value.trim():'';
   m.cifra=getCifraHtml(); m.letra=$('#edLetra').value;
   const jaPub=m.publicada; if(publicar) m.publicada=true;
-  await sb.from('musicas').update({titulo:m.titulo,artista:m.artista,youtube:m.youtube,cifra:m.cifra,letra:m.letra,dados:{publicada:!!m.publicada}}).eq('id',id);
+  const upd={titulo:m.titulo,artista:m.artista,youtube:m.youtube,cifra:m.cifra,letra:m.letra,tema:m.tema||null,dados:{publicada:!!m.publicada}};
+  let {error}=await sb.from('musicas').update(upd).eq('id',id);
+  if(error && /tema/i.test(error.message||'')){ delete upd.tema;
+    const r2=await sb.from('musicas').update(upd).eq('id',id); error=r2.error;
+    if(!error) toast('Salvo! Para usar coleções, rode o SQL lote9_tema.sql no Editor.'); }
+  else if(error){ toast('Erro ao salvar: '+error.message); }
   if(publicar){ if(!jaPub) notificarTodos('\uD83C\uDFBC','Nova música disponível','\"'+m.titulo+'\" foi publicada no app. Confira a cifra, letra e audio!');
     toast('Publicado!'+((typeof APP_CFG!=='undefined'&&APP_CFG.notif_cfg&&APP_CFG.notif_cfg.auto_musica)?' Todos foram notificados.':' Avise pela Central de avisos quando quiser.')); _editando=false; abrirMusica(id,'cifra'); }
-  else toast('Rascunho salvo.');
+  else if(!error) toast('Rascunho salvo.');
 }
 async function publicarPlaylist(){ const ini=$('#plIni').value, fim=$('#plFim').value;
   if(!ini||!fim) return toast('Informe inicio e fim.');

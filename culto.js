@@ -277,8 +277,8 @@ function linhaCantada(id,ev,sl){
   return {data,dia,evento,musica:m.titulo||'',artista:m.artista||'',tom:v?rotuloSemitom(v):'',web:m.youtube||''};
 }
 /* Grava os eventos do setlist em "Músicas já cantadas" (idempotente):
-   só insere música+data que ainda não existe. Chamado automaticamente a
-   cada salvamento da playlist e também pelo concluirEvento. */
+   só insere música+data que ainda não existe. Chamado SOMENTE pelo
+   concluirEvento (sem histórico ao montar/publicar a playlist). */
 let _gravandoEv=false;
 async function gravarEventos(sl){
   if(!sl||!Array.isArray(sl.eventos)||!sl.eventos.length) return 0;
@@ -930,28 +930,5 @@ if(typeof MENU!=='undefined' && Array.isArray(MENU) && !MENU.find(m=>m.id==='fer
 }
 if(typeof _booted!=='undefined' && _booted){ try{ montaMenu(); }catch(_){} }
 
-/* ---------- automático: ao salvar a playlist, cada evento já é
-   registrado em "Músicas já cantadas" no seu respectivo dia ---------- */
-(function(){
-  try{
-    if(typeof window==='undefined'||typeof window.salvarConfig!=='function') return;
-    const _sc=window.salvarConfig;
-    const novo=function(chave,valor){
-      const r=_sc.apply(this,arguments);
-      try{
-        if((chave==='setlist'||chave==='setlist_prox')&&valor&&Array.isArray(valor.eventos)&&valor.eventos.length){
-          setTimeout(()=>{
-            Promise.resolve(r)
-              .then(()=>gravarEventos(valor))
-              .then(n=>{ if(n>0&&typeof toast==='function') toast(n+' música(s) nova(s) já em "Músicas já cantadas"'); })
-              .catch(()=>{});
-          },0);
-        }
-      }catch(_){}
-      return r;
-    };
-    window.salvarConfig=novo;
-    try{ salvarConfig=novo; }catch(_){}
-  }catch(_){}
-})();
+
 })();

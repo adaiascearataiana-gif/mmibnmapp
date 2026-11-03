@@ -26,18 +26,26 @@ function evento(m){ const [a,b]=partes(m.e); if(!a&&!b) return 'Não informado';
   if(ehCulto(a)){ if(b) return tit(b); if(/^ebd$|escola b/i.test(a)) return 'Culto regular'; const x=a.replace(/culto\s*(d[aeo]s?\s*)?/i,'').trim(); return /^(noite|manh[aã]|tarde|doutrina|ora[cç][aã]o)$/i.test(x)||!x? 'Culto regular' : tit(x); }
   return b && !ehCulto(b) ? tit(a)+' ('+b+')' : tit(a); }
 let CACHE=null, CACHE_REF=null;
+function temaDe(tit){
+  try{
+    const k=sem(tituloLimpo(tit));
+    const arr=(typeof DB!=='undefined'&&DB.musicas)||[];
+    for(let i=0;i<arr.length;i++){ const t=String(arr[i].tema||'').trim(); if(t && sem(tituloLimpo(arr[i].titulo))===k) return t; }
+  }catch(e){}
+  return '';
+}
 function dados(){
   if(CACHE && CACHE_REF===MUSICAS_CANTADAS) return CACHE;
   CACHE_REF=MUSICAS_CANTADAS;
-  CACHE=(MUSICAS_CANTADAS||[]).map((m,i)=>{ const dt=dataDe(m); return {m,i,dt,data:fmt(dt),mes:chaveMes(dt),letra:letra(m),artista:artista(m),culto:culto(m),evento:evento(m),dia:tit(String(m.di||'').replace(/\n/g,' ')),busca:sem([m.m,m.a,m.e,m.d,m.di,m.t].join(' '))}; });
+  CACHE=(MUSICAS_CANTADAS||[]).map((m,i)=>{ const dt=dataDe(m); return {m,i,dt,data:fmt(dt),mes:chaveMes(dt),letra:letra(m),artista:artista(m),culto:culto(m),evento:evento(m),tema:temaDe(m.m),dia:tit(String(m.di||'').replace(/\n/g,' ')),busca:sem([m.m,m.a,m.e,m.d,m.di,m.t].join(' '))}; });
   return CACHE;
 }
 
 /* ---- estado dos filtros ---- */
-const F={q:'',letra:'',artista:'',culto:'',evento:'',mes:'',data:'',dia:'',ord:'recentes'};
+const F={q:'',letra:'',artista:'',culto:'',evento:'',mes:'',data:'',dia:'',tema:'',ord:'recentes'};
 function filtrar(){
   const q=sem(F.q).split(/\s+/).filter(Boolean);
-  let r=dados().filter(x=>(!F.letra||x.letra===F.letra)&&(!F.artista||x.artista===F.artista)&&(!F.culto||x.culto===F.culto)&&(!F.evento||x.evento===F.evento)&&(!F.mes||x.mes===F.mes)&&(!F.data||x.data===F.data)&&(!F.dia||x.dia===F.dia)&&q.every(t=>x.busca.includes(t)));
+  let r=dados().filter(x=>(!F.letra||x.letra===F.letra)&&(!F.artista||x.artista===F.artista)&&(!F.culto||x.culto===F.culto)&&(!F.evento||x.evento===F.evento)&&(!F.mes||x.mes===F.mes)&&(!F.data||x.data===F.data)&&(!F.dia||x.dia===F.dia)&&(!F.tema||x.tema===F.tema)&&q.every(t=>x.busca.includes(t)));
   const porData=(a,b)=>((b.dt?b.dt.getTime():0)-(a.dt?a.dt.getTime():0))||(a.i-b.i);
   if(F.ord==='recentes') r.sort(porData);
   else if(F.ord==='antigas') r.sort((a,b)=>-porData(a,b));
@@ -73,7 +81,7 @@ function listaHTML(){
   }
   return r.map(item).join('');
 }
-function ativos(){ return ['letra','artista','culto','evento','mes','data','dia'].filter(k=>F[k]).length+(F.q?1:0); }
+function ativos(){ return ['letra','artista','culto','evento','mes','data','dia','tema'].filter(k=>F[k]).length+(F.q?1:0); }
 function atualiza(){
   const l=document.getElementById('fcLista'); if(l) l.innerHTML=listaHTML();
   const c=document.getElementById('ctCont'); if(c) c.textContent=filtrar().length+' de '+dados().length+' registros';
@@ -81,7 +89,7 @@ function atualiza(){
 }
 window.ctFiltro=function(k,v){ F[k]=v; if(k==='mes') F.data=''; if(['letra','mes','ord'].includes(k)) { go('cantadas'); return; } atualiza(); };
 window.ctBusca=function(v){ F.q=v; atualiza(); };
-window.ctLimpar=function(){ Object.assign(F,{q:'',letra:'',artista:'',culto:'',evento:'',mes:'',data:'',dia:''}); go('cantadas'); };
+window.ctLimpar=function(){ Object.assign(F,{q:'',letra:'',artista:'',culto:'',evento:'',mes:'',data:'',dia:'',tema:''}); go('cantadas'); };
 window.ctFiltrosAbertos=function(){ const b=document.getElementById('ctMais'); if(!b) return; const ab=b.classList.toggle('show'); localStorage.setItem('ibnm_ct_abertos',ab?'1':''); };
 
 if(typeof ROTAS!=='undefined'){
@@ -90,7 +98,7 @@ if(typeof ROTAS!=='undefined'){
     const letras=[...new Set(D.map(x=>x.letra))]; const LS='ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
     const datas=[...new Set(D.filter(x=>!F.mes||x.mes===F.mes).map(x=>x.data))].sort((a,b)=>{ const p=s=>s.split('/').reverse().join(''); return p(b).localeCompare(p(a)); });
     const aberto=localStorage.getItem('ibnm_ct_abertos')==='1'||ativos()>0;
-    return '<div class="page"><div class="page-ttl">🎶 Músicas que já cantamos</div>'+
+    return '<div class="page"><div class="page-ttl">🎶 Histórico de músicas</div>'+
       '<button id="fcStatsBtn" class="st-btn" onclick="toggleStatsCantadas()">📊 Ver estatísticas</button><div id="fcStats" class="st-wrap" style="display:none"></div>'+
       '<div class="ct-bar"><input class="busca-cant" type="search" placeholder="🔎 Buscar música, artista, culto ou data…" value="'+e(F.q)+'" oninput="ctBusca(this.value)">'+
       '<div class="ct-az"><button class="'+(!F.letra?'on':'')+'" onclick="ctFiltro(\'letra\',\'\')">Todas</button>'+LS.map(l=>'<button class="'+(F.letra===l?'on':'')+(letras.includes(l)?'':' vz')+'" '+(letras.includes(l)?'':'disabled')+' onclick="ctFiltro(\'letra\',\''+l+'\')">'+l+'</button>').join('')+'</div>'+
@@ -104,6 +112,7 @@ if(typeof ROTAS!=='undefined'){
         '<label>📆 Mês<select onchange="ctFiltro(\'mes\',this.value)">'+opcoes('mes',F.mes,'Todos',(a,b)=>b.localeCompare(a))+'</select></label>'+
         '<label>📅 Data<select onchange="ctFiltro(\'data\',this.value)"><option value="">Todas</option>'+datas.map(d=>'<option '+(F.data===d?'selected':'')+'>'+e(d)+'</option>').join('')+'</select></label>'+
         '<label>🗓️ Dia da semana<select onchange="ctFiltro(\'dia\',this.value)">'+opcoes('dia',F.dia,'Todos')+'</select></label>'+
+        '<label>🏷️ Coleção / tema<select onchange="ctFiltro(\'tema\',this.value)">'+opcoes('tema',F.tema,'Todas')+'</select></label>'+
       '</div></div>'+
       '<div class="ct-cont" id="ctCont">'+filtrar().length+' de '+D.length+' registros</div>'+
       '<div id="fcLista" class="fc-wrap">'+listaHTML()+'</div></div>';

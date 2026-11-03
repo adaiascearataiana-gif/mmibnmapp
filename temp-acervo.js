@@ -31,6 +31,7 @@ const css = `
 .tmp-ac-r .tx b{display:block;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tmp-ac-r .tx small{color:#789;font-size:11.5px}
 .tmp-ac-r button{border:1px solid #c9ced6;background:#fff;border-radius:8px;height:32px;padding:0 10px;font-weight:800;color:var(--verde-escuro);cursor:pointer;flex:none}
+.tmp-ac-r button.tmp-ac-del{border-color:#e6b0aa;color:#c0392b}
 .tmp-ac-busca{width:100%;margin-bottom:8px;box-sizing:border-box}
 .tmp-ac-dica{font-size:12.5px;color:#556;background:#eef6f2;border-radius:10px;padding:8px 10px;margin:6px 0}
 .tmp-ac-form .field{margin-top:8px}
@@ -53,8 +54,8 @@ if(typeof ROTAS!=='undefined' && ROTAS.cantadas){
     if(!adm() || typeof h!=='string') return h;
     if(h.indexOf('tmp-ac-bar')>=0) return h;
     if(h.indexOf(ANCORA)>=0) return h.replace(ANCORA, ANCORA+BARRA);
-    return h.replace('<div class="page-ttl">🎶 Músicas que já cantamos</div>',
-      '<div class="page-ttl">🎶 Músicas que já cantamos</div>'+BARRA);
+    return h.replace('<div class="page-ttl">🎶 Histórico de músicas</div>',
+      '<div class="page-ttl">🎶 Histórico de músicas</div>'+BARRA);
   };
 }
 
@@ -65,7 +66,7 @@ let _regs = [];
 
 window.tmpAcEditar = async function(){
   if(!adm()) return;
-  abrirModal('<h3>✏️ Editar registros</h3><div class="tmp-ac-dica">Toque em ✏️ para editar os campos de um registro ou 🗑 para excluí-lo.</div><div id="tmpAcBox">Carregando…</div>'+
+  abrirModal('<h3>✏️ Editar registros</h3><div class="tmp-ac-dica">Toque em ✏️ para editar os campos. Use 🗑 ao lado do lápis para excluir.</div><div id="tmpAcBox">Carregando…</div>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Fechar</button></div>');
   try{
     const {data, error} = await sb.from('musicas_cantadas').select('*').order('ordem',{ascending:true}).limit(10000);
@@ -85,7 +86,7 @@ window.tmpAcLista = function(q){
       const idx = _regs.indexOf(x);
       return '<div class="tmp-ac-r"><span class="tx"><b>'+e(x.musica||'(sem música)')+'</b>'+
         '<small>'+e(x.data||'sem data')+(x.dia?' · '+e(x.dia):'')+(x.evento?' · '+e(x.evento):'')+(x.artista?' · '+e(x.artista):'')+'</small></span>'+
-        '<button onclick="tmpAcAbrir('+idx+')">✏️</button></div>';
+        '<button onclick="tmpAcAbrir('+idx+')">✏️</button><button class="tmp-ac-del" onclick="tmpAcExcluir('+idx+')" aria-label="Excluir registro">🗑</button></div>';
     }).join('') : '<div class="tmp-ac-r"><span class="tx"><b>Nenhum registro.</b></span></div>')+
     '</div>';
   const inp = box.querySelector('.tmp-ac-busca');
@@ -106,7 +107,6 @@ window.tmpAcAbrir = function(i){
     '</div>'+
     '<div class="modal-acts" style="flex-wrap:wrap">'+
       '<button class="btn btn-dark" onclick="tmpAcLista(\'\')">← Voltar</button>'+
-      '<button class="btn" style="border:1px solid #c0392b;color:#c0392b;background:#fff" onclick="tmpAcExcluir('+i+')">🗑 Excluir</button>'+
       '<button class="btn btn-primary" onclick="tmpAcSalvar('+i+')">💾 Salvar</button>'+
     '</div>';
 };

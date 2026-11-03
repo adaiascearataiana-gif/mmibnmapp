@@ -227,32 +227,8 @@ if(typeof window.cantorAbrir==='function'){ const _ca=window.cantorAbrir; window
 
 /* ---------- 5) busca e A–Z sem depender de acento ---------- */
 const letra1 = t => normTxt(t).replace(/^[^a-z0-9]+/,'').charAt(0).toUpperCase() || '#';
-if(typeof listaMusicasHTML==='function'){
-  window.listaMusicasHTML=listaMusicasHTML=function(soFav){
-    const u=usuarioAtual(); let musicas=DB.musicas.slice();
-    if(soFav){ const fv=DB.favoritos[u.email]||[]; musicas=musicas.filter(m=>fv.includes(m.id)); }
-    const q=normTxt(filtroBusca).trim().split(/\s+/).filter(Boolean);
-    const vis=musicas.filter(m=>{
-      const okL = filtroLetra==='TODAS' || letra1(m.titulo)===filtroLetra;
-      const alvo=normTxt(m.titulo+' '+(m.artista||'')+' '+String(m.letra||'').slice(0,4000));
-      return okL && q.every(t=>alvo.includes(t)); });
-    vis.sort((a,b)=>a.titulo.localeCompare(b.titulo,'pt'));
-    return vis.length? vis.map(m=>`<div class="song-row" onclick="abrirMusica('${m.id}')">
-      <div class="s-ic">🎵</div><div style="flex:1;min-width:0"><div class="s-nm">${esc(m.titulo)}</div><div class="s-ar">${esc(m.artista||'')}</div></div>
-      <span class="star ${ehFav(m.id)?'on':''}" role="button" aria-label="Favoritar" onclick="toggleFav('${m.id}',event)">★</span></div>`).join('')
-      : `<div class="empty"><div class="big">${soFav?'⭐':'🎵'}</div>${soFav?'Você ainda não tem favoritos. Toque na estrela de uma música.':'Nenhuma música encontrada.'}</div>`;
-  };
-}
-if(typeof renderListaMusicas==='function'){
-  const _rl=renderListaMusicas;
-  window.renderListaMusicas=renderListaMusicas=function(soFav){
-    let html=_rl(soFav);
-    const tem=new Set(DB.musicas.map(m=>letra1(m.titulo)));
-    html=html.replace(/<button class="([^"]*)" onclick="setLetra\('([A-Z])'\)">/g,(x,cls,l)=>'<button class="'+cls.replace(/\bhas\b/g,'').trim()+(tem.has(l)?' has':'')+'" onclick="setLetra(\''+l+'\')">');
-    html=html.replace('placeholder="🔍 Buscar música ou artista..."','placeholder="🔍 Buscar por título, artista ou trecho da letra"');
-    return html;
-  };
-}
+/* listaMusicasHTML/renderListaMusicas: movidos para o index.html (lote9 —
+   abas Todos|Culto|Telegram, coleções/tema e paginação). */
 
 /* ---------- 6) AO VIVO com hinos do Cantor Cristão ---------- */
 window.ccAoVivo=function(n){
@@ -293,6 +269,15 @@ window.ccCompartilhar=function(n){
   if(navigator.share){ navigator.share({title:txt,text:txt,url}).catch(()=>{}); }
   else if(navigator.clipboard){ navigator.clipboard.writeText(txt+'\n'+url).then(()=>toast('Link copiado!'),()=>prompt('Copie o link:',url)); }
   else prompt('Copie o link:',url);
+};
+window.ccWhats=function(n){
+  const hh=(window.HINOS||[]).find(x=>x.n===+n); if(!hh) return;
+  let corpo='';
+  try{ corpo=(hh.partes||[]).map(p=>(p.tipo==='coro'?'\n— Coro —\n':'\n')+(p.linhas||[]).join('\n')).join('\n'); }catch(e){ corpo=''; }
+  if(!corpo) corpo=String(hh.letra||'');
+  if(!corpo) return toast('Hino sem letra/cifra para compartilhar.');
+  const txt='*Hino '+n+' — '+hh.titulo+'*'+(hh.tom?' (Tom '+hh.tom+')':'')+'\n\n'+corpo+'\n\n— Cantor Cristão · app Música Ministração';
+  window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
 };
 if(typeof iniciarApp==='function'){
   const _ia=iniciarApp;
@@ -583,14 +568,7 @@ window.salvarGravacao=async function(){
 };
 window.descartarGravacao=function(){ REC=null; const b=$i('auRec'); if(b) b.innerHTML=''; };
 
-/* ---- atalho na aba Cifra para o ADM ---- */
-const _rm2=renderMusica;
-window.renderMusica=renderMusica=function(){
-  let h=_rm2.apply(this,arguments);
-  try{ if(typeof h==='string' && abaAtual==='cifra' && ehAdmin()){ const m=DB.musicas.find(x=>x.id===musicaAberta);
-    const k=h.indexOf('<div class="zoom-bar">'); if(m && k>=0) h=h.slice(0,k)+'<button class="mini-btn sec" style="margin-bottom:10px;margin-left:6px" onclick="abrirMusica(\''+m.id+'\',\'audio\')">🎧 Áudios ('+((m.audios||[]).length)+')</button>'+h.slice(k); } }catch(_){}
-  return h;
-};
+
 
 const st=document.createElement('style'); st.textContent=`
 .au-card h3{display:flex;align-items:center;gap:8px}

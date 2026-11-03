@@ -50,6 +50,7 @@ const clean = l => strip(l).replace(/(\S)\s*-\s+(?=\S)/g,'$1').replace(/(\S)\s+-
 .cc-tools{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0;align-items:center}
 .cc-tools .tog{height:38px;padding:0 13px;border:1px solid var(--verde-med);background:#f3faf5;color:var(--verde-escuro);font-weight:700;font-size:13px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;text-decoration:none}
 .cc-tools .tog[aria-pressed="true"]{background:var(--verde-med);color:#fff}
+.cc-tools .tog.cc-part{margin:0;position:static;height:38px;box-sizing:border-box;white-space:nowrap}
 .cc-tools .tog.cc-edit[aria-pressed="true"]{background:var(--dourado);border-color:var(--dourado-esc);color:var(--verde-escuro)}
 .cc-tools .cc-yt-chip{border-color:#c0392b;color:#c0392b;background:#fdf1ef}
 .cc-tools .chip{display:inline-flex;align-items:center;gap:2px;height:38px;padding:0 6px;border:1px solid var(--dourado-esc);background:#fffbea;border-radius:10px}
@@ -63,6 +64,8 @@ const clean = l => strip(l).replace(/(\S)\s*-\s+(?=\S)/g,'$1').replace(/(\S)\s+-
 .cc-part.coro{background:#fffbea;border-left:3px solid var(--dourado);border-radius:8px;padding:8px 10px 4px 12px;margin-top:14px}
 .cc-part.coro .pn{background:var(--dourado);color:var(--verde-escuro)}
 .cc-part.estrofe{padding-left:0}
+.cc-letbaix{margin:18px 0 6px;text-align:center}
+.cc-letbaix .cc-song{margin-top:12px;text-align:left;background:#fff;border:1px solid #e3eae5;border-radius:10px;padding:10px 12px}
 .cc-song .ln{margin:0 0 .45em;position:relative}
 .cc-song .w{display:inline-flex;white-space:pre;vertical-align:top}
 .cc-song .p{display:inline-flex;flex-direction:column;align-items:flex-start;vertical-align:top}
@@ -464,6 +467,7 @@ function abrirHino(n, keepScroll){
     '<button class="ib" onclick="cantorFs(-2)" aria-label="Diminuir letra">A−</button>'+
     '<button class="ib" onclick="cantorFs(2)" aria-label="Aumentar letra">A+</button>'+
     '<button class="ib" onclick="ccCompartilhar('+n+')" aria-label="Compartilhar hino">↗</button>'+
+    '<button class="ib" onclick="ccWhats('+n+')" aria-label="Enviar no WhatsApp">📱</button>'+
     '<button class="ib" onclick="cantorCfg()" aria-label="Configurações">⚙</button>'+
   '</div>'+
   '<main class="cc-main">'+
@@ -490,7 +494,8 @@ function abrirHino(n, keepScroll){
     '<nav class="cc-nav">'+(prev?'<a href="javascript:void(0)" onclick="cantorAbrir('+prev.n+')"><small>Anterior</small>'+prev.n+' · '+esc(prev.titulo)+'</a>':'<span></span>')+(next?'<a class="r" href="javascript:void(0)" onclick="cantorAbrir('+next.n+')"><small>Próximo</small>'+next.n+' · '+esc(next.titulo)+'</a>':'<span></span>')+'</nav>'+
   '</main>';
   const c=document.getElementById('content');
-  if(c){ c.innerHTML='<div class="page cc-page">'+html+'</div>'; }
+  const _lb=(h.letra&&!modoLetra)? '<div class="cc-letbaix"><button class="tog'+(_ccLetra?' on':'')+'" onclick="cantorLetra('+n+')">\uD83D\uDCDC '+(_ccLetra?'OCULTAR LETRA':'LETRA DO HINO')+'</button>'+(_ccLetra? '<div class="cc-song'+(editMode?' editing':'')+'" style="--cc-fs:'+prefs.fs+'px">'+h.letra.split('\n').map(function(l){return '<p class="ln">'+esc(l)+'</p>';}).join('')+'</div>' : '')+'</div>' : '';
+  if(c){ c.innerHTML='<div class="page cc-page">'+html+_lb+'</div>'; }
   if(typeof toggleMenu==='function'){ try{ toggleMenu(false); }catch(e){} }
   if(!keepScroll) window.scrollTo(0,0);
   fixGaps();
@@ -670,7 +675,9 @@ function introExiste(n){ return INTROS.has(n); }
 window.Cantor={renderLista,abrirHino,search,toModel,fromModel,getLine,parseLine:toModel,lineHTML,trChord,keyInfo,norm,strip,ytId,stopScroll};
 window.cantorBuscar=function(v){ lastQuery=v; redesenharLista(); };
 window.cantorAbrirPrimeiro=function(){ const r=search(lastQuery); const f=r.titulo[0]||r.letra[0]; if(f) abrirHino(f.n); };
-window.cantorAbrir=function(n){ editMode=false; stopScroll(); abrirHino(+n); };
+let _ccLetra=false;
+window.cantorLetra=function(n){ _ccLetra=!_ccLetra; abrirHino(+n,true); };
+window.cantorAbrir=function(n){ if(typeof navSave==='function') navSave(); if(typeof _pagAtual!=='undefined') _pagAtual='hino'; editMode=false; stopScroll(); abrirHino(+n); };
 window.cantorVoltar=function(){ editMode=false; stopScroll(); if(typeof go==='function') go('cantor'); else renderLista(); };
 window.cantorFav=function(n,ev){ if(ev){ ev.preventDefault(); ev.stopPropagation(); } toggleFav(+n); redesenharLista(); };
 window.cantorFavHino=function(n){ toggleFav(+n); abrirHino(+n,true); };

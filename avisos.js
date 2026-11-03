@@ -23,7 +23,7 @@ function linkPadrao(titulo,corpo){
   if(/aniver/.test(t)) return 'go:inicio';
   if(/escala|presenc/.test(t)) return 'go:escala';
   if(/playlist|ordem do culto/.test(t)) return 'go:playlist';
-  if(/cantadas|ja cantamos/.test(t)) return 'go:cantadas';
+  if(/cantadas|ja cantamos|hist[óo]rico/.test(t)) return 'go:cantadas';
   if(/cantor cristao|\bhino\b/.test(t)) return 'go:cantor';
   if(/musica/.test(t)){
     const m=(DB.musicas||[]).slice().sort((a,b)=>b.titulo.length-a.titulo.length).find(x=>x.titulo && sem(corpo).includes(sem(x.titulo)));
@@ -210,7 +210,7 @@ window.modalAviso=function(){
     '<div class="field"><label>Mensagem</label><textarea id="avMsg" rows="4" maxlength="600" placeholder="Escreva o aviso…"></textarea></div>'+
     '<div class="field"><label>Para quem</label><select id="avPara"><option value="todos">Todos os membros</option><option value="semana">Escalados desta semana</option><option value="prox">Escalados da próxima semana</option><option value="vocal">Todo o vocal</option><option value="instr">Todos os instrumentistas</option><option value="adm">Só os ADM</option>'+
       fn.map(f=>'<option value="f:'+e(f)+'">'+e(f)+'</option>').join('')+'</select></div>'+
-    '<div class="field"><label>Ao tocar, abrir</label><select id="avLink"><option value="">Nada (só o aviso)</option><option value="go:escala">Escala</option><option value="go:playlist">Playlist / ordem do culto</option><option value="go:musicas">Músicas</option><option value="go:cantor">Cantor Cristão</option><option value="go:cantadas">Músicas que já cantamos</option><option value="go:inicio">Início</option></select></div>'+
+    '<div class="field"><label>Ao tocar, abrir</label><select id="avLink"><option value="">Nada (só o aviso)</option><option value="go:escala">Escala</option><option value="go:playlist">Playlist / ordem do culto</option><option value="go:musicas">Músicas</option><option value="go:cantor">Cantor Cristão</option><option value="go:cantadas">Histórico de músicas</option><option value="go:inicio">Início</option></select></div>'+
     '<label class="check-inline" style="color:var(--verde-escuro)"><input type="checkbox" id="avPopChk" checked> Mostrar em janela (popup) assim que a pessoa abrir o app</label>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="enviarAvisoAdm()">Enviar</button></div>');
 };
