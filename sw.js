@@ -1,11 +1,13 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v45';
+const CACHE = 'mmibnm-v46';
 const CORE = [
   './',
   './index.html',
   './manifest.webmanifest',
   './hinos.js',
   './cantor.js',
+  './harpa.js',
+  './harpa_data.js',
   './academia.js',
   './melhorias.js',
   './culto.js',

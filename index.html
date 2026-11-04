@@ -600,7 +600,8 @@ const MENU = [
   {id:'playlist', ic:'\uD83D\uDCC5', nm:'SETLIST'},
   {id:'musicas', ic:'\uD83C\uDFB5', nm:'Músicas', sub:[
      {id:'musicas', ic:'\uD83C\uDFBC', nm:'Todas as músicas'},
-     {id:'cantor', ic:'\uD83D\uDCD6', nm:'Cantor Cristão'} ]},
+     {id:'cantor', ic:'\uD83D\uDCD6', nm:'Cantor Cristão'},
+     {id:'harpa', ic:'\u266B', nm:'Harpa Cristã'} ]},
   {id:'favoritos', ic:'\u2B50', nm:'Favoritos'},
   {id:'escala', ic:'\uD83D\uDCCB', nm:'Escala do Ministério'},
   {id:'cantadas', ic:'\uD83C\uDFB6', nm:'Histórico de músicas'},
@@ -2737,6 +2738,7 @@ if(typeof ligarRealtime==='function'){
     var p=entry.split('|');
     if(p[0]==='mus'){ (window.__amOrig||window.abrirMusica)(p[1], p[2]||'cifra'); }
     else if(p[0]==='cc'){ if(window.cantorAbrir) window.cantorAbrir(+p[1]); }
+    else if(p[0]==='hr'){ if(window.harpaAbrir) window.harpaAbrir(+p[1]); }
     else if(p[0]==='ed'){ (window.__edOrig||window.editorCifra)(p[1]); }
     else if(p[0]==='go'){ (window.__goOrig||window.go)(p[1], p[2]===''?undefined:p[2]); }
     window.scrollTo(0,0);
@@ -2769,6 +2771,8 @@ if(typeof ligarRealtime==='function'){
 <script src="hinos.js"></script>
 <script src="academia.js"></script>
 <script src="cantor.js"></script>
+<script src="harpa_data.js"></script>
+<script src="harpa.js"></script>
 <script src="melhorias.js"></script>
 <script src="culto.js"></script>
 <script src="escala.js"></script>
