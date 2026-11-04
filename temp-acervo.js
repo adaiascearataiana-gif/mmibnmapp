@@ -137,7 +137,7 @@ window.tmpAcSalvar = async function(i){
     const {error} = await sb.from('musicas_cantadas').update(reg).eq('id', x.id);
     if(error) throw error;
     Object.assign(x, reg);
-    try{ await cloudCantadas(); }catch(_){}
+    try{ cloudCantadas(); }catch(_){}
     toast('Registro atualizado ✓');
     tmpAcLista(_q);
   }catch(err){ toast('Erro ao salvar: '+(err.message||err)); }
@@ -146,14 +146,20 @@ window.tmpAcSalvar = async function(i){
 window.tmpAcExcluir = async function(i){
   const x = _regs[i]; if(!x || !x.id) return;
   if(!window.confirm('Excluir o registro "'+(x.musica||'')+'"'+(x.data?' de '+x.data:'')+'?')) return;
+  /* UI IMEDIATA: sai da lista na hora, sem esperar a rede */
+  _regs.splice(i,1);
+  tmpAcLista(_q);
+  toast('Registro excluído.');
+  /* servidor em segundo plano (não trava a tela) */
   try{
     const {error} = await sb.from('musicas_cantadas').delete().eq('id', x.id);
     if(error) throw error;
-    _regs.splice(i,1);
-    try{ await cloudCantadas(); }catch(_){}
-    toast('Registro excluído.');
-    tmpAcLista(_q);
-  }catch(err){ toast('Erro ao excluir: '+(err.message||err)); }
+    try{ cloudCantadas(); }catch(_){}   /* re-sincroniza sem bloquear a UI */
+  }catch(err){
+    /* servidor recusou → devolve o registro e avisa */
+    try{ _regs.splice(Math.min(i,_regs.length),0,x); tmpAcLista(_q); }catch(_){}
+    toast('Erro ao excluir: '+(err.message||err));
+  }
 };
 
 })();
