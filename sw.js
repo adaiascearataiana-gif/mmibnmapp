@@ -1,5 +1,5 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v54';
+const CACHE = 'mmibnm-v55';
 const CORE = [
   './',
   './index.html',
@@ -33,7 +33,10 @@ const CORE = [
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(CORE).catch(function () {}); }));
+  e.waitUntil(caches.open(CACHE).then(function (c) {
+    /* arquivo por arquivo: um falho na rede não derruba a instalação inteira */
+    return Promise.all(CORE.map(function (u) { return c.add(u).catch(function () {}); }));
+  }));
 });
 
 self.addEventListener('activate', function (e) {

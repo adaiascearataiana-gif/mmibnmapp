@@ -2329,6 +2329,7 @@ function registrarSW(){
     chk();
     setInterval(chk, 3600000);
     document.addEventListener('visibilitychange',function(){ if(!document.hidden) chk(); });
+    window.addEventListener('focus',chk);
     var marca=function(w){ if(!w) return; w.addEventListener('statechange',function(){ if(this.state==='installed'&&navigator.serviceWorker.controller) window._swNovo=1; }); };
     marca(reg.installing);
     reg.addEventListener('updatefound',function(){ marca(reg.installing); });
@@ -2338,8 +2339,17 @@ function registrarSW(){
   navigator.serviceWorker.addEventListener('controllerchange',function(){
     if(!_jaControlada){ _jaControlada=true; return; }
     if(window._swRel) return;
-    window._swRel=1; location.reload();
+    window._swRel=1;
+    try{ localStorage.setItem('ibnm_sw_novo','1'); }catch(e){}
+    location.reload();
   });
+  /* confirma ao usuário que a versão nova entrou em vigor */
+  try{
+    if(localStorage.getItem('ibnm_sw_novo')==='1'){
+      localStorage.removeItem('ibnm_sw_novo');
+      setTimeout(function(){ try{ toast('✅ App atualizado! Versão nova carregada.'); }catch(e){} },1500);
+    }
+  }catch(e){}
 }
 function pedirPermissaoNotif(){
   if(!('Notification' in window)) return toast('Seu aparelho não suporta notificações.');

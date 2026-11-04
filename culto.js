@@ -1156,17 +1156,25 @@ window.compartilharSetlist=function(){
     ctx.fillStyle='#f4f8f6'; ctx.fillRect(0,0,W,H);
     let y=0; parts.forEach(p=>{ p.draw(y); y+=p.h; });
     cv.toBlob(b=>{
-      if(!b) return toast('Não foi possível gerar a imagem.');
+      if(!b) return toast('Não foi possível gerar a imagem — toque em 📤 de novo.');
+      const baixar=()=>{
+        try{
+          const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='setlist.png';
+          document.body.appendChild(a); a.click(); a.remove();
+          toast('Imagem do setlist salva na pasta Downloads — mande no WhatsApp 📤');
+        }catch(err){ toast('Erro ao salvar a imagem: '+(err.message||err)); }
+      };
       try{
         const file=new File([b],'setlist.png',{type:'image/png'});
-        if(navigator.canShare&&navigator.canShare({files:[file]})){
-          navigator.share({files:[file],title:'SETLIST'}).then(()=>toast('Setlist compartilhado ✓')).catch(()=>{});
+        if(navigator.canShare&&navigator.canShare({files:[file]})&&navigator.share){
+          navigator.share({files:[file],title:'SETLIST'}).then(
+            ()=>toast('Setlist compartilhado ✓'),
+            ()=>{ baixar(); }   /* falhou ou cancelou: salva do mesmo jeito */
+          );
           return;
         }
       }catch(e){}
-      const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='setlist.png';
-      document.body.appendChild(a); a.click(); a.remove();
-      toast('Imagem do setlist salva — mande no WhatsApp 📤');
+      baixar();
     },'image/png');
   }catch(e){ toast('Erro ao gerar imagem: '+(e.message||e)); }
 };
