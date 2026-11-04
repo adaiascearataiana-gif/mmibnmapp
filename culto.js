@@ -202,6 +202,7 @@ function setlist(qual){
   return null;
 }
 window.setlistDe=setlist;
+window.infoM=function(id){ return info(id); };
 /* de qual lista é este item (para "Anterior/Próxima" e tom do culto) */
 function listaDe(id){
   id=String(id); const ctx=window.__slCtx; const at=setlist(), px=setlist('prox');
@@ -425,14 +426,45 @@ function cardSetlistSmart(sl,titulo,ctx){ return (sl.eventos&&sl.eventos.length)
 
 if(typeof ROTAS!=='undefined'){
   let abaPl='';
+  window.getAbaPl=function(){ return abaPl; };
   ROTAS.playlist=function(arg){
-    if(arg==='prox'||arg==='atual') abaPl=arg==='prox'?'prox':'';
-    const a=adm(); const at=setlist(), px=setlist('prox'); const prox=abaPl==='prox';
+    const a=adm(); const at=setlist(), px=setlist('prox');
+    /* ---------- RAIZ: lista dos SETLISTs disponíveis ---------- */
+    if(arg!=='prox'&&arg!=='atual'){
+      abaPl='';
+      const dtsDe=sl=>{ const d=(sl.eventos||[]).map(x=>String(x.data||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort(); return d.length?[d[0],d[d.length-1]]:[sl.inicio||'',sl.fim||'']; };
+      const card=(sl,rot,ico,ctx)=>{
+        if(!sl) return '';
+        const dd=dtsDe(sl); const evs=(sl.eventos||[]).length; const pub=sl.publicada!==false;
+        const meta=[pub?'✓ publicado':'não publicado',(sl.itens||[]).length+' música(s)',evs?evs+' evento(s)':null].filter(Boolean).join(' · ');
+        const tt=(sl.tema||sl.textoBase)?'<div style="margin-top:8px;font-size:15px;color:#8a6d1a">🔥 '+e(sl.tema||'')+(sl.tema&&sl.textoBase?' · ':'')+'📖 '+e(sl.textoBase||'')+'</div>':'';
+        const dt=(dd[0]||dd[1])? fmtData(dd[0])+(dd[1]&&dd[1]!==dd[0]?' - '+fmtData(dd[1]):'') : 'sem data';
+        return '<div onclick="go(\'playlist\',\''+ctx+'\')" style="background:#fff;border:2px solid #d8e8e0;border-left:8px solid '+(ctx==='prox'?'#1f7a5a':'#0b3d2e')+';border-radius:16px;padding:16px 18px;margin-bottom:14px;cursor:pointer;box-shadow:0 2px 8px rgba(11,61,46,.08)">'
+          +'<div style="display:flex;align-items:center;gap:12px"><span style="font-size:30px">'+ico+'</span>'
+          +'<div style="flex:1"><div style="font-weight:800;font-size:19px;color:#0b3d2e">'+rot+'</div>'
+          +'<div style="font-size:15px;color:#5b6b64">'+dt+'</div></div>'
+          +'<span style="font-size:30px;color:#1f7a5a;font-weight:800">›</span></div>'
+          +'<div style="margin-top:8px;font-size:14px;font-weight:700;color:'+(pub?'#1f7a5a':'#a05a00')+'">'+meta+'</div>'+tt
+          +(a?'<div style="margin-top:10px"><button class="mini-btn" style="margin:0" onclick="event.stopPropagation();modalPlaylist(\''+ctx+'\')">✏️ Editar</button></div>':'')
+          +'</div>';
+      };
+      const topo='<div class="page-ttl">📅 SETLIST</div>';
+      if(!(at||px)) return '<div class="page">'+topo+'<div class="empty"><div class="big">🎼</div>Nenhum SETLIST publicado ainda.'+(a?' Toque em <b>Montar playlist</b> para começar.':'')+'</div></div>';
+      return '<div class="page">'+topo
+        +'<div style="font-size:15px;color:#5b6b64;margin:-2px 0 14px">Toque em um SETLIST para ver os eventos.</div>'
+        +(a?'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><button class="mini-btn" style="margin:0" onclick="modalPlaylist(\'\')">✏️ Montar playlist desta semana</button></div>':'')
+        +card(at,'Esta semana','📅','atual')
+        +card(px,'Próxima semana','🗓️','prox')
+        +(at&&!px?'<div style="background:#eef4f1;border-radius:14px;padding:14px 16px;font-size:15px;color:#5b6b64">🗓️ O SETLIST da próxima semana ainda não foi publicado.</div>':'')
+        +'</div>';
+    }
+    /* ---------- DETALHE: eventos do SETLIST escolhido ---------- */
+    const prox=abaPl==='prox';
     const sl=prox? px : at;
     const tabs='<div class="pl-tabs"><button class="'+(!prox?'on':'')+'" onclick="go(\'playlist\',\'atual\')">📅 Esta semana</button><button class="'+(prox?'on':'')+'" onclick="go(\'playlist\',\'prox\')">🗓️ Próxima semana'+(px?' <i>●</i>':'')+'</button></div>';
     const bt=a?'<button class="mini-btn" style="margin-bottom:14px" onclick="modalPlaylist(\''+(prox?'prox':'')+'\')">✏️ '+(prox?'Montar playlist da próxima semana':'Montar / editar playlist desta semana')+'</button>':'';
     const btTools='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><button class="mini-btn" style="margin:0" onclick="compartilharSetlist()">📤 Compartilhar</button><button class="mini-btn" style="margin:0" onclick="projetarSetlist(\''+(prox?'prox':'')+'\')">🎬 Projetar setlist</button></div>';
-    const topo='<div class="page-ttl">📅 SETLIST</div>'+tabs+bt+btTools;
+    const topo='<button class="mini-btn" style="margin-bottom:12px" onclick="go(\'playlist\')">← Voltar</button><div class="page-ttl">📅 SETLIST</div>'+tabs+bt+btTools;
     if(!sl||!sl.itens.length) return '<div class="page">'+topo+'<div class="empty"><div class="big">🎼</div>'+(prox?'O SETLIST da próxima semana ainda não foi publicado.':'Nenhum SETLIST publicado para esta semana.')+'</div></div>';
     /* título usa a 1ª e a última data dos eventos (se houver) */
     const _dts=(sl.eventos||[]).map(x=>String(x.data||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort();
@@ -1000,55 +1032,128 @@ if(typeof _booted!=='undefined' && _booted){ try{ montaMenu(); }catch(_){} }
 /* ================= COMPARTILHAR SETLIST COMO IMAGEM ================= */
 window.compartilharSetlist=function(){
   try{
-    const prox=(typeof abaPl!=='undefined'&&abaPl==='prox');
-    const sl=setlist(prox?'prox':'');
+    const prox=(typeof window.getAbaPl==='function'&&window.getAbaPl()==='prox');
+    const sl=(typeof window.setlistDe==='function')? window.setlistDe(prox?'prox':'') : null;
     if(!sl) return toast('Não há SETLIST publicado nesta aba.');
     const evs=(sl.eventos&&sl.eventos.length)? sl.eventos : null;
+    const IM=(typeof window.infoM==='function')? window.infoM : function(){ return {ic:'🎵',t:'Música'}; };
     const cv=document.createElement('canvas'); const ctx=cv.getContext('2d');
-    const W=1080, PAD=54; cv.width=W;
+    const W=1080, PAD=56; cv.width=W;
+    const F='system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
     const wrap=(txt,max)=>{ const ws=String(txt||'').split(' '); const ls=[]; let cur='';
       ws.forEach(w=>{ const t=cur?cur+' '+w:w; if(ctx.measureText(t).width>max&&cur){ ls.push(cur); cur=w; } else cur=t; });
       if(cur) ls.push(cur); return ls.length?ls:['']; };
     const fmtD=s=>{ const p=String(s||'').split('-'); return p.length>=5? p[2]+'/'+p[1] : (p[0]||''); };
     const nomeEv=ev=>{ const n=String((ev&&(ev.nome||ev.titulo))||'EVENTO').trim()||'EVENTO'; const d=fmtD(ev&&ev.data); return (d? d+' · ':'')+n; };
-    /* ---- layout ---- */
-    const parts=[]; /* {h, draw(y)} */
-    const titulo='SETLIST';
+    const rr=(x,y,w,h,r)=>{ const m=Math.max(0,Math.min(r,w/2,h/2));
+      ctx.beginPath();
+      if(typeof ctx.roundRect==='function'){ ctx.roundRect(x,y,w,h,m); return; }
+      ctx.moveTo(x+m,y); ctx.arcTo(x+w,y,x+w,y+h,m); ctx.arcTo(x+w,y+h,x,y+h,m); ctx.arcTo(x,y+h,x,y,m); ctx.arcTo(x,y,x+w,y,m); ctx.closePath(); };
+    const parts=[];
+    /* ---------- CABEÇALHO ---------- */
+    const titulo=prox?'SETLIST DA PRÓXIMA SEMANA':'SETLIST DA SEMANA';
     const periodo=(sl.inicio||sl.fim)? (fmtD(sl.inicio)+(sl.fim?' – '+fmtD(sl.fim):'')) : '';
-    const sub=(sl.tema||sl.textoBase)? [sl.tema?'🔥 '+sl.tema:'', sl.textoBase?'📖 '+sl.textoBase:''].filter(Boolean).join('  ·  ') : '';
-    ctx.font='bold 58px system-ui,sans-serif'; const lT=wrap(titulo,W-PAD*2);
-    ctx.font='30px system-ui,sans-serif'; const lP=wrap(periodo,W-PAD*2);
-    ctx.font='30px system-ui,sans-serif'; const lS=sub? wrap(sub,W-PAD*2):[];
-    parts.push({h:52+lT.length*66+lP.length*40+(lS.length?lS.length*40+8:0)+34, draw:(y)=>{
-      ctx.fillStyle='#0b3d2e'; ctx.fillRect(0,y,W,parts[0].h);
-      ctx.fillStyle='#ffffff'; ctx.textAlign='left';
-      let yy=y+40; ctx.font='bold 58px system-ui,sans-serif'; lT.forEach(l=>{ ctx.fillText(l,PAD,yy+50); yy+=66; });
-      ctx.fillStyle='#cfe8dc'; ctx.font='30px system-ui,sans-serif'; lP.forEach(l=>{ ctx.fillText(l,PAD,yy+34); yy+=40; });
-      if(lS.length){ yy+=6; ctx.fillStyle='#f1c40f'; lS.forEach(l=>{ ctx.fillText(l,PAD,yy+34); yy+=40; }); }
+    const sub=(sl.tema||sl.textoBase)? [sl.tema?'🔥 '+sl.tema:'', sl.textoBase?'📖 '+sl.textoBase:''].filter(Boolean).join('   ·   ') : '';
+    ctx.font='bold 62px '+F; const lT=wrap(titulo,W-PAD*2-40);
+    ctx.font='bold 48px '+F; const lP=periodo? wrap(periodo,W-PAD*2-40):[];
+    ctx.font='600 30px '+F; const lS=sub? wrap(sub,W-PAD*2-70):[];
+    const hH=50+44+lT.length*72+lP.length*60+(lS.length?14+lS.length*42:0)+34;
+    parts.push({h:hH,draw:(y)=>{
+      const g=ctx.createLinearGradient(0,y,W,y+hH); g.addColorStop(0,'#0b3d2e'); g.addColorStop(1,'#177053');
+      ctx.fillStyle=g; ctx.fillRect(0,y,W,hH);
+      ctx.save(); ctx.globalAlpha=.07; ctx.fillStyle='#ffffff';
+      ctx.font='bold 380px Georgia,serif'; ctx.fillText('♪',W-300,y+hH-50);
+      ctx.font='bold 300px Georgia,serif'; ctx.fillText('♫',W-150,y+50);
+      ctx.restore();
+      ctx.fillStyle='#f1c40f'; ctx.fillRect(0,y+hH-8,W,8);
+      let yy=y+50;
+      ctx.textAlign='left'; ctx.fillStyle='#9fd0bc'; ctx.font='700 26px '+F;
+      try{ ctx.letterSpacing='5px'; }catch(e){}
+      ctx.fillText('MINISTÉRIO DE MÚSICA · IBNM',PAD,yy);
+      try{ ctx.letterSpacing='0px'; }catch(e){}
+      yy+=40;
+      ctx.fillStyle='#ffffff'; ctx.font='bold 62px '+F;
+      lT.forEach(l=>{ ctx.fillText(l,PAD,yy+54); yy+=72; });
+      ctx.fillStyle='#f1c40f'; ctx.font='bold 48px '+F;
+      lP.forEach(l=>{ ctx.fillText(l,PAD,yy+42); yy+=60; });
+      if(lS.length){ yy+=10; ctx.fillStyle='#ffe9a3'; ctx.font='600 30px '+F;
+        lS.forEach(l=>{ ctx.fillText(l,PAD,yy+30); yy+=42; }); }
     }});
-    const addMus=(txt,destaque)=>{ ctx.font=(destaque?'bold 34px':'30px')+' system-ui,sans-serif';
-      const ls=wrap(txt,W-PAD*2-40); parts.push({h:ls.length*(destaque?46:42)+10, draw:(y)=>{ ctx.textAlign='left';
-        let yy=y+8; ctx.fillStyle=destaque?'#145c43':'#0b241b'; ctx.font=(destaque?'bold 34px':'30px')+' system-ui,sans-serif';
-        ls.forEach(l=>{ ctx.fillText(l,PAD+ (destaque?0:34), yy+(destaque?34:36)); yy+= destaque?46:42; }); }});
+    /* ---------- RESUMO (pílulas) ---------- */
+    const nMus=(sl.itens||[]).length, nEv=evs? evs.length:0;
+    const chips=['🎵 '+nMus+' música(s)'].concat(nEv?['📅 '+nEv+' evento(s)']:[]);
+    ctx.font='700 28px '+F;
+    const chipsW=chips.reduce((s,c)=>s+ctx.measureText(c).width+56,0)+(chips.length-1)*16;
+    parts.push({h:80,draw:(y)=>{
+      let x=(W-chipsW)/2;
+      chips.forEach(c=>{ const w=ctx.measureText(c).width+56;
+        ctx.fillStyle='#e3f0ea'; rr(x,y+18,w,46,23); ctx.fill();
+        ctx.fillStyle='#145c43'; ctx.font='700 28px '+F; ctx.textAlign='left';
+        ctx.fillText(c,x+28,y+49); x+=w+16; });
+    }});
+    /* ---------- EVENTOS / MÚSICAS ---------- */
+    const addEv=(hdr,ids,tons)=>{
+      ctx.font='bold 34px '+F; const lH=wrap(hdr,W-PAD*2-80);
+      const itens=(ids||[]).map(id=>{ const f=IM(id)||{}; const v=(tons||{})[id]||0;
+        const label=(f.ic==='🎵'?'':(f.ic||'')+' ')+(f.t||'Música')+(v?(v>0?' +'+v:' '+v):'');
+        ctx.font='31px '+F; const ls=wrap(label,W-PAD*2-150);
+        return {label:label,lines:ls.length}; });
+      const h=22+(lH.length*46+26)+itens.reduce((s,it)=>s+it.lines*42+18,0)+18;
+      parts.push({h:h+6,draw:(y)=>{
+        ctx.fillStyle='#ffffff'; rr(PAD,y+6,W-PAD*2,h-6,20); ctx.fill();
+        ctx.strokeStyle='#d9e7e1'; ctx.lineWidth=2; ctx.stroke();
+        ctx.fillStyle='#0b3d2e'; rr(PAD+16,y+20,W-PAD*2-32,lH.length*46+18,14); ctx.fill();
+        ctx.fillStyle='#fff'; ctx.font='bold 34px '+F; ctx.textAlign='left';
+        let yy=y+20;
+        lH.forEach(l=>{ ctx.fillText(l,PAD+34,yy+42); yy+=46; });
+        let iy=y+20+lH.length*46+18+10; let n=0;
+        itens.forEach(it=>{ n++;
+          ctx.fillStyle='#1f7a5a'; ctx.beginPath(); ctx.arc(PAD+44,iy+24,20,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle='#fff'; ctx.font='bold 24px '+F; ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText(String(n),PAD+44,iy+25);
+          ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+          ctx.fillStyle='#123024'; ctx.font='31px '+F;
+          const ls=wrap(it.label,W-PAD*2-150);
+          let ty=iy+34;
+          ls.forEach(l=>{ ctx.fillText(l,PAD+78,ty); ty+=42; });
+          iy+=it.lines*42+18;
+        });
+      }});
     };
-    if(evs){
-      evs.forEach(ev=>{
-        const hdr=nomeEv(ev); ctx.font='bold 34px system-ui,sans-serif'; const lh=wrap(hdr,W-PAD*2-30);
-        parts.push({h:lh.length*44+34, draw:(y)=>{ ctx.fillStyle='#1f7a5a'; ctx.fillRect(PAD,y,W-PAD*2,lh.length*44+24);
-          ctx.fillStyle='#fff'; ctx.textAlign='left'; ctx.font='bold 34px system-ui,sans-serif'; let yy=y+30;
-          lh.forEach(l=>{ ctx.fillText(l,PAD+18,yy+32); yy+=44; }); }});
-        (ev.itens||[]).forEach(id=>{ const f=info(id); const v=(sl.tons||{})[id]||0;
-          addMus((f.ic==='🎵'?'':f.ic+' ')+f.t+(v?(v>0?' +'+v:' '+v):''), false); });
-      });
-    } else {
-      (sl.itens||[]).forEach(id=>{ const f=info(id); const v=(sl.tons||{})[id]||0;
-        addMus((f.ic==='🎵'?'':f.ic+' ')+f.t+(v?(v>0?' +'+v:' '+v):''), false); });
-    }
-    if(!(sl.itens||[]).length && !evs) parts.push({h:80,draw:(y)=>{ ctx.fillStyle='#789'; ctx.font='30px system-ui,sans-serif'; ctx.textAlign='left'; ctx.fillText('(sem músicas)',PAD,y+46); }});
-    const foot='Ministério de Música IBNM · '+new Date().toLocaleDateString('pt-BR');
-    parts.push({h:86, draw:(y)=>{ ctx.fillStyle='#eef4f1'; ctx.fillRect(0,y,W,86); ctx.fillStyle='#145c43'; ctx.font='26px system-ui,sans-serif'; ctx.textAlign='left'; ctx.fillText(foot,PAD,y+52); }});
+    if(evs){ evs.forEach(ev=> addEv(nomeEv(ev), ev.itens||[], sl.tons||{})); }
+    else if((sl.itens||[]).length){ addEv('Músicas do SETLIST', sl.itens||[], sl.tons||{}); }
+    else parts.push({h:90,draw:(y)=>{ ctx.fillStyle='#5b6b64'; ctx.font='30px '+F; ctx.textAlign='left'; ctx.fillText('(sem músicas)',PAD,y+54); }});
+    /* ---------- CHAMADA PARA AÇÃO (confirmação de presença) ---------- */
+    const c1='✅ ABRA O APP E CONFIRME SUA PRESENÇA';
+    const c2='Escalado(a)? Sua confirmação fortalece o ministério 💪';
+    ctx.font='bold 42px '+F; const cl1=wrap(c1,W-PAD*2-90);
+    ctx.font='30px '+F; const cl2=wrap(c2,W-PAD*2-90);
+    const ctaH=42+cl1.length*56+cl2.length*42+30;
+    parts.push({h:ctaH+26,draw:(y)=>{
+      const x=PAD,w=W-PAD*2;
+      const g=ctx.createLinearGradient(x,y,x+w,y+ctaH); g.addColorStop(0,'#f7d54a'); g.addColorStop(1,'#e9a900');
+      ctx.fillStyle=g; rr(x,y,w,ctaH,26); ctx.fill();
+      ctx.fillStyle='#0b3d2e'; rr(x+18,y+18,10,ctaH-36,5); ctx.fill();
+      let yy=y+34; ctx.textAlign='center';
+      ctx.fillStyle='#0b3d2e'; ctx.font='bold 42px '+F;
+      cl1.forEach(l=>{ ctx.fillText(l,W/2+8,yy+40); yy+=56; });
+      ctx.fillStyle='#14493a'; ctx.font='30px '+F;
+      cl2.forEach(l=>{ ctx.fillText(l,W/2+8,yy+30); yy+=42; });
+      ctx.textAlign='left';
+    }});
+    /* ---------- RODAPÉ ---------- */
+    const hoje=new Date().toLocaleDateString('pt-BR');
+    parts.push({h:116,draw:(y)=>{
+      ctx.fillStyle='#0b3d2e'; ctx.fillRect(0,y,W,116);
+      ctx.textAlign='center';
+      ctx.fillStyle='#f1c40f'; ctx.font='bold 30px '+F; ctx.fillText('MINISTÉRIO DE MÚSICA IBNM',W/2,y+44);
+      ctx.fillStyle='#9fd0bc'; ctx.font='26px '+F; ctx.fillText('letra · cifra · áudio · escala — tudo no app',W/2,y+80);
+      ctx.fillStyle='#6fa891'; ctx.font='22px '+F; ctx.fillText('adaiascearataiana-gif.github.io/mmibnmapp  ·  '+hoje,W/2,y+108);
+      ctx.textAlign='left';
+    }});
+    /* ---------- MONTA ---------- */
     const H=parts.reduce((s,p)=>s+p.h,0); cv.height=H;
-    ctx.fillStyle='#f6faf8'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#f4f8f6'; ctx.fillRect(0,0,W,H);
     let y=0; parts.forEach(p=>{ p.draw(y); y+=p.h; });
     cv.toBlob(b=>{
       if(!b) return toast('Não foi possível gerar a imagem.');

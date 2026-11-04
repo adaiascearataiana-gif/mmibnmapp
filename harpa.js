@@ -22,6 +22,18 @@ const PREF_KEY='ibnm_hr_prefs';
 let prefs={cifras:true,fs:19,tr:{},scrollSpeed:1};
 try{ Object.assign(prefs, JSON.parse(localStorage.getItem(PREF_KEY)||'{}')||{}); }catch(e){}
 function savePrefs(){ try{ localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); }catch(e){} }
+/* livro novo = transposições da edição antiga não valem mais ("cifra = PDF") */
+try{
+  if(typeof HARPA_V!=='undefined' && prefs.trV!==HARPA_V){
+    prefs.tr={}; prefs.trV=HARPA_V; savePrefs();
+    if(localStorage.getItem('hrTrV')!==HARPA_V){
+      var _t=JSON.parse(localStorage.getItem('ibnm_mus_tr')||'{}');
+      Object.keys(_t).forEach(function(k){ if(k.indexOf('hr:')===0) delete _t[k]; });
+      localStorage.setItem('ibnm_mus_tr',JSON.stringify(_t));
+      localStorage.setItem('hrTrV',HARPA_V);
+    }
+  }
+}catch(_){}
 
 /* ---------- estado do usuário / sessão MM ---------- */
 function userEmail(){ try{ const u=(typeof usuarioAtual==='function')?usuarioAtual():null; return (u&&u.email)||'anon'; }catch(e){ return 'anon'; } }
@@ -538,16 +550,3 @@ try{
 
 
 })();
-
-/* lote9: livro novo (HARPA_V) zera transposições da edição antiga — "cifra = PDF" */
-try{
-  if(typeof HARPA_V!=='undefined' && typeof prefs!=='undefined' && prefs.trV!==HARPA_V){
-    prefs.tr={}; prefs.trV=HARPA_V; savePrefs();
-    if(localStorage.getItem('hrTrV')!==HARPA_V){
-      var _t=JSON.parse(localStorage.getItem('ibnm_mus_tr')||'{}');
-      Object.keys(_t).forEach(function(k){ if(k.indexOf('hr:')===0) delete _t[k]; });
-      localStorage.setItem('ibnm_mus_tr',JSON.stringify(_t));
-      localStorage.setItem('hrTrV',HARPA_V);
-    }
-  }
-}catch(_){}
