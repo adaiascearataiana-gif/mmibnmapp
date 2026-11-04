@@ -538,3 +538,16 @@ try{
 
 
 })();
+
+/* lote9: livro novo (HARPA_V) zera transposições da edição antiga — "cifra = PDF" */
+try{
+  if(typeof HARPA_V!=='undefined' && typeof prefs!=='undefined' && prefs.trV!==HARPA_V){
+    prefs.tr={}; prefs.trV=HARPA_V; savePrefs();
+    if(localStorage.getItem('hrTrV')!==HARPA_V){
+      var _t=JSON.parse(localStorage.getItem('ibnm_mus_tr')||'{}');
+      Object.keys(_t).forEach(function(k){ if(k.indexOf('hr:')===0) delete _t[k]; });
+      localStorage.setItem('ibnm_mus_tr',JSON.stringify(_t));
+      localStorage.setItem('hrTrV',HARPA_V);
+    }
+  }
+}catch(_){}
