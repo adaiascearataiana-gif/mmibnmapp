@@ -7,7 +7,7 @@
 ============================================================ */
 (function(){
 'use strict';
-const HINOS = (window.HINOS||[]).slice().sort((a,b)=>a.n-b.n);
+const HINOS = (window.HARPA||[]).slice().sort((a,b)=>a.n-b.n);
 const byN = new Map(HINOS.map(h=>[h.n,h]));
 
 /* ---------- utilitários ---------- */
