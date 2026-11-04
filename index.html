@@ -148,6 +148,7 @@ a{color:var(--verde-med)}
 .card h3{font-size:15px;color:var(--verde-escuro);margin-bottom:10px}
 .pill{display:inline-block;background:var(--verde-claro);color:#063524;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin:2px 4px 2px 0}
 .semana-badge{background:linear-gradient(120deg,var(--verde),var(--verde-claro));color:#fff;border-radius:var(--radius);padding:16px 18px;text-align:center;margin-bottom:16px;box-shadow:var(--sombra)}
+.sb-tt{margin-top:4px;font-weight:800;font-size:15px;line-height:1.35;background:rgba(0,0,0,.16);border-radius:8px;padding:6px 10px;display:inline-block}
 .semana-badge .lbl{font-size:12px;letter-spacing:2px;opacity:.9}
 .semana-badge .dt{font-size:24px;font-weight:900;margin-top:4px}
 .semana-badge .yt-home{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;background:#c4302b;color:#fff;padding:12px;border-radius:10px;font-weight:800;font-size:14.5px;text-decoration:none;box-shadow:0 3px 10px rgba(0,0,0,.18)}
@@ -393,7 +394,7 @@ const LOGO = document.getElementById('logoTpl').innerHTML;
 const defaultDB = {
   usuarios: [],
   musicas: [],
-  playlist: { inicio:'', fim:'', musicas:[], publicada:false },
+  playlist: { inicio:'', fim:'', musicas:[], publicada:false, tema:'', textoBase:'' },
   escala: { colunas:[], linhas:[] },  // linhas: [{periodoInicio,periodoFim,celulas:{col:valor}}]
   notificacoes: {},  // por email -> [ {id,ic,titulo,corpo,data,lida} ]
   favoritos: {}      // por email -> [idMusica]
@@ -405,7 +406,7 @@ let DB = loadDB();
 /* ---------- Sessao ---------- */
 function getSessao(){ try{ return JSON.parse(localStorage.getItem(SES_KEY)); }catch(e){ return null; } }
 function setSessao(email){ localStorage.setItem(SES_KEY, JSON.stringify({email})); }
-function logout(){ localStorage.removeItem(SES_KEY); location.reload(); }
+function logout(){ localStorage.removeItem(SES_KEY); try{sessionStorage.removeItem('ibnm_sess');}catch(e){} location.reload(); }
 function usuarioAtual(){ const s=getSessao(); return s? DB.usuarios.find(u=>u.email===s.email) : null; }
 function ehAdmin(){ const u=usuarioAtual(); return u && u.admin; }
 
@@ -637,22 +638,35 @@ function toggleSub(btn){ btn.classList.toggle('open'); btn.nextElementSibling.cl
 function toggleMenu(open){ $('#sidemenu').classList.toggle('show',open); $('#overlay').classList.toggle('show',open); }
 
 let _pagAtual=null; const _scrollMem={};
-function navSave(){ if(_pagAtual!=null) _scrollMem[_pagAtual]=window.scrollY; }
+function navSave(){ if(_pagAtual!=null) _scrollMem[_pagAtual]=window.scrollY; try{ setTimeout(_salvaSess,0); }catch(e){} }
 function go(page,arg){ toggleMenu(false); navSave();
   const u=usuarioAtual(); if(!u) return;
   if(page==='ajuda'){ telaBoasVindas(false); return; }
   const fn = ROTAS[page]; $('#content').innerHTML = fn? fn(arg) : '<div class="empty">Página não encontrada.</div>';
   atualizaBadge();
   _pagAtual=page;
-  window.scrollTo(0, _scrollMem[page]||0);
+  const _y=_scrollMem[page]||0;
+  window.scrollTo(0, _y);
+  /* restauração dupla: assets/imagens podem alterar a altura depois */
+  try{ requestAnimationFrame(()=>{ if(_pagAtual===page) window.scrollTo(0,_y); }); }catch(e){}
+  try{ setTimeout(()=>{ if(_pagAtual===page) window.scrollTo(0,_y); },250); }catch(e){}
+  _salvaSess();
 }
+/* ---- sessão: volta intacta ao reabrir/recarregar o app ---- */
+function _salvaSess(){ try{
+  sessionStorage.setItem('ibnm_sess', JSON.stringify({
+    stack:(window.__navStack?window.__navStack():[]), pag:_pagAtual, sc:_scrollMem, y:window.scrollY, t:Date.now()}));
+}catch(e){} }
+window.__scrollMem=_scrollMem;
+window.__setPag=function(p){ _pagAtual=p; };
+window.__salvaSess=_salvaSess;
 
 function iniciarApp(){
   const u=usuarioAtual(); if(!u){ telaLogin(); return; }
   $('#authScreens').innerHTML=''; $('#appShell').classList.remove('hidden');
   $('#topAvatar').src = u.foto || AVATAR_PADRAO;
   montaMenu(); verificaEscalaSemanal(); atualizaBadge();
-  if(!localStorage.getItem('ibnm_bv_'+u.email)){ telaBoasVindas(true); } else { go('inicio'); }
+  if(!localStorage.getItem('ibnm_bv_'+u.email)){ telaBoasVindas(true); } else { go('inicio'); try{ window.__sessRestaura&&window.__sessRestaura(); }catch(e){} }
 }
 
 /* Inicializacao */
@@ -675,7 +689,7 @@ ROTAS.inicio = function(){
   if(!_yt && typeof APP_CFG!=='undefined' && APP_CFG){ _yt=(APP_CFG.setlist&&APP_CFG.setlist.youtube)||(APP_CFG.setlist_prox&&APP_CFG.setlist_prox.youtube)||''; }
   if(!_yt && typeof APP_CFG!=='undefined' && APP_CFG){ _yt=(APP_CFG.setlist&&APP_CFG.setlist.youtube)||(APP_CFG.setlist_prox&&APP_CFG.setlist_prox.youtube)||''; }
   let plBox = temPl
-    ? `<div class="semana-badge"><div class="lbl">SETLIST DA SEMANA</div><div class="dt">${fmtRange(pl)}</div>${_yt?`<a class="yt-home" href="${esc(_yt)}" target="_blank" rel="noopener">▶ Playlist do YouTube</a>`:''}<span class="pl-home-lk" onclick="go('playlist')">Ver SETLIST completo ›</span></div>`
+    ? `<div class="semana-badge"><div class="lbl">SETLIST DA SEMANA</div><div class="dt">${fmtRange(pl)}</div>${_yt?`<a class="yt-home" href="${esc(_yt)}" target="_blank" rel="noopener">▶ Playlist do YouTube</a>`:''}${(_sl&&(_sl.tema||_sl.textoBase))?`<div class="sb-tt">${_sl.tema?'🔥 '+esc(_sl.tema):''}${(_sl.tema&&_sl.textoBase)?' · ':''}${_sl.textoBase?'📖 '+esc(_sl.textoBase):''}</div>`:''}<span class="pl-home-lk" onclick="go('playlist')">Ver SETLIST completo ›</span></div>`
     : `<div class="card"><div class="empty" style="padding:20px"><div class="big">\uD83C\uDFBC</div>Nenhum SETLIST publicado ainda.</div></div>`;
   const naEscala = usuarioNaEscalaVigente(u);
   return `<div class="page">
@@ -1752,7 +1766,7 @@ let sb=null,_sessaoEmail=null,_sessaoId=null,_editando=false,_viewAtual=null,_bo
 
 function getSessao(){ return _sessaoEmail? {email:_sessaoEmail} : null; }
 function setSessao(){}
-async function logout(){ try{ await sb.auth.signOut(); }catch(e){} location.reload(); }
+async function logout(){ try{ await sb.auth.signOut(); }catch(e){} try{sessionStorage.removeItem('ibnm_sess');}catch(e){} location.reload(); }
 
 /* ---------- AUTENTICACAO (Supabase Auth) ---------- */
 async function fazerLogin(){
@@ -2741,8 +2755,31 @@ if(typeof ligarRealtime==='function'){
     else if(p[0]==='hr'){ if(window.harpaAbrir) window.harpaAbrir(+p[1]); }
     else if(p[0]==='ed'){ (window.__edOrig||window.editorCifra)(p[1]); }
     else if(p[0]==='go'){ (window.__goOrig||window.go)(p[1], p[2]===''?undefined:p[2]); }
-    window.scrollTo(0,0);
+    else window.scrollTo(0,0);   /* detalhe de música/hino abre no topo; página go restaura sozinha */
+    try{ window.__salvaSess && window.__salvaSess(); }catch(e){}
   }
+  /* restaura a última tela+scroll (app morto pelo Android / tela branca) */
+  window.__sessRestaura=function(){
+    try{
+      var s=JSON.parse(sessionStorage.getItem('ibnm_sess')||'null');
+      if(!s||!s.stack||!s.stack.length) return;
+      if(typeof usuarioAtual==='function' && !usuarioAtual()) return;
+      var top=s.stack[s.stack.length-1]; if(!top) return;
+      navStack=s.stack;
+      if(s.pag && window.__setPag) window.__setPag(s.pag);
+      if(s.sc && window.__scrollMem){ Object.keys(s.sc).forEach(function(k){ window.__scrollMem[k]=s.sc[k]; }); }
+      var y=s.y||0;
+      _irPara(top);
+      setTimeout(function(){ window.scrollTo(0,y); },60);
+      setTimeout(function(){ window.scrollTo(0,y); },450);
+    }catch(e){}
+  };
+  /* volta de troca de app com tela vazia → recupera */
+  try{ document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState!=='visible') return;
+    var c=document.getElementById('content');
+    if(c && !c.innerHTML.trim() && window.__sessRestaura) window.__sessRestaura();
+  }); }catch(e){}
   function _editorComMudancas(){ try{ return !!document.getElementById('edCifra') && typeof _edUndo!=='undefined' && _edUndo.length>0; }catch(e){ return false; } }
   function _arma(){ try{ history.pushState({ibnm:1}, ''); }catch(e){} }
   try{ history.replaceState({ibnm:1,root:1}, ''); }catch(e){}

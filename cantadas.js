@@ -98,7 +98,7 @@ if(typeof ROTAS!=='undefined'){
     const letras=[...new Set(D.map(x=>x.letra))]; const LS='ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
     const datas=[...new Set(D.filter(x=>!F.mes||x.mes===F.mes).map(x=>x.data))].sort((a,b)=>{ const p=s=>s.split('/').reverse().join(''); return p(b).localeCompare(p(a)); });
     const aberto=localStorage.getItem('ibnm_ct_abertos')==='1'||ativos()>0;
-    return '<div class="page"><div class="page-ttl">🎶 Histórico de músicas</div>'+
+    return '<div class="page ct-page"><div class="page-ttl">🎶 Histórico de músicas</div>'+
       '<button id="fcStatsBtn" class="st-btn" onclick="toggleStatsCantadas()">📊 Ver estatísticas</button><div id="fcStats" class="st-wrap" style="display:none"></div>'+
       '<div class="ct-bar"><input class="busca-cant" type="search" placeholder="🔎 Buscar música, artista, culto ou data…" value="'+e(F.q)+'" oninput="ctBusca(this.value)">'+
       '<div class="ct-az"><button class="'+(!F.letra?'on':'')+'" onclick="ctFiltro(\'letra\',\'\')">Todas</button>'+LS.map(l=>'<button class="'+(F.letra===l?'on':'')+(letras.includes(l)?'':' vz')+'" '+(letras.includes(l)?'':'disabled')+' onclick="ctFiltro(\'letra\',\''+l+'\')">'+l+'</button>').join('')+'</div>'+
@@ -123,6 +123,10 @@ window.listaCantadasHTML=listaCantadasHTML=listaHTML;
 
 const css=`
 .ct-bar{position:sticky;top:var(--ibnm-topbar,64px);z-index:30;background:var(--cinza,#eef4f1);margin:0 -14px 6px;padding:8px 14px 6px;box-shadow:0 6px 10px -8px rgba(0,0,0,.25)}
+.ct-page{display:flex;flex-direction:column;height:calc(100dvh - var(--ibnm-topbar,64px));overflow:hidden}
+.ct-page .page-ttl,.ct-page .st-btn,.ct-page .st-wrap,.ct-page .ct-cont{flex:none}
+.ct-page .ct-bar{position:static;flex:none}
+.ct-page #fcLista{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-bottom:28px}
 .ct-bar .busca-cant{width:100%;margin-bottom:6px}
 .ct-az{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
 .ct-az::-webkit-scrollbar{display:none}

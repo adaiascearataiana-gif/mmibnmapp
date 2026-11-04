@@ -184,6 +184,7 @@ const pad2=n=>String(n).padStart(2,'0');
 const hojeISO=()=>{ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); };
 function normSl(x,chave){ if(!x||!Array.isArray(x.itens)||!x.itens.length) return null;
   return {inicio:String(x.inicio||'').slice(0,10),fim:String(x.fim||'').slice(0,10),itens:x.itens.filter(existe),tons:x.tons||{},youtube:x.youtube||'',
+    tema:String(x.tema||'').slice(0,120),textoBase:String(x.textoBase||'').slice(0,60),
     eventos:(Array.isArray(x.eventos)&&x.eventos.length)? x.eventos : null,chave}; }
 /* qual: (vazio) = esta semana · 'prox' = próxima semana.
    A da próxima semana vira "esta semana" sozinha quando chega a data de início. */
@@ -197,7 +198,7 @@ function setlist(qual){
   if(pVale) return p;
   if(a) return a;
   const pl=(typeof DB!=='undefined'&&DB.playlist)||{};
-  if(pl.publicada && pl.musicas && pl.musicas.length) return {inicio:pl.inicio,fim:pl.fim,itens:pl.musicas.filter(existe),tons:{},youtube:'',eventos:(Array.isArray(pl.eventos)&&pl.eventos.length)?pl.eventos:null,chave:'setlist'};
+  if(pl.publicada && pl.musicas && pl.musicas.length) return {inicio:pl.inicio,fim:pl.fim,itens:pl.musicas.filter(existe),tons:{},youtube:'',tema:pl.tema||'',textoBase:pl.textoBase||'',eventos:(Array.isArray(pl.eventos)&&pl.eventos.length)?pl.eventos:null,chave:'setlist'};
   return null;
 }
 window.setlistDe=setlist;
@@ -262,6 +263,7 @@ function seedEventos(evs,ini,fim){
 function packSl(sl,evs){
   const itens=[]; (evs||[]).forEach(x=>(x.itens||[]).forEach(id=>{ if(itens.indexOf(id)<0) itens.push(id); }));
   return {inicio:sl.inicio,fim:sl.fim,itens:evs? itens : (sl.itens||[]).slice(),tons:Object.assign({},sl.tons||{}),youtube:sl.youtube||'',
+    tema:sl.tema||'',textoBase:sl.textoBase||'',
     eventos:evs? evs : (sl.eventos||null)};
 }
 /* linha do histórico "músicas já cantadas" (tabela musicas_cantadas) */
@@ -432,7 +434,7 @@ if(typeof ROTAS!=='undefined'){
     const _dts=(sl.eventos||[]).map(x=>String(x.data||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort();
     const _dt1=_dts.length? _dts[0] : sl.inicio, _dt2=_dts.length? _dts[_dts.length-1] : sl.fim;
     const eu=escaladoNoPeriodo(sl);
-    return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">'+(prox?'SETLIST DA PRÓXIMA SEMANA':'SETLIST DA SEMANA')+'</div><div class="dt">'+fmtData(_dt1)+' - '+fmtData(_dt2)+'</div>'+(sl.youtube?'<a class="yt-home" href="'+e(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist do YouTube</a>':'')+'</div>'+
+    return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">'+(prox?'SETLIST DA PRÓXIMA SEMANA':'SETLIST DA SEMANA')+'</div><div class="dt">'+fmtData(_dt1)+' - '+fmtData(_dt2)+'</div>'+((sl.tema||sl.textoBase)?'<div class="sb-tt">'+(sl.tema?'🔥 '+e(sl.tema):'')+((sl.tema&&sl.textoBase)?' · ':'')+(sl.textoBase?'📖 '+e(sl.textoBase):'')+'</div>':'')+(sl.youtube?'<a class="yt-home" href="'+e(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist do YouTube</a>':'')+'</div>'+
       (eu?'<div class="pl-eu">📍 Você está escalado(a) neste período'+(eu!==true?' — '+e(eu):'')+'. Toque nas músicas para ver letra, cifra e áudio.</div>':'')+
       cardSetlistSmart(sl,(sl.eventos&&sl.eventos.length)? 'Eventos da semana ('+sl.itens.length+' música(s)/hino(s))' : 'Ordem dos Eventos da semana ('+sl.itens.length+')',prox?'prox':'')+'</div>';
   };
@@ -481,7 +483,7 @@ window.modalPlaylist=function(qual){
   if(!evs){ const outro=setlist(prox?'':'prox'); if(outro&&outro.eventos) evs=seedEventos(outro.eventos,ini,fim); }
   if(!evs && sl.itens.length) evs=[{id:evtUid(),nome:'CULTO',data:'',itens:sl.itens.slice(),concluido:false}];
   if(!evs) evs=[];
-  _ed={qual:prox?'prox':'',inicio:ini,fim:fim,evs,tons:Object.assign({},sl.tons),youtube:sl.youtube||'',chave:sl.chave||(prox?'setlist_prox':'setlist'),
+  _ed={qual:prox?'prox':'',inicio:ini,fim:fim,evs,tons:Object.assign({},sl.tons),youtube:sl.youtube||'',tema:sl.tema||'',textoBase:sl.textoBase||'',chave:sl.chave||(prox?'setlist_prox':'setlist'),
     aberto: evs.length? evs[0].id : null, trocando:null};
   abrirModal('<h3>'+(prox?'🗓️ SETLIST da próxima semana':'📅 SETLIST desta semana')+'</h3>'+
     (prox?'<p class="pl-dica">Ao publicar, as músicas ficam disponíveis no app. Marque 🔔 abaixo para avisar os membros.</p>':'')+
@@ -489,6 +491,8 @@ window.modalPlaylist=function(qual){
     '<div id="plEvts"></div>'+
     '<button type="button" class="pl-ev-add" onclick="plEvAdd()">➕ Adicionar evento</button>'+
     '<div class="field"><label>▶️ Playlist do YouTube (opcional)</label><input id="plYt" type="url" inputmode="url" placeholder="Cole aqui o link da playlist do YouTube" value="'+e(_ed.youtube)+'"></div>'+
+    '<div class="field"><label>🔥 Tema da Pregação (opcional)</label><input id="plTema" type="text" maxlength="120" placeholder="Ex.: A fé que move montanhas" value="'+e(_ed.tema||'')+'"></div>'+
+    '<div class="field"><label>📖 Texto Base (opcional)</label><input id="plTexto" type="text" maxlength="60" placeholder="Ex.: Hebreus 11.1" value="'+e(_ed.textoBase||'')+'"></div>'+
     '<label class="check-inline" style="color:var(--verde-escuro);display:block;margin:6px 0"><input type="checkbox" id="plAvisar"> 🔔 Avisar membros ao publicar (só marque se quiser notificar)</label>'+
     (prox?'<label class="check-inline" style="color:var(--verde-escuro);display:block;margin:6px 0"><input type="checkbox" id="plTodos"> Avisar também todos os membros</label>':'')+
     '<div class="modal-acts" style="flex-wrap:wrap"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" id="plPub" onclick="publicarPlaylist()">📢 Publicar</button><button class="btn btn-ghost" style="color:#c0392b;border-color:#e6b0aa" onclick="removerSetlist(\''+(prox?'prox':'')+'\')">🗑 Remover SETLIST</button></div>');
@@ -626,7 +630,7 @@ window.removerSetlist=async function(qual){
       await salvarConfig('setlist_prox',{});
     } else {
       await salvarConfig('setlist',{});
-      DB.playlist={inicio:'',fim:'',musicas:[],publicada:false};
+      DB.playlist={inicio:'',fim:'',musicas:[],publicada:false,tema:'',textoBase:''};
       try{ saveDB(); }catch(_){}
       try{
         const ult=await sb.from('playlist').select('id').order('updated_at',{ascending:false}).limit(1);
@@ -645,6 +649,8 @@ window.publicarPlaylist=async function(){
   else { _ed.inicio=_iniEl?_iniEl.value:String(_ed.inicio||''); _ed.fim=_fimEl?_fimEl.value:String(_ed.fim||''); }
   if(_iniEl) _iniEl.value=_ed.inicio; if(_fimEl) _fimEl.value=_ed.fim;
   const yt=linkYoutube(document.getElementById('plYt').value);
+  const _tema=String((document.getElementById('plTema')||{}).value||'').trim().slice(0,120);
+  const _texto=String((document.getElementById('plTexto')||{}).value||'').trim().slice(0,60);
   if(!_ed.inicio||!_ed.fim) return toast('Informe início e fim.');
   if(_ed.fim<_ed.inicio) return toast('A data final está antes da inicial.');
   if(yt===null) return toast('O link precisa ser do YouTube (youtube.com ou youtu.be).');
@@ -654,7 +660,7 @@ window.publicarPlaylist=async function(){
   evs.forEach(x=>x.itens.forEach(id=>{ if(itens.indexOf(id)<0) itens.push(id); }));
   if(!itens.length) return toast('Adicione ao menos um evento com música ou hino.');
   const bt=document.getElementById('plPub'); if(bt){ bt.disabled=true; bt.textContent='Publicando…'; }
-  const dados={inicio:_ed.inicio,fim:_ed.fim,itens,tons:Object.assign({},_ed.tons),youtube:yt||'',eventos:evs};
+  const dados={inicio:_ed.inicio,fim:_ed.fim,itens,tons:Object.assign({},_ed.tons),youtube:yt||'',tema:_tema,textoBase:_texto,eventos:evs};
   if(_ed.qual==='prox'){
     try{ await promoverProxima(); }catch(_){} /* se a semana já virou, promove a anterior antes de gravar a nova */
     await salvarConfig('setlist_prox',dados);
@@ -669,7 +675,7 @@ window.publicarPlaylist=async function(){
     go('playlist','prox'); return;
   }
   const mus=itens.filter(id=>String(id).indexOf('cc:')!==0);
-  const reg={inicio:_ed.inicio,fim:_ed.fim,musicas:mus,publicada:true,updated_at:new Date().toISOString()};
+  const reg={inicio:_ed.inicio,fim:_ed.fim,musicas:mus,publicada:true,tema:_tema,textoBase:_texto,updated_at:new Date().toISOString()};
   /* grava sem criar linha nova (evita o erro "duplicate key ... playlist_pkey") */
   let error=null;
   try{
@@ -678,7 +684,7 @@ window.publicarPlaylist=async function(){
     else { ({error}=await sb.from('playlist').insert(reg)); }
   }catch(err){ error=err; }
   if(error){ if(bt){ bt.disabled=false; bt.textContent='📢 Publicar'; } return toast('Erro: '+(error.message||error)); }
-  DB.playlist={inicio:_ed.inicio,fim:_ed.fim,musicas:mus,publicada:true,eventos:evs};
+  DB.playlist={inicio:_ed.inicio,fim:_ed.fim,musicas:mus,publicada:true,tema:_tema,textoBase:_texto,eventos:evs};
   await salvarConfig('setlist',dados);
   /* se a "esta semana" vinha da lista da próxima semana que já começou, ela foi substituída */
   if(_ed.chave==='setlist_prox') await salvarConfig('setlist_prox',{});
@@ -697,7 +703,7 @@ async function promoverProxima(){
     const semanaAcabou=!!(a&&a.fim&&hoje>a.fim);      /* virou domingo→segunda */
     const inicioChegou=p.inicio<=hoje;                /* ou a data dela já chegou */
     if(!(semanaAcabou||inicioChegou)) return;
-    await salvarConfig('setlist',{inicio:p.inicio,fim:p.fim,itens:p.itens,tons:p.tons,youtube:p.youtube,eventos:p.eventos||null});
+    await salvarConfig('setlist',{inicio:p.inicio,fim:p.fim,itens:p.itens,tons:p.tons,youtube:p.youtube,tema:p.tema||'',textoBase:p.textoBase||'',eventos:p.eventos||null});
     await salvarConfig('setlist_prox',{});
     try{ redesenhar(); }catch(_){}
     try{ toast('📅 SETLIST da próxima semana é agora o desta semana!'); }catch(_){}
@@ -717,7 +723,7 @@ window.tomCulto=function(id){ const sl=listaDe(id); return sl&&sl.tons? (sl.tons
 window.fixarTomCulto=async function(id,v){
   if(!adm()) return; const sl=listaDe(id); if(!sl) return toast('Monte o SETLIST primeiro.');
   const tons=Object.assign({},sl.tons); if(v) tons[id]=v; else delete tons[id];
-  await salvarConfig(sl.chave||'setlist',{inicio:sl.inicio,fim:sl.fim,itens:sl.itens,tons,youtube:sl.youtube||'',eventos:sl.eventos||null});
+  await salvarConfig(sl.chave||'setlist',{inicio:sl.inicio,fim:sl.fim,itens:sl.itens,tons,youtube:sl.youtube||'',tema:sl.tema||'',textoBase:sl.textoBase||'',eventos:sl.eventos||null});
   toast(v?'Tom do culto salvo. Todos abrem neste tom.':'Tom do culto: original.'); setTimeout(redesenhar,50);
 };
 function redesenhar(){ const y=scrollY; try{ if(typeof _viewAtual==='function') _viewAtual(); }catch(_){} scrollTo(0,y); }
