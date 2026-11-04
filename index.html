@@ -1836,18 +1836,26 @@ async function bootSessao(){
   if(!session){ telaLogin(); return; }
   _sessaoEmail=(session.user.email||'').toLowerCase();
   _sessaoId=session.user.id;
-  await garantirPerfil(session.user);
-  await cloudCarregarTudo();
+  const usuarioOk=!!usuarioAtual();          /* cache local já tem o perfil? */
+  if(usuarioOk){ try{ Promise.resolve(garantirPerfil(session.user)).catch(()=>{}); }catch(e){} }
+  else { await garantirPerfil(session.user); await cloudPerfis(); }
   _booted=true;
-  iniciarApp();
+  iniciarApp();                               /* PINTA o app imediatamente */
   ligarRealtime();
+  /* dados restantes em 2º plano → ao chegar, atualiza menu/badge/tela */
+  try{ cloudCarregarTudo().then(function(){
+    try{
+      montaMenu(); atualizaBadge();
+      if(_viewAtual && !document.querySelector('.modal-bg.show')){ const _y=scrollY; _viewAtual(); scrollTo(0,_y); }
+    }catch(e){}
+  }).catch(function(){}); }catch(e){}
   setTimeout(()=>{ try{ avisoCadastroIncompleto(); }catch(_){} }, 8000);
 }
 async function garantirPerfil(user){
   const md=user.user_metadata||{};
   const origem=((user.app_metadata&&user.app_metadata.provider==='google')?'google':'local');
   const {data}=await sb.from('perfis').select('id').eq('id',user.id).maybeSingle();
-  if(data){ await sb.from('perfis').update({origem}).eq('id',user.id).then(()=>{},()=>{}); return; }
+  if(data){ sb.from('perfis').update({origem}).eq('id',user.id).then(()=>{},()=>{}); return; }
   const {count}=await sb.from('perfis').select('*',{count:'exact',head:true});
   await sb.from('perfis').insert({id:user.id,email:(user.email||'').toLowerCase(),nome:md.nome||md.full_name||md.name||(user.email||'').split('@')[0],nasc:md.nasc||null,tel:md.tel||'',wpp:!!md.wpp,vocal:md.vocal||[],instr:md.instr||[],foto:md.avatar_url||md.picture||'',origem,admin:(count||0)===0});
 }
@@ -2246,7 +2254,7 @@ function notifSistema(titulo,corpo){
 
 /* ---------- WRAPPERS v2 ---------- */
 const _cctPrev=cloudCarregarTudo;
-cloudCarregarTudo=async function(){ await _cctPrev(); try{ await Promise.all([cloudConfig(),cloudPresencas(),cloudAoVivo()]); }catch(e){} };
+cloudCarregarTudo=async function(){ try{ await Promise.all([_cctPrev(),cloudConfig(),cloudPresencas(),cloudAoVivo()]); }catch(e){} };
 
 const _lrPrev=ligarRealtime;
 ligarRealtime=function(){ _lrPrev();
@@ -2673,7 +2681,7 @@ async function cloudCantadas(){
 /* Inclui o carregamento do histórico no carregamento geral da nuvem */
 if(typeof cloudCarregarTudo==='function'){
   const _cctPrev=cloudCarregarTudo;
-  cloudCarregarTudo=async function(){ await _cctPrev(); await cloudCantadas(); };
+  cloudCarregarTudo=async function(){ try{ await Promise.all([_cctPrev(),cloudCantadas()]); }catch(e){} };
 }
 /* Assina o tempo real também para a tabela do histórico */
 if(typeof ligarRealtime==='function'){
@@ -2725,6 +2733,7 @@ if(typeof ligarRealtime==='function'){
   function _topo(){ return navStack.length? navStack[navStack.length-1] : null; }
   function _mesmaTela(a,b){ if(!a||!b) return false; var x=a.split('|'), y=b.split('|'); return x[0]===y[0] && x[1]===y[1] && (x[0]!=='go' || (x[2]||'')===(y[2]||'')); }
   function _registra(screen){
+    try{ if(!history.state || !history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}  /* garante isca p/ voltar */
     var top=_topo();
     if(top===screen) return;
     if(_mesmaTela(top,screen)){ navStack[navStack.length-1]=screen; return; }      /* mesma música em outra aba, mesmo hino */
@@ -2770,6 +2779,7 @@ if(typeof ligarRealtime==='function'){
       if(s.sc && window.__scrollMem){ Object.keys(s.sc).forEach(function(k){ window.__scrollMem[k]=s.sc[k]; }); }
       var y=s.y||0;
       _irPara(top);
+      try{ if(!history.state || !history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}
       setTimeout(function(){ window.scrollTo(0,y); },60);
       setTimeout(function(){ window.scrollTo(0,y); },450);
     }catch(e){}
@@ -2800,8 +2810,7 @@ if(typeof ligarRealtime==='function'){
   };
   window.addEventListener('popstate', function(){
     if(window.__voltar()){ _arma(); return; }
-    if(confirm('Deseja sair do aplicativo?')){ history.back(); }
-    else { _arma(); }
+    try{ history.back(); }catch(e){}   /* só chega aqui estando na HOME → fecha o app */
   });
 })();
 </script>
