@@ -289,6 +289,7 @@ function abrirHino(n, keepScroll){
   '<div class="cc-hbar">'+
     '<button class="ib" onclick="harpaVoltar()">‹ Hinos</button>'+
     '<button class="ib '+(favs.has(n)?'fav-on':'')+'" id="ccFav" onclick="harpaFavHino('+n+')" aria-label="Favoritos">'+(favs.has(n)?'★':'☆')+'</button>'+
+    '<button class="ib" onclick="harpaAddSetlist('+n+')" aria-label="Adicionar ao SETLIST" title="Adicionar ao SETLIST">➕</button>'+
     '<span class="sp"></span>'+
     '<button class="ib" onclick="harpaFs(-2)" aria-label="Diminuir letra">A−</button>'+
     '<button class="ib" onclick="harpaFs(2)" aria-label="Aumentar letra">A+</button>'+
@@ -470,6 +471,22 @@ window.harpaLetra=function(n){ _hrLetra=!_hrLetra; abrirHino(+n,true); };
 window.harpaAbrir=function(n){ if(typeof navSave==='function') navSave(); if(typeof _pagAtual!=='undefined') _pagAtual='hino'; editMode=false; stopScroll(); abrirHino(+n); };
 window.harpaVoltar=function(){ editMode=false; stopScroll(); if(typeof go==='function') go('harpa'); else renderLista(); };
 window.harpaFav=function(n,ev){ if(ev){ ev.preventDefault(); ev.stopPropagation(); } toggleFav(+n); redesenharLista(); };
+window.harpaAddSetlist=function(n){
+  try{
+    n=+n; const h=(window.HARPA||[]).find(x=>x.n===n); if(!h) return;
+    if(typeof setlist!=='function'||typeof packSl!=='function') return toast('SETLIST indisponível.');
+    const sl=setlist(); if(!sl) return toast('Publique um SETLIST primeiro ( ADM: SETLIST → Montar ).');
+    const id='hr:'+n;
+    const evs=(sl.eventos&&sl.eventos.length)? JSON.parse(JSON.stringify(sl.eventos)) : null;
+    if(evs){ if(evs.some(e2=>(e2.itens||[]).indexOf(id)>=0)) return toast('Este hino já está no SETLIST.'); evs[0].itens.push(id); }
+    else { if((sl.itens||[]).indexOf(id)>=0) return toast('Este hino já está no SETLIST.'); }
+    const novo=packSl(Object.assign({},sl,{itens: evs? sl.itens : (sl.itens||[]).concat([id])}), evs);
+    salvarConfig(sl.chave||'setlist', novo).then(()=>{
+      toast('🎼 Hino '+n+' no SETLIST ✓');
+      try{ if(_viewAtual) _viewAtual(); }catch(e){}
+    }).catch(()=>toast('Erro ao salvar no SETLIST.'));
+  }catch(e){ toast('Erro: '+(e.message||e)); }
+};
 window.harpaFavHino=function(n){ toggleFav(+n); abrirHino(+n,true); };
 window.harpaFs=function(d){ prefs.fs=Math.min(34,Math.max(14,prefs.fs+d)); savePrefs(); abrirHino(harpaNum,true); };
 window.harpaCifras=function(n){ prefs.cifras=!prefs.cifras; savePrefs(); abrirHino(+n,true); };

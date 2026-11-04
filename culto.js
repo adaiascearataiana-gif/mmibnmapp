@@ -211,15 +211,17 @@ function listaDe(id){
   if(tem(px)) return px;
   return null;
 }
-function existe(id){ id=String(id); if(id.indexOf('cc:')===0) return !!hino(id.slice(3)); return !!(DB.musicas||[]).find(m=>m.id===id); }
+function existe(id){ id=String(id); if(id.indexOf('cc:')===0) return !!hino(id.slice(3)); if(id.indexOf('hr:')===0) return !!(window.HARPA||[]).find(h=>h.n===+id.slice(3)); return !!(DB.musicas||[]).find(m=>m.id===id); }
 function info(id){
   id=String(id);
   if(id.indexOf('cc:')===0){ const h=hino(id.slice(3)); return {hino:true,ic:'📖',t:h?h.n+' · '+h.titulo:'Hino '+id.slice(3),s:'Cantor Cristão'+(h&&h.ritmo?' · '+h.ritmo:''),tom:h?h.tom:''}; }
+  if(id.indexOf('hr:')===0){ const n=+id.slice(3); const h=(window.HARPA||[]).find(x=>x.n===n); return {hino:true,ic:'🎼',t:h?(h.n+' · '+h.titulo):('Hino Harpa '+n),s:'Harpa Cristã',tom:h&&h.tom?h.tom:''}; }
   const m=(DB.musicas||[]).find(x=>x.id===id)||{}; return {hino:false,ic:'🎵',t:m.titulo||'(música removida)',s:m.artista||'',tom:''};
 }
-window.abrirItem=function(id,ctx){ id=String(id); if(ctx!==undefined) window.__slCtx=ctx; if(id.indexOf('cc:')===0){ if(window.cantorAbrir) cantorAbrir(+id.slice(3)); } else abrirMusica(id,'cifra'); };
+window.abrirItem=function(id,ctx){ id=String(id); if(ctx!==undefined) window.__slCtx=ctx; if(id.indexOf('cc:')===0){ if(window.cantorAbrir) cantorAbrir(+id.slice(3)); } else if(id.indexOf('hr:')===0){ if(window.harpaAbrir) harpaAbrir(+id.slice(3)); } else abrirMusica(id,'cifra'); };
 function rotuloSemitom(v){ return v? (v>0?'+':'')+v : ''; }
 function disponivel(id){
+  if(String(id).indexOf('hr:')===0) return '<span class="sl-ok">cifra · partitura</span>';
   if(String(id).indexOf('cc:')===0) return '<span class="sl-ok">letra · cifra</span>';
   const m=(DB.musicas||[]).find(x=>x.id===id)||{}; const t=[];
   if(m.cifra) t.push('cifra'); if(m.letra) t.push('letra'); if((m.audios&&m.audios.length)||m.youtube) t.push('áudio');
@@ -266,6 +268,7 @@ function packSl(sl,evs){
     tema:sl.tema||'',textoBase:sl.textoBase||'',
     eventos:evs? evs : (sl.eventos||null)};
 }
+window.packSl=packSl;
 /* linha do histórico "músicas já cantadas" (tabela musicas_cantadas) */
 function linhaCantada(id,ev,sl){
   const v=(sl.tons||{})[id]||0;
@@ -428,7 +431,8 @@ if(typeof ROTAS!=='undefined'){
     const sl=prox? px : at;
     const tabs='<div class="pl-tabs"><button class="'+(!prox?'on':'')+'" onclick="go(\'playlist\',\'atual\')">📅 Esta semana</button><button class="'+(prox?'on':'')+'" onclick="go(\'playlist\',\'prox\')">🗓️ Próxima semana'+(px?' <i>●</i>':'')+'</button></div>';
     const bt=a?'<button class="mini-btn" style="margin-bottom:14px" onclick="modalPlaylist(\''+(prox?'prox':'')+'\')">✏️ '+(prox?'Montar playlist da próxima semana':'Montar / editar playlist desta semana')+'</button>':'';
-    const topo='<div class="page-ttl">📅 SETLIST</div>'+tabs+bt;
+    const btTools='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><button class="mini-btn" style="margin:0" onclick="compartilharSetlist()">📤 Compartilhar</button><button class="mini-btn" style="margin:0" onclick="projetarSetlist(\''+(prox?'prox':'')+'\')">🎬 Projetar setlist</button></div>';
+    const topo='<div class="page-ttl">📅 SETLIST</div>'+tabs+bt+btTools;
     if(!sl||!sl.itens.length) return '<div class="page">'+topo+'<div class="empty"><div class="big">🎼</div>'+(prox?'O SETLIST da próxima semana ainda não foi publicado.':'Nenhum SETLIST publicado para esta semana.')+'</div></div>';
     /* título usa a 1ª e a última data dos eventos (se houver) */
     const _dts=(sl.eventos||[]).map(x=>String(x.data||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort();
@@ -560,7 +564,9 @@ function renderLista(){
     || '<p style="font-size:13px;color:#9aa;padding:8px">Busque abaixo e toque na música ou no hino para adicionar.</p>';
   const qt=document.getElementById('qt-'+ev.id); if(qt) qt.textContent=(ev.itens||[]).length+' música(s)';
 }
-window.plTom=function(i,d){ const ev=evAberto(); if(!ev) return; const id=ev.itens[i]; let v=(((((_ed.tons[id]||0)+d)%12)+12)%12); if(v>6) v-=12; if(v) _ed.tons[id]=v; else delete _ed.tons[id]; renderLista(); };
+window.plTom=function(i,d){ const ev=evAberto(); if(!ev) return; const id=ev.itens[i]; let v=(((((_ed.tons[id]||0)+d)%12)+12)%12); if(v>6) v-=12; if(v) _ed.tons[id]=v; else delete _ed.tons[id];
+  if(String(id).indexOf('cc:')!==0){ try{ const t=JSON.parse(localStorage.getItem('ibnm_mus_tr')||'{}'); if(v) t[id]=v; else delete t[id]; localStorage.setItem('ibnm_mus_tr',JSON.stringify(t)); }catch(e){} }
+  renderLista(); };
 window.plMov=function(i,d){ const ev=evAberto(); if(!ev) return; const j=i+d; if(j<0||j>=ev.itens.length) return; const a=ev.itens; [a[i],a[j]]=[a[j],a[i]]; renderLista(); };
 window.plDel=function(i){ const ev=evAberto(); if(!ev) return; const id=ev.itens.splice(i,1)[0]; delete _ed.tons[id]; renderLista(); };
 window.plTrocar=function(i){ const ev=evAberto(); if(!ev) return; _ed.trocando=(_ed.trocando===i? null : i); renderLista(); if(_ed.trocando!=null) toast('🔁 Busque a nova música abaixo para substituir.'); };
@@ -674,7 +680,7 @@ window.publicarPlaylist=async function(){
     toast(!avisar? 'SETLIST publicado. (nenhum aviso enviado — marque 🔔 se quiser avisar)' : (alvos.length? 'Publicada! '+alvos.length+' escalado(s) avisado(s).' : (todos?'Publicada e todos avisados.':'Publicada. Ninguém da escala encontrado nessas datas.')));
     go('playlist','prox'); return;
   }
-  const mus=itens.filter(id=>String(id).indexOf('cc:')!==0);
+  const mus=itens.filter(id=>{ const s=String(id); return s.indexOf('cc:')!==0 && s.indexOf('hr:')!==0; });
   const reg={inicio:_ed.inicio,fim:_ed.fim,musicas:mus,publicada:true,tema:_tema,textoBase:_texto,updated_at:new Date().toISOString()};
   /* grava sem criar linha nova (evita o erro "duplicate key ... playlist_pkey") */
   let error=null;
@@ -745,6 +751,7 @@ window.fixarTomAtual=function(id){
   let v=0;
   if(String(id).indexOf('cc:')===0){ try{ const p=JSON.parse(localStorage.getItem('ibnm_cc_prefs')||'{}'); const n=String(id).slice(3); v=(p.tr&&n in p.tr)? p.tr[n] : tomCulto(id); }catch(_){} }
   else { try{ const t=JSON.parse(localStorage.getItem('ibnm_mus_tr')||'{}'); v=(id in t)? t[id] : tomCulto(id); }catch(_){} }
+  if(String(id).indexOf('cc:')!==0){ try{ const t=JSON.parse(localStorage.getItem('ibnm_mus_tr')||'{}'); if(v) t[id]=v; else delete t[id]; localStorage.setItem('ibnm_mus_tr',JSON.stringify(t)); }catch(_){} }
   fixarTomCulto(String(id),v);
 };
 /* música */
@@ -799,10 +806,15 @@ function slidesMusica(id){
   if(out.length===1) out.push({txt:'(letra não cadastrada)'});
   return out;
 }
-function slidesDe(id){ id=String(id); return id.indexOf('cc:')===0? slidesHino(+id.slice(3)) : slidesMusica(id); }
+function slidesHarpa(n){ const h=(window.HARPA||[]).find(x=>x.n===+n); if(!h) return [];
+  const out=[{capa:true,txt:'Hino '+h.n+'\n'+h.titulo}];
+  (h.partes||[]).forEach(p=>{ const ls=(p.linhas||[]).slice(); for(let i=0;i<ls.length;i+=6) out.push({txt:ls.slice(i,i+6).join('\n')}); });
+  if(out.length===1) out.push({txt:'(letra não encontrada)'}); return out; }
+function slidesDe(id){ id=String(id); if(id.indexOf('hr:')===0) return slidesHarpa(+id.slice(3)); return id.indexOf('cc:')===0? slidesHino(+id.slice(3)) : slidesMusica(id); }
 let PJ=null;
 window.projetar=function(id){ abrirProjetor([{id,slides:slidesDe(id)}]); };
 window.projetarSetlist=function(ctx){ const sl=setlist(ctx==='prox'?'prox':''); if(!sl) return; abrirProjetor(sl.itens.map(id=>({id,slides:slidesDe(id)}))); };
+window.projetarSeAberto=function(id){ if(typeof PJ!=='undefined'&&PJ){ try{ abrirProjetor([{id:String(id),slides:slidesDe(String(id))}]); return true; }catch(e){} } return false; };
 function abrirProjetor(grupos){
   fecharProjetor();
   const flat=[]; grupos.forEach(g=>g.slides.forEach((s,i)=>flat.push(Object.assign({titulo:info(g.id).t,ini:i===0},s))));
@@ -983,3 +995,73 @@ if(typeof _booted!=='undefined' && _booted){ try{ montaMenu(); }catch(_){} }
 
 
 })();
+
+
+/* ================= COMPARTILHAR SETLIST COMO IMAGEM ================= */
+window.compartilharSetlist=function(){
+  try{
+    const prox=(typeof abaPl!=='undefined'&&abaPl==='prox');
+    const sl=setlist(prox?'prox':'');
+    if(!sl) return toast('Não há SETLIST publicado nesta aba.');
+    const evs=(sl.eventos&&sl.eventos.length)? sl.eventos : null;
+    const cv=document.createElement('canvas'); const ctx=cv.getContext('2d');
+    const W=1080, PAD=54; cv.width=W;
+    const wrap=(txt,max)=>{ const ws=String(txt||'').split(' '); const ls=[]; let cur='';
+      ws.forEach(w=>{ const t=cur?cur+' '+w:w; if(ctx.measureText(t).width>max&&cur){ ls.push(cur); cur=w; } else cur=t; });
+      if(cur) ls.push(cur); return ls.length?ls:['']; };
+    const fmtD=s=>{ const p=String(s||'').split('-'); return p.length>=5? p[2]+'/'+p[1] : (p[0]||''); };
+    const nomeEv=ev=>{ const n=String((ev&&(ev.nome||ev.titulo))||'EVENTO').trim()||'EVENTO'; const d=fmtD(ev&&ev.data); return (d? d+' · ':'')+n; };
+    /* ---- layout ---- */
+    const parts=[]; /* {h, draw(y)} */
+    const titulo='SETLIST';
+    const periodo=(sl.inicio||sl.fim)? (fmtD(sl.inicio)+(sl.fim?' – '+fmtD(sl.fim):'')) : '';
+    const sub=(sl.tema||sl.textoBase)? [sl.tema?'🔥 '+sl.tema:'', sl.textoBase?'📖 '+sl.textoBase:''].filter(Boolean).join('  ·  ') : '';
+    ctx.font='bold 58px system-ui,sans-serif'; const lT=wrap(titulo,W-PAD*2);
+    ctx.font='30px system-ui,sans-serif'; const lP=wrap(periodo,W-PAD*2);
+    ctx.font='30px system-ui,sans-serif'; const lS=sub? wrap(sub,W-PAD*2):[];
+    parts.push({h:52+lT.length*66+lP.length*40+(lS.length?lS.length*40+8:0)+34, draw:(y)=>{
+      ctx.fillStyle='#0b3d2e'; ctx.fillRect(0,y,W,parts[0].h);
+      ctx.fillStyle='#ffffff'; ctx.textAlign='left';
+      let yy=y+40; ctx.font='bold 58px system-ui,sans-serif'; lT.forEach(l=>{ ctx.fillText(l,PAD,yy+50); yy+=66; });
+      ctx.fillStyle='#cfe8dc'; ctx.font='30px system-ui,sans-serif'; lP.forEach(l=>{ ctx.fillText(l,PAD,yy+34); yy+=40; });
+      if(lS.length){ yy+=6; ctx.fillStyle='#f1c40f'; lS.forEach(l=>{ ctx.fillText(l,PAD,yy+34); yy+=40; }); }
+    }});
+    const addMus=(txt,destaque)=>{ ctx.font=(destaque?'bold 34px':'30px')+' system-ui,sans-serif';
+      const ls=wrap(txt,W-PAD*2-40); parts.push({h:ls.length*(destaque?46:42)+10, draw:(y)=>{ ctx.textAlign='left';
+        let yy=y+8; ctx.fillStyle=destaque?'#145c43':'#0b241b'; ctx.font=(destaque?'bold 34px':'30px')+' system-ui,sans-serif';
+        ls.forEach(l=>{ ctx.fillText(l,PAD+ (destaque?0:34), yy+(destaque?34:36)); yy+= destaque?46:42; }); }});
+    };
+    if(evs){
+      evs.forEach(ev=>{
+        const hdr=nomeEv(ev); ctx.font='bold 34px system-ui,sans-serif'; const lh=wrap(hdr,W-PAD*2-30);
+        parts.push({h:lh.length*44+34, draw:(y)=>{ ctx.fillStyle='#1f7a5a'; ctx.fillRect(PAD,y,W-PAD*2,lh.length*44+24);
+          ctx.fillStyle='#fff'; ctx.textAlign='left'; ctx.font='bold 34px system-ui,sans-serif'; let yy=y+30;
+          lh.forEach(l=>{ ctx.fillText(l,PAD+18,yy+32); yy+=44; }); }});
+        (ev.itens||[]).forEach(id=>{ const f=info(id); const v=(sl.tons||{})[id]||0;
+          addMus((f.ic==='🎵'?'':f.ic+' ')+f.t+(v?(v>0?' +'+v:' '+v):''), false); });
+      });
+    } else {
+      (sl.itens||[]).forEach(id=>{ const f=info(id); const v=(sl.tons||{})[id]||0;
+        addMus((f.ic==='🎵'?'':f.ic+' ')+f.t+(v?(v>0?' +'+v:' '+v):''), false); });
+    }
+    if(!(sl.itens||[]).length && !evs) parts.push({h:80,draw:(y)=>{ ctx.fillStyle='#789'; ctx.font='30px system-ui,sans-serif'; ctx.textAlign='left'; ctx.fillText('(sem músicas)',PAD,y+46); }});
+    const foot='Ministério de Música IBNM · '+new Date().toLocaleDateString('pt-BR');
+    parts.push({h:86, draw:(y)=>{ ctx.fillStyle='#eef4f1'; ctx.fillRect(0,y,W,86); ctx.fillStyle='#145c43'; ctx.font='26px system-ui,sans-serif'; ctx.textAlign='left'; ctx.fillText(foot,PAD,y+52); }});
+    const H=parts.reduce((s,p)=>s+p.h,0); cv.height=H;
+    ctx.fillStyle='#f6faf8'; ctx.fillRect(0,0,W,H);
+    let y=0; parts.forEach(p=>{ p.draw(y); y+=p.h; });
+    cv.toBlob(b=>{
+      if(!b) return toast('Não foi possível gerar a imagem.');
+      try{
+        const file=new File([b],'setlist.png',{type:'image/png'});
+        if(navigator.canShare&&navigator.canShare({files:[file]})){
+          navigator.share({files:[file],title:'SETLIST'}).then(()=>toast('Setlist compartilhado ✓')).catch(()=>{});
+          return;
+        }
+      }catch(e){}
+      const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='setlist.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      toast('Imagem do setlist salva — mande no WhatsApp 📤');
+    },'image/png');
+  }catch(e){ toast('Erro ao gerar imagem: '+(e.message||e)); }
+};

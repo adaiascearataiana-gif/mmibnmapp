@@ -327,8 +327,8 @@ async function avisarAniversarios(){
 if(typeof ROTAS!=='undefined' && ROTAS.inicio){
   const _ini=ROTAS.inicio;
   ROTAS.inicio=function(){
-    let h=_ini.apply(this,arguments); const lista=aniversariantes(7); if(!lista.length) return h;
-    const card='<div class="card av-aniv"><h3>🎂 Aniversariantes</h3>'+lista.map(({u,dias,data})=>'<div class="av-an '+(dias===0?'hj':'')+'">'+
+    let h=_ini.apply(this,arguments); const lista=aniversariantes(0); if(!lista.length) return h;   /* só no dia do aniversário */
+    const card='<div class="card av-aniv"><h3>🎂 Aniversariante de hoje</h3>'+lista.map(({u,dias,data})=>'<div class="av-an '+(dias===0?'hj':'')+'">'+
       (u.foto?'<img src="'+e(u.foto)+'" alt="">':'<span class="ini">'+e((u.nome||'?').charAt(0).toUpperCase())+'</span>')+
       '<div style="flex:1;min-width:0"><b>'+e(u.nome)+'</b><small>'+(dias===0?'🎉 Hoje!':dias===1?'Amanhã':String(data.getDate()).padStart(2,'0')+'/'+String(data.getMonth()+1).padStart(2,'0'))+'</small></div>'+
       (dias===0&&u.wpp&&String(u.tel||'').replace(/\D/g,'').length>=10?'<a class="av-wa" target="_blank" rel="noopener" href="https://wa.me/55'+String(u.tel).replace(/\D/g,'')+'?text='+encodeURIComponent('Feliz aniversário, '+(u.nome||'').split(' ')[0]+'! 🎉 Que Deus te abençoe!')+'">Dar parabéns</a>':'')+'</div>').join('')+'</div>';
@@ -338,6 +338,28 @@ if(typeof ROTAS!=='undefined' && ROTAS.inicio){
 
 /* ================= ROTINA: ao abrir o app e a cada minuto (pega a virada de segunda 00:01) ================= */
 let ultSemana='', ultDia='';
+/* ---------- RESUMO SEMANAL (segunda-feira) ---------- */
+let _resumoOk='';
+async function resumoSemanal(){
+  const u=eu(); if(!u) return;
+  const s=semanaISO(); if(_resumoOk===s) return;
+  if(typeof setlist!=='function') return;
+  const sl=setlist()||setlist('prox'); if(!sl) return;          /* setlist ainda não carregado → tenta no próximo minuto */
+  const evs=(sl.eventos&&sl.eventos.length)||0;
+  const mus=(sl.itens||[]).length;
+  const fmtD=p=>{ const q=String(p||'').split('-'); return q.length>=5? q[2]+'/'+q[1] : ''; };
+  const periodo=(sl.inicio||sl.fim)? 'Semana de '+fmtD(sl.inicio)+(sl.fim?' a '+fmtD(sl.fim):'') : '';
+  let corpo=[periodo, evs? evs+' evento(s) de culto':'', mus? mus+' música(s) no setlist':''].filter(Boolean).join(' · ');
+  try{
+    const anv=(typeof aniversariantes==='function')? aniversariantes(7) : [];
+    if(anv.length) corpo+='\n🎂 Aniversariantes: '+anv.map(x=>{ const n=String(x.u.nome||'').split(' ')[0];
+      return n+(x.dias===0?' (hoje!)':x.dias===1?' (amanhã)':' ('+String(x.data.getDate()).padStart(2,'0')+'/'+String(x.data.getMonth()+1).padStart(2,'0')+')'); }).join(', ');
+  }catch(e){}
+  const todos=(DB.usuarios||[]).map(x=>x.email).filter(Boolean);
+  if(!todos.length) return;
+  const ok=await avisoUnico('resumo:'+s, todos, '📋', '📋 Resumo da semana', corpo, 'go:playlist', false);
+  if(ok) _resumoOk=s;
+}
 async function rotina(forcar){
   const u=eu(); if(!u || typeof _booted!=='undefined' && !_booted) return;
   /* se a lista veio da carga antiga (sem link/popup), recarrega uma vez */
@@ -346,6 +368,9 @@ async function rotina(forcar){
   if(forcar || s!==ultSemana){ ultSemana=s; try{ await enviarAvisosEscala(); }catch(_){} }
   if(forcar || d!==ultDia){ ultDia=d; try{ await avisarAniversarios(); }catch(_){} }
   popupEscala(); popupsPendentes();
+  /* segunda-feira → resumo da semana; todo dia → checa backup semanal */
+  try{ if(new Date().getDay()===1) await resumoSemanal(); }catch(_){}
+  try{ if(typeof window.backupAuto==='function') await window.backupAuto(); }catch(_){}
 }
 if(typeof iniciarApp==='function'){
   const _ia=iniciarApp;

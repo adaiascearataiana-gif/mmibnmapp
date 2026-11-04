@@ -322,13 +322,15 @@ window.editarLetra=function(id){
 window.salvarLetra=async function(id){
   const m=DB.musicas.find(x=>x.id===id); if(!m) return;
   const letra=document.getElementById('lrTxt').value.replace(/\r/g,'').replace(/\n{3,}/g,'\n\n').trim();
-  if(typeof sb!=='undefined'&&sb){ const {error}=await sb.from('musicas').update({letra}).eq('id',id); if(error) return toast('Erro ao salvar: '+error.message); }
+  if(typeof sb!=='undefined'&&sb){ const {error}=await sb.from('musicas').update({letra}).eq('id',id);
+    if(error){ if(/fetch|network|Failed/i.test(error.message||'')) filaEnvia('musicaUpdate',[id,{letra}]); else return toast('Erro ao salvar: '+error.message); } }
   m.letra=letra; try{ saveDB(); }catch(_){} fecharModal(); toast('Letra salva.'); abrirMusica(id,'letra');
 };
 window.excluirLetra=async function(id){
   const m=DB.musicas.find(x=>x.id===id); if(!m||!ehAdmin()) return;
   if(!confirm('Excluir a letra de "'+m.titulo+'"? A cifra e o áudio continuam salvos. Esta ação não pode ser desfeita.')) return;
-  if(typeof sb!=='undefined'&&sb){ const {error}=await sb.from('musicas').update({letra:''}).eq('id',id); if(error) return toast('Erro: '+error.message); }
+  if(typeof sb!=='undefined'&&sb){ const {error}=await sb.from('musicas').update({letra:''}).eq('id',id);
+    if(error){ if(/fetch|network|Failed/i.test(error.message||'')) filaEnvia('musicaUpdate',[id,{letra:''}]); else return toast('Erro: '+error.message); } }
   m.letra=''; try{ saveDB(); }catch(_){} toast('Letra excluída.'); abrirMusica(id,'letra');
 };
 window.excluirMusicaInteira=async function(id){

@@ -39,7 +39,7 @@
     {
       "name": "Cantor Cristão",
       "short_name": "Cantor",
-      "url": "./?go=cantor",
+      "url": "./#cantor",
       "icons": [
         {
           "src": "icon-192.png",
@@ -50,7 +50,7 @@
     {
       "name": "Escala do Ministério",
       "short_name": "Escala",
-      "url": "./?go=escala",
+      "url": "./#escala",
       "icons": [
         {
           "src": "icon-192.png",
@@ -61,7 +61,8 @@
     {
       "name": "Playlist da Semana",
       "short_name": "Playlist",
-      "url": "./?go=playlist",
+      "url": "./#playlist",
+      "description": "Setlist desta semana",
       "icons": [
         {
           "src": "icon-192.png",

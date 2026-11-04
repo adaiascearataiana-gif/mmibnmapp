@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="IBNM Música">
 <title>Ministério de Música IBNM</title>
+<script>try{ if(localStorage.getItem('ibnm_tema')==='dark') document.documentElement.setAttribute('data-theme','dark'); }catch(e){}</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
@@ -19,6 +20,17 @@
   --dourado:#f1c40f; --dourado-esc:#c9a200; --branco:#ffffff; --cinza:#eef4f1;
   --txt:#0b241b; --sombra:0 8px 28px rgba(0,0,0,.18); --radius:16px;
 }
+[data-theme=dark]{--verde-escuro:#0e3b2c;--verde:#124534;--cinza:#142520;--txt:#e7f3ed;--branco:#16281f;--sombra:0 8px 28px rgba(0,0,0,.5)}
+[data-theme=dark] body{background:#0a1712;color:var(--txt)}
+[data-theme=dark] .card,[data-theme=dark] .auth-card,[data-theme=dark] .modal,[data-theme=dark] .sheet{background:#16281f;color:var(--txt);border-color:#28443a}
+[data-theme=dark] .topbar{background:#0c2f23}
+[data-theme=dark] .sm-nav,[data-theme=dark] .sidemenu,[data-theme=dark] #sidemenu{background:#0f211b;color:var(--txt)}
+[data-theme=dark] input,[data-theme=dark] select,[data-theme=dark] textarea{background:#0f1d18;color:#e7f3ed;border-color:#2c4a3e}
+[data-theme=dark] .page,[data-theme=dark] .ct-page{color:var(--txt)}
+[data-theme=dark] .ct-bar{background:#142520}
+[data-theme=dark] .song-row,[data-theme=dark] .fc-item,[data-theme=dark] .av-it{background:#16281f;border-color:#28443a}
+[data-theme=dark] .mini-btn,[data-theme=dark] .btn:not(.btn-primary):not(.btn-dark){background:#1d3a30;color:#e7f3ed}
+[data-theme=dark] .info-row,[data-theme=dark] .field label{color:#b8cfc5}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
 body{font-family:'Segoe UI',system-ui,Roboto,Arial,sans-serif;color:var(--txt);background:var(--cinza);overflow-x:hidden}
@@ -450,6 +462,7 @@ function telaLogin(){
         <button type="button" class="olho-senha" onclick="olhoSenha('liSenha',this)" aria-label="Mostrar ou ocultar senha" title="Mostrar senha">👁️</button>
       </div>
       <button class="btn btn-primary" onclick="fazerLogin()">Entrar</button>
+      <button class="btn" style="width:100%;margin-top:8px;background:#eef4f1;color:#0b3d2e;font-weight:800" onclick="loginMagico()">🔑 Entrar por link mágico no e-mail</button>
       <div style="text-align:center;margin:12px 0 2px"><a onclick="telaRecupera()" style="font-size:13.5px;color:var(--dourado);text-decoration:underline;cursor:pointer">Esqueci minha senha</a></div>
       <div class="divider">ou</div>
       <button class="btn btn-google" onclick="loginGoogle()">
@@ -460,6 +473,14 @@ function telaLogin(){
   </div>`;
 }
 
+function loginMagico(){
+  const email=(($('#liEmail')||{}).value||'').trim().toLowerCase();
+  if(!email||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('Informe seu e-mail no campo acima.');
+  if(typeof sb==='undefined'||!sb) return toast('Sem conexão com a nuvem.');
+  sb.auth.signInWithOtp({email, options:{emailRedirectTo:location.origin+location.pathname}})
+    .then(()=>toast('✉️ Link enviado! Abra o e-mail no celular e toque no link para entrar.'))
+    .catch(e=>toast('Erro: '+(e.message||e)));
+}
 function telaCadastro(){
   const vocalChk = VOCAL.map(v=>`<label class="check-inline"><input type="checkbox" class="cbVocal" value="${v}"> ${v}</label>`).join('');
   const instrChk = INSTR.map(v=>`<label class="check-inline"><input type="checkbox" class="cbInstr" value="${v}"> ${rotFuncao(v)}</label>`).join('');
@@ -605,6 +626,7 @@ const MENU = [
      {id:'harpa', ic:'\u266B', nm:'Harpa Cristã'} ]},
   {id:'favoritos', ic:'\u2B50', nm:'Favoritos'},
   {id:'escala', ic:'\uD83D\uDCCB', nm:'Escala do Ministério'},
+  {id:'ensaios', ic:'\uD83C\uDFBC', nm:'Ensaios'},
   {id:'cantadas', ic:'\uD83C\uDFB6', nm:'Histórico de músicas'},
   {id:'academia', ic:'\uD83C\uDF93', nm:'Academia de Música', sub:[
      {id:'academia', arg:'tecnicas-vocais', ic:'\uD83C\uDFA4', nm:'Técnicas vocais'},
@@ -620,6 +642,7 @@ const MENU = [
 ];
 function montaMenu(){
   const u=usuarioAtual();
+  try{ const ta=$('#topAvatar'); if(ta){ ta.onerror=function(){ this.onerror=null; this.src=AVATAR_PADRAO; }; ta.src=(u&&u.foto)||AVATAR_PADRAO; } }catch(e){}
   let h=`<div class="sm-head"><div class="logo-emblema">${LOGO}</div>
     <div class="nm">${esc(u.nome)}</div><div class="rl">${u.admin?'Administrador':'Membro'} • IBNM</div></div><div class="sm-nav">`;
   MENU.forEach(m=>{
@@ -630,6 +653,7 @@ function montaMenu(){
     } else h+=`<button class="sm-item" onclick="go('${m.id}')"><span class="ic">${m.ic}</span>${m.nm}</button>`;
   });
   if(u.admin) h+=`<button class="sm-item" onclick="go('admin')"><span class="ic">\u2699\uFE0F</span>Painel do ADM</button>`;
+  try{ const _nf=(typeof filaQtd==='function')?filaQtd():0; if(_nf) h+=`<button class="sm-item" onclick="filaTenta()"><span class="ic">⏳</span>Fila: ${_nf} (tocar p/ sincronizar)</button>`; }catch(e){}
   h+=`</div><button class="sm-item" onclick="logout()"><span class="ic">\uD83D\uDEAA</span>Sair</button>
     <div class="sm-foot">Ministério de Música IBNM<br>${VERSION}</div>`;
   $('#sidemenu').innerHTML=h;
@@ -661,12 +685,68 @@ window.__scrollMem=_scrollMem;
 window.__setPag=function(p){ _pagAtual=p; };
 window.__salvaSess=_salvaSess;
 
+/* ---------- FILA OFFLINE: sobe quando a internet voltar ---------- */
+window.FILA_OPS={
+  musicaUpdate:(a)=>sb.from('musicas').update(a[1]).eq('id',a[0]),
+  perfilUpdate:(a)=>sb.from('perfis').update(a[1]).eq('id',a[0]),
+  mcUpdate:(a)=>sb.from('musicas_cantadas').update(a[1]).eq('id',a[0]),
+  mcDelete:(a)=>sb.from('musicas_cantadas').delete().eq('id',a[0])
+};
+function _filaLer(){ try{ return JSON.parse(localStorage.getItem('ibnm_fila')||'[]'); }catch(e){ return []; } }
+window.filaQtd=function(){ return _filaLer().length; };
+window.filaEnvia=function(op,args){ if(!window.FILA_OPS[op]) return; try{ const f=_filaLer(); f.push({op,args,t:Date.now()}); localStorage.setItem('ibnm_fila',JSON.stringify(f)); toast('Sem internet — alteração guardada, sobe sozinha.'); try{ montaMenu(); }catch(e){} }catch(e){} };
+let _filaRod=false;
+window.filaTenta=async function(){ if(_filaRod) return; _filaRod=true;
+  try{
+    const f=_filaLer(); if(!f.length) return;
+    let mudou=false, sair=false;
+    while(f.length){ const it=f[0]; const op=window.FILA_OPS[it.op];
+      if(!op){ f.shift(); mudou=true; continue; }
+      try{ const r=await op(it.args); if(r&&r.error) throw r.error; f.shift(); mudou=true; }
+      catch(e){ const m=String((e&&e.message)||e);
+        if(/fetch|network|Failed|offline|Load failed/i.test(m)){ sair=true; break; }  /* sem internet: guarda */
+        f.shift(); mudou=true; console.warn('Fila: descartou item com erro de servidor:',m); }
+    }
+    if(mudou) localStorage.setItem('ibnm_fila',JSON.stringify(f));
+    if(!sair && !f.length){ toast('Fila sincronizada ✓'); try{ montaMenu(); }catch(e){} }
+  }finally{ _filaRod=false; } };
+try{
+  addEventListener('online',()=>{ setTimeout(filaTenta,1200); });
+  setInterval(()=>{ if(_filaLer().length) filaTenta(); },45000);
+  setTimeout(()=>{ if(_filaLer().length) filaTenta(); },9000);
+}catch(e){}
+
+/* ---------- BACKUP AUTOMÁTICO SEMANAL ---------- */
+function _bkDados(){ return {setlist:(typeof APP_CFG!=='undefined'&&APP_CFG.setlist)||null, setlist_prox:(typeof APP_CFG!=='undefined'&&APP_CFG.setlist_prox)||null, ensaios:(typeof APP_CFG!=='undefined'&&APP_CFG.ensaios)||null}; }
+window.backupAuto=async function(){ try{
+  if(typeof salvarConfig!=='function'||typeof APP_CFG==='undefined') return;
+  const b=APP_CFG.backup_auto; if(b&&b.quando&&(Date.now()-Date.parse(b.quando))<6.5*864e5) return;
+  if(!APP_CFG.setlist&&!APP_CFG.setlist_prox&&!APP_CFG.ensaios) return;   /* dados ainda não carregaram */
+  await salvarConfig('backup_auto',{quando:new Date().toISOString(),dados:_bkDados()});
+}catch(e){} };
+window.backupAgora=async function(){ try{
+  if(typeof salvarConfig!=='function') return;
+  await salvarConfig('backup_auto',{quando:new Date().toISOString(),dados:_bkDados()});
+  toast('Backup salvo na nuvem ✓'); try{ go('admin'); }catch(e){}
+}catch(e){ toast('Falha no backup.'); } };
+window.backupRestaurar=function(){ try{
+  const b=(typeof APP_CFG!=='undefined')&&APP_CFG.backup_auto&&APP_CFG.backup_auto.dados;
+  if(!b) return toast('Sem backup para restaurar.');
+  if(!confirm('Restaurar SETLIST e ensaios do backup?')) return;
+  const ps=[];
+  if(b.setlist) ps.push(salvarConfig('setlist',b.setlist));
+  if(b.setlist_prox) ps.push(salvarConfig('setlist_prox',b.setlist_prox));
+  if(b.ensaios) ps.push(salvarConfig('ensaios',b.ensaios));
+  Promise.all(ps).then(()=>{ toast('Backup restaurado ✓'); go('playlist'); }).catch(()=>toast('Erro ao restaurar.'));
+}catch(e){} };
+
 function iniciarApp(){
   const u=usuarioAtual(); if(!u){ telaLogin(); return; }
   $('#authScreens').innerHTML=''; $('#appShell').classList.remove('hidden');
   $('#topAvatar').src = u.foto || AVATAR_PADRAO;
   montaMenu(); verificaEscalaSemanal(); atualizaBadge();
   if(!localStorage.getItem('ibnm_bv_'+u.email)){ telaBoasVindas(true); } else { go('inicio'); try{ window.__sessRestaura&&window.__sessRestaura(); }catch(e){} }
+  try{ const _h=(location.hash||'').replace(/^#/,'') || ((new URLSearchParams(location.search).get('go'))||''); if(_h && typeof ROTAS!=='undefined' && ROTAS[_h]){ go(_h); } }catch(e){}
 }
 
 /* Inicializacao */
@@ -757,6 +837,10 @@ ROTAS.perfil = function(){
       <input type="range" id="fsSlider" class="fs-slider" min="100" max="150" step="5" value="${appFontScale()}" oninput="setAppFont(this.value)">
       <div class="fs-row"><span>A</span><b id="fsVal">${appFontScale()}%</b><span style="font-size:20px">A</span></div>
     </div>
+    <div class="card"><h3>\uD83C\uDF11 Modo escuro</h3>
+      <p style="font-size:13px;color:#789;margin-bottom:10px">Conforto para a noite — o app lembra sua escolha.</p>
+      <button class="mini-btn" onclick="toggleTema()">${document.documentElement.getAttribute('data-theme')==='dark'?'\u2600\uFE0F Modo claro':'\uD83C\uDF19 Modo escuro'}</button>
+    </div>
     <div class="card"><h3>Segurança</h3>
       <button class="mini-btn" onclick="modalTrocarSenha()">\uD83D\uDD12 Trocar senha</button>
       <p style="font-size:12px;color:#9aa;margin-top:8px">A troca de senha exige confirmação por e-mail.</p>
@@ -764,6 +848,12 @@ ROTAS.perfil = function(){
   </div>`;
 };
 
+function toggleTema(){
+  const agora=document.documentElement.getAttribute('data-theme')==='dark';
+  try{ if(agora){ document.documentElement.removeAttribute('data-theme'); localStorage.setItem('ibnm_tema','claro'); }
+       else { document.documentElement.setAttribute('data-theme','dark'); localStorage.setItem('ibnm_tema','dark'); } }catch(e){}
+  go('perfil');
+}
 function abrirCamera(){ $('#inpCamera').click(); }
 function carregarFoto(inp){ const f=inp.files[0]; if(!f) return;
   const r=new FileReader(); r.onload=e=>{ const u=usuarioAtual(); u.foto=e.target.result; saveDB();
@@ -1128,6 +1218,7 @@ function renderMusica(){
       <button class="${abaAtual==='audio'?'active':''}" onclick="abrirMusica('${m.id}','audio')"><span class="ic">\uD83C\uDFA7</span>Áudio</button></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px">
       ${adm?`<button class="mini-btn" style="margin:0" onclick="enviarPraPlaylist('${m.id}')">➕ Enviar para o SETLIST</button>`:''}
+      <button class="mini-btn" style="margin:0" onclick="projetar('${m.id}')">📺 Projetar</button>
       <button class="mini-btn" style="margin:0" onclick="musWhats('${m.id}')">📱 WhatsApp</button></div>
     ${corpo}</div>`;
 }
@@ -1864,7 +1955,10 @@ async function cloudCarregarTudo(){
 }
 async function cloudPerfis(){
   const {data}=await sb.from('perfis').select('*');
-  DB.usuarios=(data||[]).map(p=>({id:p.id,email:(p.email||'').toLowerCase(),nome:p.nome||'',nasc:p.nasc||'',tel:p.tel||'',wpp:!!p.wpp,vocal:p.vocal||[],instr:p.instr||[],foto:p.foto||'',admin:!!p.admin,origem:p.origem||'local',senhaHash:''}));
+  const _ant=DB.usuarios||[];
+  DB.usuarios=(data||[]).map(p=>{ const em=(p.email||'').toLowerCase();
+    const a=_ant.find(x=>x.email===em)||_ant.find(x=>x.id===p.id);
+    return {id:p.id,email:em,nome:p.nome||'',nasc:p.nasc||'',tel:p.tel||'',wpp:!!p.wpp,vocal:p.vocal||[],instr:p.instr||[],foto:p.foto||(a&&a.foto)||'',admin:!!p.admin,origem:p.origem||'local',senhaHash:''}; });
 }
 async function cloudMusicas(){
   const {data}=await sb.from('musicas').select('*').order('titulo');
@@ -1915,7 +2009,8 @@ async function salvarPerfil(){ const u=usuarioAtual(); if(!u) return;
   const nome=$('#ePnome').value.trim()||u.nome, nasc=$('#ePnasc').value||null, tel=$('#ePtel').value, wpp=$('#ePwpp').checked;
   const vocal=[...document.querySelectorAll('.eVocal:checked')].map(c=>c.value);
   const instr=[...document.querySelectorAll('.eInstr:checked')].map(c=>c.value);
-  await sb.from('perfis').update({nome,nasc,tel,wpp,vocal,instr}).eq('id',u.id);
+  { const {error:_pe}=await sb.from('perfis').update({nome,nasc,tel,wpp,vocal,instr}).eq('id',u.id);
+    if(_pe){ try{ filaEnvia('perfilUpdate',[u.id,{nome,nasc,tel,wpp,vocal,instr}]); }catch(_){} } }
   Object.assign(u,{nome,nasc:nasc||'',tel,wpp,vocal,instr});
   fecharModal(); montaMenu(); toast('Perfil atualizado!'); go('perfil');
 }
@@ -2123,6 +2218,7 @@ async function trocarAoVivo(musicaId,aba){
   const row=Object.assign({},AO_VIVO,{musica_id:musicaId||AO_VIVO.musica_id,aba:aba||AO_VIVO.aba,updated_at:new Date().toISOString()});
   try{ await sb.from('ao_vivo').upsert(row); }catch(e){ return toast('Erro: '+(e.message||e)); }
   AO_VIVO=row; toast('Ao vivo movido para cá.'); atualizaBannerVivo();
+  try{ if(window.projetarSeAberto) window.projetarSeAberto(row.musica_id); }catch(e){}
   if(musicaAberta===musicaId) abrirMusica(musicaId,aba||AO_VIVO.aba);
 }
 async function encerrarAoVivo(){
@@ -2132,6 +2228,7 @@ async function encerrarAoVivo(){
 }
 function aplicarAoVivo(force){
   atualizaBannerVivo();
+  try{ if(AO_VIVO&&AO_VIVO.ativo&&AO_VIVO.musica_id&&window.projetarSeAberto) window.projetarSeAberto(AO_VIVO.musica_id); }catch(e){}
   if(!AO_VIVO||!AO_VIVO.ativo||!AO_VIVO.musica_id) return;
   if(ehAdmin()) return;
   const key=AO_VIVO.musica_id+'|'+(AO_VIVO.aba||'cifra');
@@ -2824,6 +2921,7 @@ if(typeof ligarRealtime==='function'){
 <script src="escala.js"></script>
 <script src="membros.js"></script>
 <script src="cantadas.js"></script>
+<script src="ensaio.js"></script>
 <script src="temp-acervo.js"></script>
 <script src="avisos.js"></script>
 <script src="central.js"></script>

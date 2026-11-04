@@ -194,7 +194,24 @@ if(typeof _booted!=='undefined' && _booted){ try{ montaMenu(); }catch(_){} }
 if(typeof ROTAS!=='undefined' && ROTAS.admin){
   const _ad=ROTAS.admin;
   ROTAS.admin=function(){ let h=_ad.apply(this,arguments); if(!ehAdmin()) return h;
-    return h.replace('<button class="mini-btn" onclick="modalAviso()">Enviar aviso</button>','<button class="mini-btn" onclick="go(\'central\')">📣 Abrir a Central de avisos</button> <button class="mini-btn sec" onclick="modalAviso()">Aviso livre</button>'); };
+    h=h.replace('<button class="mini-btn" onclick="modalAviso()">Enviar aviso</button>','<button class="mini-btn" onclick="go(\'central\')">📣 Abrir a Central de avisos</button> <button class="mini-btn sec" onclick="modalAviso()">Aviso livre</button>');
+    /* ---- Pendências de cifra + Backup + Fila ---- */
+    try{
+      const semCifra=(DB.musicas||[]).filter(m=>!m.cifra).sort((a,b)=>String(a.titulo||'').localeCompare(String(b.titulo||''),'pt'));
+      const ultB=(typeof APP_CFG!=='undefined')&&APP_CFG.backup_auto&&APP_CFG.backup_auto.quando;
+      const nf=(typeof filaQtd==='function')?filaQtd():0;
+      let card='<div class="card" style="margin-top:14px"><h3>🛠 Pendências & utilidades</h3>';
+      card+='<div class="info-row"><span class="k">Músicas sem cifra</span><span class="v">'+semCifra.length+'</span></div>';
+      if(semCifra.length){
+        card+='<div style="max-height:230px;overflow:auto;margin-top:6px">'+semCifra.slice(0,20).map(m=>'<button class="mini-btn" style="display:block;width:100%;margin:4px 0;text-align:left" onclick="editorCifra(\''+m.id+'\')">'+esc(m.titulo)+' — '+esc(m.artista||'(sem artista)')+'</button>').join('')
+          +(semCifra.length>20?'<div style="font-size:12px;color:#789;padding:4px">+ '+(semCifra.length-20)+' outras (lista completa na aba Músicas)…</div>':'')+'</div>';
+      }
+      card+='<div class="info-row"><span class="k">Último backup na nuvem</span><span class="v">'+(ultB?new Date(ultB).toLocaleString('pt-BR'):'nunca')+'</span></div>';
+      card+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="mini-btn" onclick="backupAgora()">💾 Backup agora</button><button class="mini-btn sec" onclick="backupRestaurar()">♻️ Restaurar</button>'+(nf?'<button class="mini-btn" onclick="filaTenta()">⏳ Fila ('+nf+')</button>':'')+'</div>';
+      card+='</div>';
+      const k=h.lastIndexOf('</div>'); if(k>=0) h=h.slice(0,k)+card+h.slice(k);
+    }catch(e){}
+    return h; };
 }
 if(typeof ROTAS!=='undefined' && ROTAS.notificacoes){
   const _nf=ROTAS.notificacoes;

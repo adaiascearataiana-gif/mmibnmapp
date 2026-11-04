@@ -93,7 +93,7 @@ window.cfImportar=async function(id){
   const m=(DB.musicas||[]).find(x=>x.id===id); const txt=PEND[id]; if(!m||!txt) return;
   const cifra=paraHtml(txt);
   const {error}=await sb.from('musicas').update({cifra}).eq('id',id);
-  if(error) return toast('Erro ao salvar: '+error.message);
+  if(error){ if(/fetch|network|Failed/i.test(error.message||'')){ filaEnvia('musicaUpdate',[id,{cifra}]); } else return toast('Erro ao salvar: '+error.message); }
   m.cifra=cifra; delete PEND[id];
   toast('Cifra importada! Continua editável em "Editar cifra".');
   const naLista=!!document.querySelector('.cfb-page');

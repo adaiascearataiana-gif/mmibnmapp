@@ -103,6 +103,16 @@ window.tmpAcLista = function(q){
   window.scrollTo(0, wy);
 };
 
+function _cantorAuto(ddmm){ try{
+  const m=String(ddmm||'').match(/(\d{1,2})\/(\d{1,2})/); if(!m) return '';
+  const dd=String(m[1]).padStart(2,'0')+'/'+String(m[2]).padStart(2,'0');
+  const E=(window.escalaAtiva&&window.escalaAtiva())||null; if(!E||!E.linhas) return '';
+  const cols=E.colunas||[]; const cC=cols.findIndex(c=>/cantor|vocal|solista|voz/i.test(c)); if(cC<0) return '';
+  const cD=cols.findIndex(c=>/^data/i.test(c)); if(cD<0) return '';
+  for(const l of E.linhas){ const cel=l.celulas||{}; const dv=String(cel[cols[cD]]||'');
+    const mm=dv.match(/(\d{1,2})\/(\d{1,2})/); if(!mm) continue;
+    if(String(mm[1]).padStart(2,'0')+'/'+String(mm[2]).padStart(2,'0')===dd) return String(cel[cols[cC]]||'').trim(); }
+}catch(e){} return ''; }
 window.tmpAcAbrir = function(i){
   const x = _regs[i]; if(!x) return;
   const box = document.getElementById('tmpAcBox'); if(!box) return;
@@ -115,6 +125,7 @@ window.tmpAcAbrir = function(i){
     '<div class="field"><label>Evento</label><input id="txEv" value="'+e(x.evento||'')+'"></div>'+
     '<div class="field"><label>Tom</label><input id="txTom" value="'+e(x.tom||'')+'"></div>'+
     '<div class="field"><label>Link (web/YouTube)</label><input id="txWeb" inputmode="url" value="'+e(x.web||'')+'"></div>'+
+    '<div class="field"><label>Cantor(a) escalado(a)</label><input id="txCantor" value="'+e(x.cantor||'')+'" placeholder="'+e(_cantorAuto(x.data)||'nome de quem cantou')+'"></div>'+
     '</div>'+
     '<div class="modal-acts" style="flex-wrap:wrap">'+
       '<button class="btn btn-dark" onclick="tmpAcLista(_q)">← Voltar</button>'+
@@ -130,17 +141,26 @@ window.tmpAcSalvar = async function(i){
   const reg = {
     musica: g('txMus').trim(), artista: g('txArt').trim(), data,
     dia: g('txDia').trim().toUpperCase(), evento: g('txEv').trim(),
-    tom: g('txTom').trim(), web: g('txWeb').trim()
+    tom: g('txTom').trim(), web: g('txWeb').trim(), cantor: g('txCantor').trim()
   };
   if(!reg.musica) return toast('Informe a música.');
   try{
-    const {error} = await sb.from('musicas_cantadas').update(reg).eq('id', x.id);
+    let {error} = await sb.from('musicas_cantadas').update(reg).eq('id', x.id);
+    if(error && /cantor/i.test(error.message||'')){                     /* coluna nova do SQL21 ainda não rodou */
+      const {cantor:_c, ...semCol}=reg;
+      ({error} = await sb.from('musicas_cantadas').update(semCol).eq('id', x.id));
+      if(!error){ toast('Salvo — rode a atualização do SQL (seção21) para gravar o campo Cantor.'); }
+    }
     if(error) throw error;
     Object.assign(x, reg);
     try{ cloudCantadas(); }catch(_){}
     toast('Registro atualizado ✓');
     tmpAcLista(_q);
-  }catch(err){ toast('Erro ao salvar: '+(err.message||err)); }
+  }catch(err){
+    const msg=(err.message||err);
+    if(/fetch|network|Failed/i.test(String(msg))){ filaEnvia('mcUpdate',[x.id,reg]); tmpAcLista(_q); return; }
+    toast('Erro ao salvar: '+msg);
+  }
 };
 
 window.tmpAcExcluir = async function(i){
@@ -156,9 +176,11 @@ window.tmpAcExcluir = async function(i){
     if(error) throw error;
     try{ cloudCantadas(); }catch(_){}   /* re-sincroniza sem bloquear a UI */
   }catch(err){
+    const msg=(err.message||err);
+    if(/fetch|network|Failed/i.test(String(msg))){ filaEnvia('mcDelete',[x.id]); return; }  /* sobe quando voltar a internet */
     /* servidor recusou → devolve o registro e avisa */
     try{ _regs.splice(Math.min(i,_regs.length),0,x); tmpAcLista(_q); }catch(_){}
-    toast('Erro ao excluir: '+(err.message||err));
+    toast('Erro ao excluir: '+msg);
   }
 };
 
