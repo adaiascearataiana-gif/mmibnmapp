@@ -632,6 +632,8 @@ const MENU = [
   {id:'escala', ic:'\uD83D\uDCCB', nm:'Escala do Ministério'},
   {id:'ensaios', ic:'\uD83C\uDFBC', nm:'Ensaios'},
   {id:'cantadas', ic:'\uD83C\uDFB6', nm:'Histórico de músicas'},
+  {id:'financeiro', ic:'\uD83D\uDCB0', nm:'Setor Financeiro'},
+  {id:'inventario', ic:'\uD83D\uDD27', nm:'Inventário'},
   {id:'academia', ic:'\uD83C\uDF93', nm:'Academia de Música', sub:[
      {id:'academia', arg:'tecnicas-vocais', ic:'\uD83C\uDFA4', nm:'Técnicas vocais'},
      {id:'academia', arg:'bateria', ic:'\uD83E\uDD41', nm:'Bateria', grupo:'Instrumentos'},
@@ -1631,6 +1633,7 @@ ROTAS.admin = function(){ if(!ehAdmin()) return '<div class="empty">Acesso restr
       ${us.map(u=>`<div class="info-row"><span class="v" style="font-weight:700;text-align:left">${esc(u.nome)}${u.admin?' <span class="admin-tag">ADM</span>':''}<br><span style="font-weight:400;font-size:12px;color:#789">${esc(u.email)}</span></span>
         <span>${u.email!==usuarioAtual().email?`<button class="mini-btn sec" onclick="toggleAdmin('${esc(u.email)}')">${u.admin?'Remover ADM':'Tornar ADM'}</button>`:''}</span></div>`).join('')}
     </div>
+    ${typeof cardSetores==='function'?cardSetores():''}
     <div class="card"><h3>Resumo</h3>
       <div class="info-row"><span class="k">Músicas cadastradas</span><span class="v">${DB.musicas.length}</span></div>
       <div class="info-row"><span class="k">Músicas publicadas</span><span class="v">${DB.musicas.filter(m=>m.publicada).length}</span></div>
@@ -2373,7 +2376,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v59';
+window.APP_V='v63';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */
@@ -2443,7 +2446,8 @@ function notifSistema(titulo,corpo){
 const _cctPrev=cloudCarregarTudo;
 cloudCarregarTudo=async function(){ try{ await Promise.all([_cctPrev(),cloudConfig(),cloudPresencas(),cloudAoVivo(),
     (typeof window.materiaisSync==='function')?window.materiaisSync():null,
-    (typeof window.harpaLinksSync==='function')?window.harpaLinksSync():null]); }catch(e){} };
+    (typeof window.harpaLinksSync==='function')?window.harpaLinksSync():null,
+    (typeof carregaPapeis==='function')?carregaPapeis():null]); }catch(e){} };
 
 const _lrPrev=ligarRealtime;
 ligarRealtime=function(){ _lrPrev();
@@ -2458,7 +2462,7 @@ agendarReload=function(){ _arPrev(); clearTimeout(window._rt2t); window._rt2t=se
    são refeitos — o que o ADM fizer no desktop aparece para todos. */
 window.__ultSyncRt=0;
 function sincronismoAgora(){
-  try{ if(!history.state||!history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}
+  try{ if(history.length<2||!history.state||!history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}
   const agora=Date.now();
   if(agora-(window.__ultSyncRt||0)<20000) return;
   window.__ultSyncRt=agora;
@@ -2937,7 +2941,7 @@ if(typeof ligarRealtime==='function'){
   function _topo(){ return navStack.length? navStack[navStack.length-1] : null; }
   function _mesmaTela(a,b){ if(!a||!b) return false; var x=a.split('|'), y=b.split('|'); return x[0]===y[0] && x[1]===y[1] && (x[0]!=='go' || (x[2]||'')===(y[2]||'')); }
   function _registra(screen){
-    try{ if(!history.state || !history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}  /* garante isca p/ voltar */
+    try{ if(history.length<2 || !history.state || !history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}  /* garante isca p/ voltar */
     var top=_topo();
     if(top===screen) return;
     if(_mesmaTela(top,screen)){ navStack[navStack.length-1]=screen; return; }      /* mesma música em outra aba, mesmo hino */
@@ -2983,7 +2987,7 @@ if(typeof ligarRealtime==='function'){
       if(s.sc && window.__scrollMem){ Object.keys(s.sc).forEach(function(k){ window.__scrollMem[k]=s.sc[k]; }); }
       var y=s.y||0;
       _irPara(top);
-      try{ if(!history.state || !history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}
+      try{ if(history.length<2 || !history.state || !history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}
       setTimeout(function(){ window.scrollTo(0,y); },60);
       setTimeout(function(){ window.scrollTo(0,y); },450);
     }catch(e){}
@@ -2995,33 +2999,50 @@ if(typeof ligarRealtime==='function'){
     if(c && !c.innerHTML.trim() && window.__sessRestaura) window.__sessRestaura();
   }); }catch(e){}
   function _editorComMudancas(){ try{ return !!document.getElementById('edCifra') && typeof _edUndo!=='undefined' && _edUndo.length>0; }catch(e){ return false; } }
-  function _arma(){ try{ history.pushState({ibnm:1}, ''); }catch(e){} }
+  function _arma(){ try{ if(history.length<2 || !history.state || !history.state.ibnm){ history.pushState({ibnm:1}, ''); } }catch(e){} }
   try{ history.replaceState({ibnm:1,root:1}, ''); }catch(e){}
   _arma();
+  try{ if(!navStack.length) navStack=[INICIO]; }catch(e){}
   window.__voltar=function(){
-    /* 1) sobreposições */
-    if(_overlayAberto()){ _fecharOverlay(); return true; }
-    /* telas de login */
-    if(_naAutenticacao()){ if(_telaSecundariaLogin() && typeof telaLogin==='function'){ telaLogin(); return true; } return false; }
-    /* editor com alterações não salvas */
-    if(_topo() && _topo().indexOf('ed|')===0 && _editorComMudancas() && !confirm('Sair do editor sem salvar as alterações?')) return true;
-    /* 2) tela anterior */
-    if(navStack.length>1){ navStack.pop(); _irPara(_topo()); return true; }
-    /* 3) volta para o Início */
-    if(_topo()!==INICIO){ navStack=[INICIO]; _irPara(INICIO); return true; }
-    /* 4) já no Início */
-    return false;
+    try{
+      /* 1) sobreposições */
+      if(_overlayAberto()){ _fecharOverlay(); return true; }
+      /* telas de login */
+      if(_naAutenticacao()){ if(_telaSecundariaLogin() && typeof telaLogin==='function'){ telaLogin(); return true; } return false; }
+      /* editor com alterações não salvas */
+      if(_topo() && _topo().indexOf('ed|')===0 && _editorComMudancas() && !confirm('Sair do editor sem salvar as alterações?')) return true;
+      /* 2) tela anterior */
+      if(navStack.length>1){ navStack.pop(); try{ _irPara(_topo()); }catch(e){} return true; }
+      /* 3) volta para o Início */
+      if(_topo()!==INICIO){ navStack=[INICIO]; try{ _irPara(INICIO); }catch(e){} return true; }
+      /* 4) já no Início */
+      return false;
+    }catch(e){
+      /* nunca morrer: degrada para o Início e rearma */
+      try{ navStack=[INICIO]; }catch(_){}
+      try{ _irPara(INICIO); }catch(_){}
+      return true;
+    }
   };
   window.addEventListener('popstate', function(){
-    /* reforço: garante a isca mesmo se o Chrome descartar a anterior */
-    try{ if(!history.state||!history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}
-    if(window.__voltar()){ _arma(); return; }
-    if(window.__ibnmSaindo){ window.__ibnmSaindo=false; try{ history.back(); }catch(e){} return; }
-    _arma();
-    /* no Início → pergunta antes de fechar o app */
-    try{ abrirModal('<h3>👋 Deseja sair?</h3>'+
-      '<p style="font-size:14px;color:#456;margin-bottom:6px">Você está na tela inicial do app.</p>'+
-      '<div class="modal-acts"><button class="btn btn-dark" onclick="__sairNao()">Não, ficar</button><button class="btn btn-primary" onclick="__sairSim()">Sim, sair</button></div>'); }catch(e){}
+    var semArmar=false;
+    try{
+      /* reforço: garante a isca (≥2 entradas) mesmo se o Chrome descartar */
+      try{ if(history.length<2 || !history.state||!history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}
+      if(window.__voltar()){ /* caminhou ou fechou sobreposição */ }
+      else if(window.__ibnmSaindo){ window.__ibnmSaindo=false; semArmar=true; try{ history.back(); }catch(e){} }
+      else{
+        /* no Início → pergunta antes de fechar o app */
+        try{ abrirModal('<h3>👋 Deseja sair?</h3>'+
+          '<p style="font-size:14px;color:#456;margin-bottom:6px">Você está na tela inicial do app.</p>'+
+          '<div class="modal-acts"><button class="btn btn-dark" onclick="__sairNao()">Não, ficar</button><button class="btn btn-primary" onclick="__sairSim()">Sim, sair</button></div>'); }catch(e){}
+      }
+    }catch(err){
+      try{ toast('⚠️ Voltar com erro — avise o suporte (v60).'); }catch(_){}
+    }finally{
+      /* GARANTIA: a isca sempre volta — nenhum erro derruba o Voltar */
+      if(!semArmar){ try{ _arma(); }catch(e){} }
+    }
   });
   window.__sairNao=function(){ try{ fecharModal(); }catch(e){} };
   window.__sairSim=function(){
@@ -3054,5 +3075,7 @@ if(typeof ligarRealtime==='function'){
 <script src="push.js"></script>
 <script src="tour.js"></script>
 <script src="sync.js"></script>
+<script src="financeiro.js"></script>
+<script src="inventario.js"></script>
 </body>
 </html>

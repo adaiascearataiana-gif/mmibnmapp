@@ -182,6 +182,24 @@ if(typeof ROTAS!=='undefined' && ROTAS.perfil){
 /* ================= 1) SETLIST DO CULTO ================= */
 const pad2=n=>String(n).padStart(2,'0');
 const hojeISO=()=>{ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); };
+/* FILA de SETLISTs (slq_): programados com datas p/ semanas futuras —
+   entram em vigor sozinhos: ESTA ← PRÓXIMA ← FILA, sempre por data. */
+function ehSlExtra(c){ c=String(c||''); return c.indexOf('slx_')===0||c.indexOf('slq_')===0; }
+function slqTodos(){ const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{};
+  return Object.keys(C).filter(k=>k.indexOf('slq_')===0).map(k=>normSl(C[k],k)).filter(s=>s&&s.inicio); }
+function slqProxima(anchor){ const hoje=hojeISO();
+  const c=slqTodos().sort((x,y)=>String(x.inicio).localeCompare(String(y.inicio)));
+  if(!c.length) return null;
+  const anc=anchor&&anchor.fim?anchor.fim:(anchor&&anchor.inicio?anchor.inicio:hoje);
+  return c.find(s=>s.inicio>anc)||c.find(s=>s.inicio>hoje)||null; }
+function limiteFila(){ /* fim do ciclo "próxima semana" = domingo da próxima semana */
+  const a=normSl(((typeof APP_CFG!=='undefined'&&APP_CFG)||{}).setlist,'setlist');
+  let base;
+  if(a&&a.fim&&/^\d{4}-\d{2}-\d{2}$/.test(a.fim)) base=new Date(+a.fim.slice(0,4),+a.fim.slice(5,7)-1,+a.fim.slice(8,10));
+  else{ const d=new Date(); const dow=d.getDay(); base=new Date(d.getFullYear(),d.getMonth(),d.getDate()+(dow===0?0:7-dow)); }
+  base.setDate(base.getDate()+7);
+  return base.getFullYear()+'-'+pad2(base.getMonth()+1)+'-'+pad2(base.getDate()); }
+window.__limiteFila=limiteFila;   /* p/ testes automatizados */
 function normSl(x,chave){ if(!x||typeof x!=='object'||!Array.isArray(x.itens)) return null;
   return {inicio:String(x.inicio||'').slice(0,10),fim:String(x.fim||'').slice(0,10),itens:x.itens.filter(existe),tons:x.tons||{},youtube:x.youtube||'',
     tema:String(x.tema||'').slice(0,120),textoBase:String(x.textoBase||'').slice(0,60),nome:String(x.nome||'').slice(0,60),
@@ -190,12 +208,16 @@ function normSl(x,chave){ if(!x||typeof x!=='object'||!Array.isArray(x.itens)) r
    A da próxima semana vira "esta semana" sozinha quando chega a data de início. */
 function setlist(qual){
   const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{};
-  if(qual && String(qual).indexOf('slx_')===0){ const x=C[qual]; return (x&&typeof x==='object')? normSl(x,qual): null; }
+  if(qual && ehSlExtra(qual)){ const x=C[qual]; return (x&&typeof x==='object')? normSl(x,qual): null; }
   const a=normSl(C.setlist,'setlist'), p=normSl(C.setlist_prox,'setlist_prox');
   /* prox já virou "esta semana" quando: a semana atual acabou (virou
      domingo→segunda) OU a data de início dela já chegou */
   const pVale = !!(p && p.inicio && (p.inicio<=hojeISO() || (a && a.fim && hojeISO()>a.fim)));
-  if(qual==='prox') return pVale? null : p;
+  if(qual==='prox'){
+    if(!pVale && p) return p;
+    /* sem slot físico (ou ele já virou atual): pega o próximo da FILA por data */
+    return slqProxima(pVale? p : a);
+  }
   if(pVale) return p;
   if(a) return a;
   const pl=(typeof DB!=='undefined'&&DB.playlist)||{};
@@ -208,7 +230,7 @@ window.infoM=function(id){ return info(id); };
 function listaDe(id){
   id=String(id); const ctx=window.__slCtx; const at=setlist(), px=setlist('prox');
   const tem=l=>l&&l.itens.indexOf(id)>=0;
-  if(String(ctx||'').indexOf('slx_')===0){ const x=setlist(ctx); if(tem(x)) return x; }
+  if(ctx&&ehSlExtra(ctx)){ const x=setlist(ctx); if(tem(x)) return x; }
   if(ctx==='prox' && tem(px)) return px;
   if(tem(at)) return at;
   if(tem(px)) return px;
@@ -353,8 +375,10 @@ function listarSetlists(){
   if(at) out.push({chave:at.chave||'setlist',sl:at,rot:'Esta semana',ico:'📅'});
   if(px) out.push({chave:px.chave||'setlist_prox',sl:px,rot:'Próxima semana',ico:'🗓️'});
   const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{};
-  Object.keys(C).forEach(k=>{ if(k.indexOf('slx_')!==0) return; const s2=normSl(C[k],k);
-    if(s2) out.push({chave:k,sl:s2,rot:s2.nome||'SETLIST',ico:'📌'}); });
+  const usadas={}; if(at) usadas[at.chave||'setlist']=1; if(px) usadas[px.chave||'setlist_prox']=1;
+  Object.keys(C).forEach(k=>{ if(k.indexOf('slx_')!==0 && k.indexOf('slq_')!==0) return; if(usadas[k]) return;
+    const s2=normSl(C[k],k);
+    if(s2) out.push({chave:k,sl:s2,rot:s2.nome||(k.indexOf('slq_')===0?('Programado · '+fmtData(s2.inicio)):'SETLIST'),ico:k.indexOf('slq_')===0?'📋':'📌'}); });
   return out;
 }
 window.listarSetlists=listarSetlists;
@@ -529,13 +553,13 @@ if(typeof ROTAS!=='undefined'){
   ROTAS.playlist=function(arg){
     const a=adm(); const at=setlist(), px=setlist('prox');
     /* ---------- RAIZ: lista dos SETLISTs disponíveis ---------- */
-    if(arg!=='prox'&&arg!=='atual'&&String(arg||'').indexOf('slx_')!==0){
+    if(arg!=='prox'&&arg!=='atual'&&!ehSlExtra(arg)){
       abaPl='';
       const dtsDe=sl=>{ const d=(sl.eventos||[]).map(x=>String(x.data||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort(); return d.length?[d[0],d[d.length-1]]:[sl.inicio||'',sl.fim||'']; };
       const card=(sl,rot,ico,ctx)=>{
         if(!sl) return '';
-        const dd=dtsDe(sl); const evs=(sl.eventos||[]).length; const ehEx=String(ctx||'').indexOf('slx_')===0; const pub=!ehEx && sl.publicada!==false;
-        const meta=[ehEx?'📌 rascunho':(pub?'✓ publicado':'não publicado'),(sl.itens||[]).length+' música(s)',evs?evs+' evento(s)':null].filter(Boolean).join(' · ');
+        const dd=dtsDe(sl); const evs=(sl.eventos||[]).length; const ehEx=ehSlExtra(ctx); const ehSlq=String(ctx||'').indexOf('slq_')===0; const pub=!ehEx && sl.publicada!==false;
+        const meta=[ehSlq?'📌 programado':ehEx?'📌 rascunho':(pub?'✓ publicado':'não publicado'),(sl.itens||[]).length+' música(s)',evs?evs+' evento(s)':null].filter(Boolean).join(' · ');
         const tt=(sl.tema||sl.textoBase)?'<div style="margin-top:8px;font-size:15px;color:#8a6d1a">🔥 '+e(sl.tema||'')+(sl.tema&&sl.textoBase?' · ':'')+'📖 '+e(sl.textoBase||'')+'</div>':'';
         const dt=(dd[0]||dd[1])? fmtData(dd[0])+(dd[1]&&dd[1]!==dd[0]?' - '+fmtData(dd[1]):'') : 'sem data';
         return '<div onclick="go(\'playlist\',\''+ctx+'\')" style="background:#fff;border:2px solid #d8e8e0;border-left:8px solid '+(ctx==='prox'?'#1f7a5a':'#0b3d2e')+';border-radius:16px;padding:16px 18px;margin-bottom:14px;cursor:pointer;box-shadow:0 2px 8px rgba(11,61,46,.08)">'
@@ -548,7 +572,9 @@ if(typeof ROTAS!=='undefined'){
           +'</div>';
       };
       const extras=(function(){ const out=[]; const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{};
-  Object.keys(C).forEach(k=>{ if(k.indexOf('slx_')!==0) return; const s2=normSl(C[k],k); if(s2) out.push({k:k,sl:s2}); }); return out; })();
+  Object.keys(C).forEach(k=>{ if(k.indexOf('slx_')!==0 && k.indexOf('slq_')!==0) return;
+    if(k.indexOf('slq_')===0 && ((px&&px.chave===k)||(at&&at.chave===k))) return; /* já aparece como Esta/Próxima */
+    const s2=normSl(C[k],k); if(s2) out.push({k:k,sl:s2}); }); return out; })();
 const topo='<div class="page-ttl">📅 SETLIST</div>';
       if(!(at||px||extras.length)) return '<div class="page">'+topo+'<div class="empty"><div class="big">🎼</div>Nenhum SETLIST ainda.'+(a?' Toque em <b>➕ Novo SETLIST</b> para começar.':'')+'</div></div>';
       return '<div class="page">'+topo
@@ -557,13 +583,13 @@ const topo='<div class="page-ttl">📅 SETLIST</div>';
         +(a?'<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px"><button class="mini-btn" style="margin:0;border-style:dashed" onclick="criarSetlistExtra()">➕ Novo SETLIST</button></div>':'')
         +card(at,'Esta semana','📅','atual')
         +card(px,'Próxima semana','🗓️','prox')
-        +extras.map(function(x){ return card(x.sl, x.sl.nome||'SETLIST', '📌', x.k); }).join('')
+        +extras.map(function(x){ const slq=x.k.indexOf('slq_')===0; return card(x.sl, x.sl.nome||(slq?('Programado · '+fmtData(x.sl.inicio)):'SETLIST'), slq?'📋':'📌', x.k); }).join('')
         +(at&&!px?'<div style="background:#eef4f1;border-radius:14px;padding:14px 16px;font-size:15px;color:#5b6b64">🗓️ O SETLIST da próxima semana ainda não foi publicado.</div>':'')
         +'</div>';
     }
     /* ---------- DETALHE: eventos do SETLIST escolhido ---------- */
     abaPl=arg;
-    const prox=arg==='prox'; const ehExtra=String(arg||'').indexOf('slx_')===0; const ctxDet= ehExtra? arg : (prox?'prox':'');
+    const prox=arg==='prox'; const ehExtra=ehSlExtra(arg); const ctxDet= ehExtra? arg : (prox?'prox':'');
     const sl= ehExtra? normSl(((typeof APP_CFG!=='undefined'&&APP_CFG)||{})[arg],arg) : (prox? px : at);
     if(ehExtra && !sl) return '<div class="page"><button class="mini-btn" style="margin-bottom:12px" onclick="go(\'playlist\')">← Voltar</button><div class="empty"><div class="big">🎼</div>SETLIST não encontrado.</div></div>';
 const tabs= ehExtra? '' : '<div class="pl-tabs"><button class="'+(!prox?'on':'')+'" onclick="go(\'playlist\',\'atual\')">📅 Esta semana</button><button class="'+(prox?'on':'')+'" onclick="go(\'playlist\',\'prox\')">🗓️ Próxima semana'+(px?' <i>●</i>':'')+'</button></div>';
@@ -616,7 +642,7 @@ function proxSemana(){ const d=new Date(); const w=(d.getDay()+6)%7; const s=new
 window.modalPlaylist=function(qual){
   const prox=qual==='prox';
   const pl=DB.playlist||{};
-  const ehExtra=String(qual||'').indexOf('slx_')===0;
+  const ehExtra=ehSlExtra(qual);
   let sl= ehExtra? normSl(((typeof APP_CFG!=='undefined'&&APP_CFG)||{})[qual],qual) : setlist(prox?'prox':'');
   if(!sl && ehExtra) return toast('SETLIST não encontrado.');
   if(!sl){ const [a,b]=prox?proxSemana():[String(pl.inicio||'').slice(0,10),String(pl.fim||'').slice(0,10)]; sl={inicio:a,fim:b,itens:[],tons:{},youtube:''}; }
@@ -766,7 +792,7 @@ function linkYoutube(v){ v=String(v||'').trim(); if(!v) return ''; if(!/^https?:
 /* ADM: remover o SETLIST inteiro (config + publicação) */
 window.removerSetlist=async function(qual){
   if(!adm()) return;
-  if(String(qual||'').indexOf('slx_')===0){
+  if(qual&&ehSlExtra(qual)){
     const s2=normSl(((typeof APP_CFG!=='undefined'&&APP_CFG)||{})[qual],qual);
     if(!s2) return toast('SETLIST não encontrado.');
     if(!window.confirm('Remover o SETLIST "'+(s2.nome||'extra')+'"?')) return;
@@ -795,7 +821,7 @@ window.removerSetlist=async function(qual){
   }catch(err){ toast('Erro ao remover: '+(err&&err.message||err)); }
 };
 window.publicarPlaylist=async function(){
-  if(String(_ed.qual||'').indexOf('slx_')===0){
+  if(_ed.qual&&ehSlExtra(_ed.qual)){
     const _evs=(_ed.evs||[]).map(x=>({id:x.id||evtUid(),nome:String(x.nome||'').trim()||'EVENTO',data:String(x.data||'').slice(0,10),itens:(x.itens||[]).slice(),concluido:!!x.concluido,concluido_em:x.concluido_em||null}));
     const _its=[]; _evs.forEach(x=>x.itens.forEach(id=>{ if(_its.indexOf(id)<0) _its.push(id); }));
     const _yt=linkYoutube((document.getElementById('plYt')||{}).value||''); if(_yt===null) return toast('O link precisa ser do YouTube (youtube.com ou youtu.be).');
@@ -825,6 +851,20 @@ window.publicarPlaylist=async function(){
   const dados={inicio:_ed.inicio,fim:_ed.fim,itens,tons:Object.assign({},_ed.tons),youtube:yt||'',tema:_tema,textoBase:_texto,eventos:evs};
   if(_ed.qual==='prox'){
     try{ await promoverProxima(); }catch(_){} /* se a semana já virou, promove a anterior antes de gravar a nova */
+    /* editando um item que veio da FILA → grava nele mesmo (sem duplicar) */
+    if(_ed.chave && String(_ed.chave).indexOf('slq_')===0){
+      try{ await salvarConfig(_ed.chave,dados); }catch(err){ return toast('Erro ao salvar: '+(err.message||err)); }
+      fecharModal(); toast('📌 SETLIST atualizado na FILA — entra em vigor nas datas dele.');
+      go('playlist',_ed.chave); return;
+    }
+    /* datas além da próxima semana → guarda na FILA (entra em vigor sozinho) */
+    if(dados.inicio && dados.inicio > limiteFila()){
+      const _slq='slq_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+      try{ await salvarConfig(_slq,dados); }catch(err){ return toast('Erro ao salvar: '+(err.message||err)); }
+      fecharModal();
+      toast('📌 SETLIST de '+fmtData(dados.inicio)+' guardado na FILA — entra em vigor sozinho nas datas dele.');
+      go('playlist'); return;
+    }
     await salvarConfig('setlist_prox',dados);
     const todos=!!(document.getElementById('plTodos')||{}).checked;
     const alvos=escaladosNoPeriodo(dados); const ids=new Set(alvos.map(u=>u.id));
@@ -859,16 +899,41 @@ window.publicarPlaylist=async function(){
    eventos) — e o da próxima semana fica VAZIO p/ montar o novo. */
 async function promoverProxima(){
   try{ if(!(window.ehAdminReal? ehAdminReal() : adm())) return;
-    const C=APP_CFG||{}; const p=normSl(C.setlist_prox,'setlist_prox'); const a=normSl(C.setlist,'setlist');
-    if(!p||!p.inicio) return;
-    const hoje=hojeISO();
-    const semanaAcabou=!!(a&&a.fim&&hoje>a.fim);      /* virou domingo→segunda */
-    const inicioChegou=p.inicio<=hoje;                /* ou a data dela já chegou */
-    if(!(semanaAcabou||inicioChegou)) return;
-    await salvarConfig('setlist',{inicio:p.inicio,fim:p.fim,itens:p.itens,tons:p.tons,youtube:p.youtube,tema:p.tema||'',textoBase:p.textoBase||'',eventos:p.eventos||null});
-    await salvarConfig('setlist_prox',{});
-    try{ redesenhar(); }catch(_){}
-    try{ toast('📅 SETLIST da próxima semana é agora o desta semana!'); }catch(_){}
+    const C=APP_CFG||{}; const hoje=hojeISO(); let mudou=false;
+    let p=normSl(C.setlist_prox,'setlist_prox'); let a=normSl(C.setlist,'setlist');
+    /* 1) próxima → esta semana (virada domingo→segunda ou a data já chegou) */
+    if(p&&p.inicio&&((a&&a.fim&&hoje>a.fim)||p.inicio<=hoje)){
+      await salvarConfig('setlist',{inicio:p.inicio,fim:p.fim,itens:p.itens,tons:p.tons,youtube:p.youtube,tema:p.tema||'',textoBase:p.textoBase||'',eventos:p.eventos||null,nome:p.nome||''});
+      await salvarConfig('setlist_prox',{});
+      a=p; p=null; mudou=true;
+      try{ toast('📅 SETLIST da próxima semana é agora o desta semana!'); }catch(_){}
+    }
+    /* 2) fila atrasada (o atual já venceu) → assume a semana direto */
+    if((!a||!a.fim||hoje>a.fim)){
+      const over=slqTodos().filter(s=>s.inicio&&s.inicio<=hoje&&(!a||!a.inicio||s.inicio>a.inicio))
+        .sort((x,y)=>String(y.inicio).localeCompare(String(x.inicio)));
+      if(over.length){ const s=over[0];
+        await salvarConfig('setlist',{inicio:s.inicio,fim:s.fim,itens:s.itens,tons:s.tons,youtube:s.youtube,tema:s.tema||'',textoBase:s.textoBase||'',eventos:s.eventos||null,nome:s.nome||''});
+        try{ await salvarConfig(s.chave,{}); }catch(_){}
+        a=normSl(s,'setlist'); mudou=true;
+        try{ toast('📅 SETLIST de '+fmtData(s.inicio)+' assumiu a semana ✓'); }catch(_){} }
+    }
+    /* 3) próxima semana: puxa o PRÓXIMO da FILA por data e avisa os escalados */
+    if(!(p&&p.inicio)){
+      const c=slqProxima(a);
+      if(c){
+        await salvarConfig('setlist_prox',{inicio:c.inicio,fim:c.fim,itens:c.itens,tons:c.tons,youtube:c.youtube,tema:c.tema||'',textoBase:c.textoBase||'',eventos:c.eventos||null,nome:c.nome||''});
+        try{ await salvarConfig(c.chave,{}); }catch(_){}
+        mudou=true;
+        try{ const alvos=escaladosNoPeriodo(c); const ids=new Set(alvos.map(u=>u.id));
+          const txt='Culto de '+fmtData(c.inicio)+' a '+fmtData(c.fim)+': '+(c.itens||[]).length+' música(s)/hino(s) com letra e cifra já estão no app.';
+          if(alvos.length) notificarTodos('🎼','SETLIST da próxima semana',txt+' Você está escalado(a) — já pode ensaiar!',u=>ids.has(u.id),{link:'go:playlist:prox',popup:true});
+          notificarTodos('🗓️','SETLIST da próxima semana',txt,u=>!ids.has(u.id),{link:'go:playlist:prox'});
+        }catch(_){}
+        try{ toast('🗓️ SETLIST de '+fmtData(c.inicio)+' entrou como PRÓXIMA SEMANA ✓'); }catch(_){}
+      }
+    }
+    if(mudou){ try{ redesenhar(); }catch(_){} }
   }catch(_){}
 }
 if(typeof iniciarApp==='function'){ const _ia2=iniciarApp; window.iniciarApp=iniciarApp=function(){ _ia2.apply(this,arguments); setTimeout(promoverProxima,1500); }; }
@@ -969,7 +1034,7 @@ function slidesHarpa(n){ const h=(window.HARPA||[]).find(x=>x.n===+n); if(!h) re
 function slidesDe(id){ id=String(id); if(id.indexOf('hr:')===0) return slidesHarpa(+id.slice(3)); return id.indexOf('cc:')===0? slidesHino(+id.slice(3)) : slidesMusica(id); }
 let PJ=null;
 window.projetar=function(id){ abrirProjetor([{id,slides:slidesDe(id)}]); };
-window.projetarSetlist=function(ctx){ const q=(ctx&&String(ctx).indexOf('slx_')===0)? String(ctx) : (ctx==='prox'?'prox':''); const sl=setlist(q); if(!sl) return; abrirProjetor(sl.itens.map(id=>({id,slides:slidesDe(id)}))); };
+window.projetarSetlist=function(ctx){ const q=(ctx&&ehSlExtra(ctx))? String(ctx) : (ctx==='prox'?'prox':''); const sl=setlist(q); if(!sl) return; abrirProjetor(sl.itens.map(id=>({id,slides:slidesDe(id)}))); };
 window.projetarSeAberto=function(id){ if(typeof PJ!=='undefined'&&PJ){ try{ abrirProjetor([{id:String(id),slides:slidesDe(String(id))}]); return true; }catch(e){} } return false; };
 function abrirProjetor(grupos){
   fecharProjetor();
@@ -1157,7 +1222,7 @@ if(typeof _booted!=='undefined' && _booted){ try{ montaMenu(); }catch(_){} }
 window.compartilharSetlist=function(){
   try{
     const aba=(typeof window.getAbaPl==='function')? String(window.getAbaPl()||'') : '';
-    const ehExtra=aba.indexOf('slx_')===0; const prox=aba==='prox';
+    const ehExtra=ehSlExtra(aba); const prox=aba==='prox';
     const sl=(typeof window.setlistDe==='function')? window.setlistDe(ehExtra? aba : (prox?'prox':'')) : null;
     if(!sl) return toast('Não há SETLIST publicado nesta aba.');
     const evs=(sl.eventos&&sl.eventos.length)? sl.eventos : null;

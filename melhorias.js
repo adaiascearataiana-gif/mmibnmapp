@@ -389,13 +389,22 @@ async function pastaDrive(token,nomePasta){
   const cfg=(typeof APP_CFG!=='undefined'&&APP_CFG.google_drive)||{};
   const pastas=cfg.pastas||{}; if(nomePasta==='MM IBNM - Áudios' && cfg.pasta) return cfg.pasta;
   if(pastas[nomePasta]) return pastas[nomePasta];
-  const q=encodeURIComponent("name='"+nomePasta.replace(/'/g,"\\'")+"' and mimeType='application/vnd.google-apps.folder' and trashed=false");
-  let r=await fetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id)',{headers:{Authorization:'Bearer '+token}});
-  let j=r.ok? await r.json() : {}; let id=j.files&&j.files[0]&&j.files[0].id;
-  if(!id){ r=await fetch('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({name:nomePasta,mimeType:'application/vnd.google-apps.folder'})});
-    if(!r.ok) throw new Error('Não consegui criar a pasta no Drive ('+r.status+'). Ative a "Google Drive API" no Google Cloud.'); id=(await r.json()).id; }
-  try{ const novo=Object.assign({},cfg,{client_id:driveClientId(),pastas:Object.assign({},pastas,{[nomePasta]:id})}); if(nomePasta==='MM IBNM - Áudios') novo.pasta=id; await salvarConfig('google_drive',novo); }catch(_){}
-  return id;
+  /* caminho com "/" → cria pasta por pasta (ex.: "Setor Financeiro/Entradas") */
+  const segs=String(nomePasta).split('/').map(s=>s.trim()).filter(Boolean);
+  let parentId='', atual='', salvo=false;
+  for(const seg of segs){
+    atual = atual ? atual+'/'+seg : seg;
+    if(pastas[atual]){ parentId=pastas[atual]; continue; }
+    const q=encodeURIComponent("name='"+seg.replace(/'/g,"\\'")+"' and mimeType='application/vnd.google-apps.folder' and trashed=false"+(parentId?" and '"+parentId+"' in parents":""));
+    let r=await fetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id)',{headers:{Authorization:'Bearer '+token}});
+    let j=r.ok? await r.json() : {}; let id=j.files&&j.files[0]&&j.files[0].id;
+    if(!id){ const body=JSON.stringify({name:seg,mimeType:'application/vnd.google-apps.folder',parents:parentId?[parentId]:undefined});
+      r=await fetch('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body});
+      if(!r.ok) throw new Error('Não consegui criar a pasta no Drive ('+r.status+'). Ative a "Google Drive API" no Google Cloud.'); id=(await r.json()).id; }
+    pastas[atual]=id; salvo=true; parentId=id;
+  }
+  if(salvo){ try{ const novo=Object.assign({},cfg,{client_id:driveClientId(),pastas:pastas}); if(nomePasta==='MM IBNM - Áudios') novo.pasta=parentId; await salvarConfig('google_drive',novo); }catch(_){} }
+  return parentId;
 }
 /* envio "resumable" (aceita arquivos grandes: vídeos) com barra de progresso */
 async function sobeDrive(blob,nomeArq,nomePasta,progresso){
