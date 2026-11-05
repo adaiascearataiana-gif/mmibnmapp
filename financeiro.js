@@ -65,9 +65,55 @@ function pixCRC16(s){ let crc=0xFFFF; for(let i=0;i<s.length;i++){ crc^=s.charCo
   for(let j=0;j<8;j++){ crc=(crc&0x8000)?(((crc<<1)^0x1021)&0xFFFF):((crc<<1)&0xFFFF); } }
   return crc.toString(16).toUpperCase().padStart(4,'0'); }
 function pixAscii(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9 .@-]/g,''); }
+function ehCopiaCola(v){ const s=String(v||'').replace(/\s+/g,''); return s.length>50&&(/^000201/.test(s)||s.indexOf('br.gov.bcb.pix')>=0); }
+function pixChaveDe(p){
+  try{
+    const s=String(p||'').replace(/\s+/g,''); let i=0;
+    while(i+4<=s.length){
+      const id=s.substr(i,2), L=parseInt(s.substr(i+2,2),10);
+      if(!(L>=0)||i+4+L>s.length) return '';
+      const val=s.substr(i+4,L); i+=4+L;
+      if(id==='26'||id==='25'){
+        let j=0;
+        while(j+4<=val.length){
+          const sid=val.substr(j,2), SL=parseInt(val.substr(j+2,2),10);
+          if(!(SL>=0)||j+4+SL>val.length) break;
+          const sval=val.substr(j+4,SL); j+=4+SL;
+          if(sid==='01') return sval;
+        }
+      }
+    }
+  }catch(_){}
+  return '';
+}
+function pixComValor(p,v){
+  try{
+    const amt=Number(v).toFixed(2);
+    const s=String(p||'').replace(/\s+/g,'').replace(/6304[0-9A-Fa-f]{4}$/,'').replace(/6304$/,'');
+    const campos=[]; let i=0;
+    while(i+4<=s.length){
+      const id=s.substr(i,2); if(!/^[0-9][0-9]$/.test(id)) return '';
+      const L=parseInt(s.substr(i+2,2),10);
+      if(!(L>=0)||i+4+L>s.length) return '';
+      if(id!=='54') campos.push([id,s.substr(i+4,L)]);
+      i+=4+L;
+    }
+    if(!campos.length||i!==s.length) return '';
+    let pos=-1;
+    for(let t=0;t<campos.length;t++){ if(['58','59','60','62'].indexOf(campos[t][0])>=0){ pos=t; break; } }
+    if(pos<0) pos=campos.length;
+    campos.splice(pos,0,['54',amt]);
+    let p2=campos.map(function(c){ return c[0]+String(c[1].length).padStart(2,'0')+c[1]; }).join('')+'6304';
+    return p2+pixCRC16(p2);
+  }catch(_){ return ''; }
+}
 function montaPix(chave,valor,nome,cidade){
-  const k=String(chave||'').trim(); if(!k) return '';
+  let k=String(chave||'').trim(); if(!k) return '';
   const v=Number(valor); if(!(v>0)) return '';
+  if(ehCopiaCola(k)){
+    const pronto=pixComValor(k,v); if(pronto) return pronto;
+    k=pixChaveDe(k); if(!k) return '';
+  }
   const n=(pixAscii(nome||'MINISTERIO DE MUSICA').slice(0,25)||'MINISTERIO DE MUSICA');
   const c=(pixAscii(cidade||'SAO PAULO').slice(0,15)||'SAO PAULO');
   const amt=v.toFixed(2);
@@ -211,20 +257,29 @@ function finHTMLMinhas(){
 function finHTMLCfg(){
   const c=cfgFin();
   return '<div class="card"><h3>⚙️ Configuração da doação (ADM principal)</h3>'+
-    '<p style="font-size:12.5px;color:#789;margin-bottom:8px">A chave PIX aparece para todos gerarem o código com o valor. O WhatsApp recebe os comprovantes.</p>'+
+    '<p style="font-size:12.5px;color:#789;margin-bottom:8px">Cole no campo abaixo a <b>chave PIX</b> (e-mail, telefone, CPF ou aleatória) <b>ou</b> o código <b>copia e cola</b> inteiro do seu banco — os dois funcionam. O QR sai com o valor doado. O WhatsApp recebe os comprovantes.</p>'+
     '<div style="display:grid;gap:8px">'+
-    '<input id="cfgPix" placeholder="Chave PIX (e-mail, telefone, CPF ou aleatória)" value="'+e(c.pix||'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
+    '<input id="cfgPix" placeholder="Chave PIX ou cole o código copia e cola" value="'+e(c.pix||'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
     '<input id="cfgWpp" placeholder="WhatsApp com DDD (receberá comprovantes)" value="'+e(c.wpp||'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
     '<input id="cfgNome" placeholder="Nome do recebedor (ex.: MINISTERIO DE MUSICA IBNM)" value="'+e(c.nome||'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
     '<input id="cfgCidade" placeholder="Cidade (ex.: FORTALEZA)" value="'+e(c.cidade||'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
+    (c.pix_copia?'<div style="font-size:12px;color:#1c7a4e;font-weight:700;margin:-2px 0 2px">✓ Copia-e cola salvo — o QR usa o código oficial do seu banco</div>':'')+
     '<button class="mini-btn" onclick="finCfgSalvar()">Salvar configuração</button></div></div>';
 }
 
 window.finSetMes=function(m){ finMes=m; go('financeiro'); };
 window.finSetAba=function(a){ finAba=a; go('financeiro'); };
 window.finCfgSalvar=async function(){
-  const obj={pix:($('#cfgPix')||{}).value||'',wpp:($('#cfgWpp')||{}).value||'',nome:($('#cfgNome')||{}).value||'',cidade:($('#cfgCidade')||{}).value||''};
-  await salvarConfig('financeiro_cfg',obj); toast('Configuração salva ✓');
+  const bruto=(($('#cfgPix')||{}).value||'').trim();
+  const c=cfgFin();
+  const obj={pix:bruto,wpp:($('#cfgWpp')||{}).value||'',nome:($('#cfgNome')||{}).value||'',cidade:($('#cfgCidade')||{}).value||'',pix_copia:''};
+  if(ehCopiaCola(bruto)){ obj.pix=pixChaveDe(bruto)||bruto; obj.pix_copia=bruto; }
+  else{
+    const kAntiga=c.pix_copia?pixChaveDe(c.pix_copia):'';
+    if(kAntiga&&bruto===kAntiga) obj.pix_copia=c.pix_copia;
+  }
+  await salvarConfig('financeiro_cfg',obj);
+  toast(obj.pix_copia?'Configuração salva ✓ — o QR usa o copia-e cola':'Configuração salva ✓');
 };
 
 /* ---------- ver comprovante ---------- */
@@ -292,7 +347,7 @@ window.finExcluir=function(id){
 /* ---------- doação ---------- */
 window.finDoar=function(){
   const c=cfgFin();
-  if(!c.pix) return toast('O ADM ainda não configurou a chave PIX.');
+  if(!c.pix&&!c.pix_copia) return toast('O ADM ainda não configurou a chave PIX.');
   abrirModal('<h3>🎁 Doar para o Ministério</h3>'+
     '<p style="font-size:13.5px;color:#456;margin:6px 0">Digite o valor que deseja doar. O código PIX com o valor é gerado automaticamente e copiado — é só abrir o seu banco e colar.</p>'+
     '<input id="finValor" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="Valor (R$)" '+
@@ -305,7 +360,7 @@ window.finPixAuto=function(v){
   const n=parseFloat(v);
   if(!(n>0)){ box.innerHTML=''; return; }
   const c=cfgFin();
-  const code=montaPix(c.pix,n,c.nome||'',c.cidade||'');
+  const code=montaPix(c.pix_copia||c.pix,n,c.nome||'',c.cidade||'');
   if(!code){ box.innerHTML='<p style="font-size:13px;color:#b33">Chave PIX inválida — avise o ADM.</p>'; return; }
   copiar(code);
   box.innerHTML='<div style="text-align:center">'+
