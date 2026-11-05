@@ -642,6 +642,28 @@ const MENU = [
   {id:'notificacoes', ic:'\uD83D\uDD14', nm:'Notificações'},
   {id:'ajuda', ic:'\u2753', nm:'Como usar o app'},
 ];
+/* ---------- INSTALAR O APP (APK/atalho nativo) ---------- */
+let _promptInstalacao=null;
+window.addEventListener('beforeinstallprompt',function(ev){ try{ ev.preventDefault(); }catch(e){} _promptInstalacao=ev; });
+window.instalarApp=async function(){
+  const st=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||(window.matchMedia&&window.matchMedia('(display-mode: fullscreen)').matches)||(navigator.standalone===true);
+  if(st) return toast('✅ O app já está instalado neste aparelho.');
+  if(_promptInstalacao){
+    const p=_promptInstalacao; _promptInstalacao=null;
+    try{ await p.prompt(); const r=await p.userChoice;
+      if(r&&r.outcome==='accepted') toast('📲 Instalando… o ícone aparece na tela em instantes.');
+      else _promptInstalacao=p;
+    }catch(e){}
+    return;
+  }
+  abrirModal('<h3>📲 Instalar o app (APK)</h3>'+
+    '<p style="font-size:14px;color:#456;margin-bottom:10px">Instale pelo navegador para ter <b>todas as funcionalidades</b>: notificações, tela cheia, atalhos e leitura offline.</p>'+
+    '<div style="font-size:13.5px;line-height:1.65;color:#334;background:#f4f8f6;border-radius:12px;padding:12px 14px">'+
+    '<b>Android — Chrome:</b> menu ⋮ → <b>Instalar app</b> (ou “Adicionar à tela inicial”). O aplicativo é instalado na hora, como um APK.<br>'+
+    '<b>iPhone — Safari:</b> Compartilhar → <b>Adicionar à Tela de Início</b>.<br>'+
+    '<b>APK para mandar no WhatsApp:</b> abra <b>pwabuilder.com</b> → cole o endereço do app → <b>Package for stores → Android</b> → baie o pacote e envie o arquivo — quem abrir, instala.</div>'+
+    '<div class="modal-acts"><button class="btn btn-primary" onclick="fecharModal()">Entendi</button></div>');
+};
 function montaMenu(){
   const u=usuarioAtual();
   try{ const ta=$('#topAvatar'); if(ta){ ta.onerror=function(){ this.onerror=null; this.src=AVATAR_PADRAO; }; ta.src=(u&&u.foto)||AVATAR_PADRAO; } }catch(e){}
@@ -656,6 +678,7 @@ function montaMenu(){
   });
   if(u.admin) h+=`<button class="sm-item" onclick="go('admin')"><span class="ic">\u2699\uFE0F</span>Painel do ADM</button>`;
   try{ const _nf=(typeof filaQtd==='function')?filaQtd():0; if(_nf) h+=`<button class="sm-item" onclick="filaTenta()"><span class="ic">⏳</span>Fila: ${_nf} (tocar p/ sincronizar)</button>`; }catch(e){}
+  h+=`<button class="sm-item" onclick="instalarApp()"><span class="ic">📲</span>Instalar o app</button>`;
   h+=`</div><button class="sm-item" onclick="logout()"><span class="ic">\uD83D\uDEAA</span>Sair</button>
     <div class="sm-foot">Ministério de Música IBNM<br>${VERSION}</div>`;
   $('#sidemenu').innerHTML=h;
@@ -2015,7 +2038,7 @@ async function cloudFav(){
 function ligarRealtime(){
   try{
     const ch=sb.channel('ibnm-rt');
-    ['perfis','musicas','playlist','escala','notificacoes','favoritos'].forEach(t=>{
+    ['perfis','musicas','playlist','escala','notificacoes','favoritos','materiais','harpa_links'].forEach(t=>{
       ch.on('postgres_changes',{event:'*',schema:'public',table:t},()=>agendarReload());
     });
     ch.subscribe();
@@ -2348,7 +2371,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v56';
+window.APP_V='v57';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */
@@ -2415,7 +2438,9 @@ function notifSistema(titulo,corpo){
 
 /* ---------- WRAPPERS v2 ---------- */
 const _cctPrev=cloudCarregarTudo;
-cloudCarregarTudo=async function(){ try{ await Promise.all([_cctPrev(),cloudConfig(),cloudPresencas(),cloudAoVivo()]); }catch(e){} };
+cloudCarregarTudo=async function(){ try{ await Promise.all([_cctPrev(),cloudConfig(),cloudPresencas(),cloudAoVivo(),
+    (typeof window.materiaisSync==='function')?window.materiaisSync():null,
+    (typeof window.harpaLinksSync==='function')?window.harpaLinksSync():null]); }catch(e){} };
 
 const _lrPrev=ligarRealtime;
 ligarRealtime=function(){ _lrPrev();
@@ -2424,6 +2449,20 @@ ligarRealtime=function(){ _lrPrev();
 
 const _arPrev=agendarReload;
 agendarReload=function(){ _arPrev(); clearTimeout(window._rt2t); window._rt2t=setTimeout(()=>{ try{ atualizaBannerVivo(); aplicarAoVivo(false); }catch(e){} },520); };
+/* ---------- SINCRONISMO GARANTIDO ----------
+   Realtime entrega na hora; aqui ficam as redes de segurança: ao voltar
+   pro app (Android pode ter suspensido o canal) e a cada60s os dados
+   são refeitos — o que o ADM fizer no desktop aparece para todos. */
+window.__ultSyncRt=0;
+function sincronismoAgora(){
+  const agora=Date.now();
+  if(agora-(window.__ultSyncRt||0)<20000) return;
+  window.__ultSyncRt=agora;
+  try{ agendarReload(); }catch(e){}
+}
+document.addEventListener('visibilitychange',function(){ if(!document.hidden) sincronismoAgora(); });
+window.addEventListener('focus',sincronismoAgora);
+setInterval(function(){ if(!document.hidden) sincronismoAgora(); },60000);
 
 const _iniPrev=iniciarApp;
 iniciarApp=function(){ _iniPrev(); try{ registrarSW(); atualizaBannerVivo(); aplicarAoVivo(true); }catch(e){} };

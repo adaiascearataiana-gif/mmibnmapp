@@ -182,14 +182,15 @@ if(typeof ROTAS!=='undefined' && ROTAS.perfil){
 /* ================= 1) SETLIST DO CULTO ================= */
 const pad2=n=>String(n).padStart(2,'0');
 const hojeISO=()=>{ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); };
-function normSl(x,chave){ if(!x||!Array.isArray(x.itens)||!x.itens.length) return null;
+function normSl(x,chave){ if(!x||typeof x!=='object'||!Array.isArray(x.itens)) return null;
   return {inicio:String(x.inicio||'').slice(0,10),fim:String(x.fim||'').slice(0,10),itens:x.itens.filter(existe),tons:x.tons||{},youtube:x.youtube||'',
-    tema:String(x.tema||'').slice(0,120),textoBase:String(x.textoBase||'').slice(0,60),
+    tema:String(x.tema||'').slice(0,120),textoBase:String(x.textoBase||'').slice(0,60),nome:String(x.nome||'').slice(0,60),
     eventos:(Array.isArray(x.eventos)&&x.eventos.length)? x.eventos : null,chave}; }
 /* qual: (vazio) = esta semana · 'prox' = próxima semana.
    A da próxima semana vira "esta semana" sozinha quando chega a data de início. */
 function setlist(qual){
   const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{};
+  if(qual && String(qual).indexOf('slx_')===0){ const x=C[qual]; return (x&&typeof x==='object')? normSl(x,qual): null; }
   const a=normSl(C.setlist,'setlist'), p=normSl(C.setlist_prox,'setlist_prox');
   /* prox já virou "esta semana" quando: a semana atual acabou (virou
      domingo→segunda) OU a data de início dela já chegou */
@@ -207,6 +208,7 @@ window.infoM=function(id){ return info(id); };
 function listaDe(id){
   id=String(id); const ctx=window.__slCtx; const at=setlist(), px=setlist('prox');
   const tem=l=>l&&l.itens.indexOf(id)>=0;
+  if(String(ctx||'').indexOf('slx_')===0){ const x=setlist(ctx); if(tem(x)) return x; }
   if(ctx==='prox' && tem(px)) return px;
   if(tem(at)) return at;
   if(tem(px)) return px;
@@ -266,7 +268,7 @@ function seedEventos(evs,ini,fim){
 function packSl(sl,evs){
   const itens=[]; (evs||[]).forEach(x=>(x.itens||[]).forEach(id=>{ if(itens.indexOf(id)<0) itens.push(id); }));
   return {inicio:sl.inicio,fim:sl.fim,itens:evs? itens : (sl.itens||[]).slice(),tons:Object.assign({},sl.tons||{}),youtube:sl.youtube||'',
-    tema:sl.tema||'',textoBase:sl.textoBase||'',
+    tema:sl.tema||'',textoBase:sl.textoBase||'',nome:sl.nome||'',
     eventos:evs? evs : (sl.eventos||null)};
 }
 window.packSl=packSl;
@@ -345,32 +347,127 @@ window.concluirEvento=async function(ctx,i){
   redesenhar();
 };
 /* ADM: enviar uma música (de qualquer lugar do app) para a playlist */
+/* ---------- conjuntos de SETLISTs disponíveis (semana + extras) ---------- */
+function listarSetlists(){
+  const out=[]; const at=setlist(), px=setlist('prox');
+  if(at) out.push({chave:at.chave||'setlist',sl:at,rot:'Esta semana',ico:'📅'});
+  if(px) out.push({chave:px.chave||'setlist_prox',sl:px,rot:'Próxima semana',ico:'🗓️'});
+  const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{};
+  Object.keys(C).forEach(k=>{ if(k.indexOf('slx_')!==0) return; const s2=normSl(C[k],k);
+    if(s2) out.push({chave:k,sl:s2,rot:s2.nome||'SETLIST',ico:'📌'}); });
+  return out;
+}
+window.listarSetlists=listarSetlists;
+/* ADM: enviar uma música para UM SETLIST — SEMPRE abre os SETLISTs
+   disponíveis; dentro do escolhido, os eventos ou a criação de um novo. */
 window.enviarPraPlaylist=function(musicaId){
   if(!adm()) return;
   const m=(DB.musicas||[]).find(x=>x.id===musicaId); if(!m) return toast('Música não encontrada.');
-  const sl=setlist(); if(!sl) return toast('Nenhum SETLIST montado ainda. Abra 📅 SETLIST e monte a semana.');
-  const evs=(sl.eventos&&sl.eventos.length)? sl.eventos : null;
-  const envia=async function(evIdx){
-    try{
-      if(evs){
-        const ev=evs[evIdx];
-        if((ev.itens||[]).indexOf(musicaId)>=0) return toast('Já está em "'+(ev.nome||'EVENTO')+'".');
-        ev.itens=(ev.itens||[]).concat([musicaId]);
-        await salvarConfig(sl.chave||'setlist', packSl(sl, JSON.parse(JSON.stringify(evs))));
-        toast('\u2705 "'+m.titulo+'" enviada para '+String(ev.nome||'EVENTO')+'!');
-      }else{
-        if((sl.itens||[]).indexOf(musicaId)>=0) return toast('Já está no SETLIST.');
-        sl.itens=(sl.itens||[]).concat([musicaId]);
-        await salvarConfig(sl.chave||'setlist', packSl(sl, null));
-        toast('\u2705 "'+m.titulo+'" enviada para o SETLIST!');
-      }
-    }catch(err){ toast('Erro ao enviar: '+(err.message||err)); }
+  const lista=listarSetlists();
+  if(!lista.length) return toast('Nenhum SETLIST ainda. Toque em ➕ Novo SETLIST para criar um.');
+  const rotuloDe=(x)=>{ const s=x.sl;
+    const dd=(s.eventos||[]).map(y=>String(y.data||'').slice(0,10)).filter(y=>/^\d{4}-\d{2}-\d{2}$/.test(y)).sort();
+    const dt=dd.length? dataBR(dd[0])+(dd[dd.length-1]!==dd[0]? ' – '+dataBR(dd[dd.length-1]):'')
+      : (s.inicio? dataBR(s.inicio)+(s.fim&&s.fim!==s.inicio? ' – '+dataBR(s.fim):'') : '');
+    return [dt,(s.itens||[]).length+' música(s)',((s.eventos||[]).length)+' evento(s)'].filter(Boolean).join(' · ');
   };
-  if(!evs) return envia(0);
-  abrirModal('<h3>\u2B07\uFE0F Enviar para o SETLIST</h3><p style="font-size:13.5px;color:#556;margin-bottom:8px">Escolha o evento que vai receber <b>'+e(m.titulo)+'</b>:</p>'+
-    evs.map((ev,i)=>'<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__enviaPl('+i+')">\uD83D\uDCC5 '+e(String(ev.nome||'EVENTO'))+(ev.data? ' \u00B7 '+dataBR(ev.data):'')+'</button>').join('')+
+  const envPasso2=async function(chave){
+    const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{};
+    const sl=normSl(C[chave],chave); if(!sl) return toast('SETLIST não encontrado.');
+    const rot=String(sl.nome|| (chave==='setlist_prox'?'Próxima semana': chave==='setlist'?'Esta semana':'SETLIST'));
+    const evs=(sl.eventos&&sl.eventos.length)? sl.eventos : null;
+    const addGeral=async function(){ try{
+        if((sl.itens||[]).indexOf(m.id)>=0) return toast('Já está neste SETLIST.');
+        sl.itens=(sl.itens||[]).concat([m.id]);
+        await salvarConfig(chave,packSl(sl,null));
+        toast('✅ "'+m.titulo+'" enviada para '+rot+'!');
+      }catch(err){ toast('Erro ao enviar: '+(err.message||err)); } };
+    const addEv=async function(i){ try{
+        const e2=JSON.parse(JSON.stringify(sl.eventos||[])); const ev=e2[i]; if(!ev) return;
+        if((ev.itens||[]).indexOf(m.id)>=0) return toast('Já está em "'+(ev.nome||'EVENTO')+'".');
+        ev.itens=(ev.itens||[]).concat([m.id]);
+        await salvarConfig(chave,packSl(sl,e2));
+        toast('✅ "'+m.titulo+'" enviada para '+(ev.nome||'EVENTO')+'!');
+      }catch(err){ toast('Erro ao enviar: '+(err.message||err)); } };
+    window.__envAddGeral=function(){ fecharModal(); addGeral(); };
+    window.__envAddEv=function(i){ fecharModal(); addEv(i); };
+    window.__envCriarEv=function(){ fecharModal(); envFormEvento(chave); };
+    const listaEv=evs? evs.map((ev,i)=>'<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__envAddEv('+i+')">📅 '+e(String(ev.nome||'EVENTO'))+(ev.data? ' · '+dataBR(ev.data):'')+' <small style="color:#678">· '+(ev.itens||[]).length+' música(s)</small></button>').join('')
+      : '<p style="font-size:13.5px;color:#556;margin:6px 0">Este SETLIST ainda não tem eventos — crie um ou use a lista geral:</p>';
+    const geralBtn=evs? '' : '<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__envAddGeral()">🎼 Adicionar na lista geral do SETLIST</button>';
+    abrirModal('<h3>📅 '+e(rot)+'</h3><p style="font-size:13.5px;color:#556;margin-bottom:8px">Onde entra <b>'+e(m.titulo)+'</b>? Escolha um evento ou crie um novo:</p>'+
+      listaEv+geralBtn+
+      '<button class="mini-btn" style="display:block;width:100%;margin:8px 0;text-align:left;border-style:dashed" onclick="window.__envCriarEv()">➕ Criar evento</button>'+
+      '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button></div>');
+  };
+  const envFormEvento=async function(chave){
+    window.__envConfirmaEv=async function(){
+      const nome=(((document.getElementById('envEvNome')||{}).value)||'').trim().slice(0,60)||'EVENTO';
+      const data=String(((document.getElementById('envEvData')||{}).value)||'').slice(0,10);
+      const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{};
+      const sl=normSl(C[chave],chave); if(!sl) return toast('SETLIST não encontrado.');
+      const e2=JSON.parse(JSON.stringify(sl.eventos||[]));
+      e2.push({id:evtUid(),nome:nome,data:data,itens:[m.id],concluido:false,concluido_em:null});
+      try{ await salvarConfig(chave,packSl(sl,e2)); }
+      catch(err){ return toast('Erro ao criar evento: '+(err.message||err)); }
+      fecharModal(); toast('✅ Evento "'+nome+'" criado — "'+m.titulo+'" adicionada!');
+    };
+    abrirModal('<h3>➕ Criar evento</h3><p style="font-size:13.5px;color:#556;margin-bottom:8px">O novo evento já recebe <b>'+e(m.titulo)+'</b>.</p>'+
+      '<div class="field"><label>Nome do evento</label><input id="envEvNome" type="text" maxlength="60" placeholder="CULTO, EBD, ANIVERSÁRIO…" value=""></div>'+
+      '<div class="field"><label>Data (opcional)</label><input id="envEvData" type="date"></div>'+
+      '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="window.__envConfirmaEv()">Criar e adicionar</button></div>');
+  };
+  window.__envPasso2=function(chave){ fecharModal(); envPasso2(chave); };
+  window.__envNova=function(){ fecharModal(); criarSetlistExtra(musicaId); };
+  abrirModal('<h3>⬇️ Enviar para o SETLIST</h3>'+
+    '<p style="font-size:13.5px;color:#556;margin-bottom:8px">Escolha o SETLIST que recebe <b>'+e(m.titulo)+'</b>:</p>'+
+    lista.map(x=>'<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__envPasso2(\''+x.chave+'\')">'+x.ico+' <b>'+e(x.rot)+'</b><br><small style="color:#678">'+e(rotuloDe(x))+'</small></button>').join('')+
+    '<button class="mini-btn" style="display:block;width:100%;margin:8px 0;text-align:left;border-style:dashed" onclick="window.__envNova()">➕ Criar nova SETLIST</button>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button></div>');
-  window.__enviaPl=function(i){ fecharModal(); envia(i); };
+};
+/* ---------- criar mais SETLISTs ---------- */
+window.criarSetlistExtra=function(musicaId){
+  if(!adm()) return;
+  window.__criaSlConfirma=async function(){
+    const nome=(((document.getElementById('nxNome')||{}).value)||'').trim().slice(0,60);
+    if(!nome) return toast('Dê um nome para o SETLIST.');
+    const ini=String(((document.getElementById('nxIni')||{}).value)||'').slice(0,10);
+    const fim=String(((document.getElementById('nxFim')||{}).value)||'').slice(0,10);
+    const chave='slx_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    const dados={inicio:ini,fim:fim,itens:[],tons:{},youtube:'',tema:'',textoBase:'',eventos:null,nome:nome};
+    try{ await salvarConfig(chave,dados); }
+    catch(err){ return toast('Erro ao criar: '+(err.message||err)); }
+    fecharModal(); toast('📌 SETLIST "'+nome+'" criado!');
+    if(musicaId){ setTimeout(function(){ if(window.__envPasso2) window.__envPasso2(chave); else go('playlist',chave); },250); return; }
+    go('playlist',chave);
+  };
+  abrirModal('<h3>➕ Novo SETLIST</h3>'+
+    '<div class="field"><label>Nome</label><input id="nxNome" type="text" maxlength="60" placeholder="Ex.: Ensaio especial, Retiro, Casamento…"></div>'+
+    '<div class="field"><label>Data início (opcional)</label><input id="nxIni" type="date"></div>'+
+    '<div class="field"><label>Data fim (opcional)</label><input id="nxFim" type="date"></div>'+
+    '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="window.__criaSlConfirma()">Criar SETLIST</button></div>');
+};
+/* ---------- evento novo direto no SETLIST aberto ---------- */
+window.plNovoEvento=function(qual){
+  if(!adm()) return;
+  const q=String(qual||'atual');
+  const sl= q==='prox'? setlist('prox') : ((q==='atual'||q==='')? setlist() : normSl(((typeof APP_CFG!=='undefined'&&APP_CFG)||{})[q],q));
+  if(!sl) return toast('Nenhum SETLIST aqui ainda — crie um ou monte a playlist.');
+  const chave=sl.chave||'setlist';
+  window.__novoEvConfirma=async function(){
+    const nome=(((document.getElementById('nevNome')||{}).value)||'').trim().slice(0,60)||'EVENTO';
+    const data=String(((document.getElementById('nevData')||{}).value)||'').slice(0,10);
+    const e2=JSON.parse(JSON.stringify(sl.eventos||[]));
+    e2.push({id:evtUid(),nome:nome,data:data,itens:[],concluido:false,concluido_em:null});
+    try{ await salvarConfig(chave,packSl(sl,e2)); }
+    catch(err){ return toast('Erro ao criar evento: '+(err.message||err)); }
+    fecharModal(); toast('➕ Evento "'+nome+'" criado.');
+    go('playlist', q==='atual'? 'atual' : q);
+  };
+  abrirModal('<h3>➕ Novo evento</h3><p style="font-size:13.5px;color:#556;margin-bottom:8px">Depois é só adicionar as músicas nele.</p>'+
+    '<div class="field"><label>Nome do evento</label><input id="nevNome" type="text" maxlength="60" placeholder="CULTO, EBD, ANIVERSÁRIO…"></div>'+
+    '<div class="field"><label>Data (opcional)</label><input id="nevData" type="date"></div>'+
+    '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="window.__novoEvConfirma()">Criar evento</button></div>');
 };
 /* ADM: reordenar eventos direto na visualização */
 let _plReord=false, _plReordEvs=null, _plReordCtx='';
@@ -415,7 +512,7 @@ function cardEventos(sl,titulo,ctx){
   if(sl.youtube) h+='<div class="sl-acts" style="margin-top:10px"><a class="sl-yt" href="'+e(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist no YouTube</a></div>';
   if(a){
     h+='<div class="sl-acts" style="margin-top:12px">'+
-      '<button onclick="modalPlaylist(\''+(ctx==='prox'?'prox':'')+'\')">➕ Adicionar evento</button>'+
+      '<button onclick="plNovoEvento(\''+(ctx||'atual')+'\')">➕ Novo evento</button>'+
       '<button class="'+(_plReord&&_plReordCtx===ctx?'gold':'')+'" onclick="plReordenar(\''+(ctx==='prox'?'prox':'')+'\')">'+((_plReord&&_plReordCtx===ctx)?'✅ Salvar ordem dos eventos':'↕ Reorganizar eventos')+'</button>'+
       '</div>';
     if(_plReord&&_plReordCtx===ctx) h+='<div class="pl-dica">Toque em ↑ e ↓ para mudar a ordem e depois em <b>Salvar ordem dos eventos</b>.</div>';
@@ -430,13 +527,13 @@ if(typeof ROTAS!=='undefined'){
   ROTAS.playlist=function(arg){
     const a=adm(); const at=setlist(), px=setlist('prox');
     /* ---------- RAIZ: lista dos SETLISTs disponíveis ---------- */
-    if(arg!=='prox'&&arg!=='atual'){
+    if(arg!=='prox'&&arg!=='atual'&&String(arg||'').indexOf('slx_')!==0){
       abaPl='';
       const dtsDe=sl=>{ const d=(sl.eventos||[]).map(x=>String(x.data||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort(); return d.length?[d[0],d[d.length-1]]:[sl.inicio||'',sl.fim||'']; };
       const card=(sl,rot,ico,ctx)=>{
         if(!sl) return '';
-        const dd=dtsDe(sl); const evs=(sl.eventos||[]).length; const pub=sl.publicada!==false;
-        const meta=[pub?'✓ publicado':'não publicado',(sl.itens||[]).length+' música(s)',evs?evs+' evento(s)':null].filter(Boolean).join(' · ');
+        const dd=dtsDe(sl); const evs=(sl.eventos||[]).length; const ehEx=String(ctx||'').indexOf('slx_')===0; const pub=!ehEx && sl.publicada!==false;
+        const meta=[ehEx?'📌 rascunho':(pub?'✓ publicado':'não publicado'),(sl.itens||[]).length+' música(s)',evs?evs+' evento(s)':null].filter(Boolean).join(' · ');
         const tt=(sl.tema||sl.textoBase)?'<div style="margin-top:8px;font-size:15px;color:#8a6d1a">🔥 '+e(sl.tema||'')+(sl.tema&&sl.textoBase?' · ':'')+'📖 '+e(sl.textoBase||'')+'</div>':'';
         const dt=(dd[0]||dd[1])? fmtData(dd[0])+(dd[1]&&dd[1]!==dd[0]?' - '+fmtData(dd[1]):'') : 'sem data';
         return '<div onclick="go(\'playlist\',\''+ctx+'\')" style="background:#fff;border:2px solid #d8e8e0;border-left:8px solid '+(ctx==='prox'?'#1f7a5a':'#0b3d2e')+';border-radius:16px;padding:16px 18px;margin-bottom:14px;cursor:pointer;box-shadow:0 2px 8px rgba(11,61,46,.08)">'
@@ -448,31 +545,37 @@ if(typeof ROTAS!=='undefined'){
           +(a?'<div style="margin-top:10px"><button class="mini-btn" style="margin:0" onclick="event.stopPropagation();modalPlaylist(\''+ctx+'\')">✏️ Editar</button></div>':'')
           +'</div>';
       };
-      const topo='<div class="page-ttl">📅 SETLIST</div>';
-      if(!(at||px)) return '<div class="page">'+topo+'<div class="empty"><div class="big">🎼</div>Nenhum SETLIST publicado ainda.'+(a?' Toque em <b>Montar playlist</b> para começar.':'')+'</div></div>';
+      const extras=(function(){ const out=[]; const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{};
+  Object.keys(C).forEach(k=>{ if(k.indexOf('slx_')!==0) return; const s2=normSl(C[k],k); if(s2) out.push({k:k,sl:s2}); }); return out; })();
+const topo='<div class="page-ttl">📅 SETLIST</div>';
+      if(!(at||px||extras.length)) return '<div class="page">'+topo+'<div class="empty"><div class="big">🎼</div>Nenhum SETLIST ainda.'+(a?' Toque em <b>➕ Novo SETLIST</b> para começar.':'')+'</div></div>';
       return '<div class="page">'+topo
         +'<div style="font-size:15px;color:#5b6b64;margin:-2px 0 14px">Toque em um SETLIST para ver os eventos.</div>'
         +(a?'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><button class="mini-btn" style="margin:0" onclick="modalPlaylist(\'\')">✏️ Montar playlist desta semana</button></div>':'')
+        +(a?'<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px"><button class="mini-btn" style="margin:0;border-style:dashed" onclick="criarSetlistExtra()">➕ Novo SETLIST</button></div>':'')
         +card(at,'Esta semana','📅','atual')
         +card(px,'Próxima semana','🗓️','prox')
+        +extras.map(function(x){ return card(x.sl, x.sl.nome||'SETLIST', '📌', x.k); }).join('')
         +(at&&!px?'<div style="background:#eef4f1;border-radius:14px;padding:14px 16px;font-size:15px;color:#5b6b64">🗓️ O SETLIST da próxima semana ainda não foi publicado.</div>':'')
         +'</div>';
     }
     /* ---------- DETALHE: eventos do SETLIST escolhido ---------- */
-    const prox=abaPl==='prox';
-    const sl=prox? px : at;
-    const tabs='<div class="pl-tabs"><button class="'+(!prox?'on':'')+'" onclick="go(\'playlist\',\'atual\')">📅 Esta semana</button><button class="'+(prox?'on':'')+'" onclick="go(\'playlist\',\'prox\')">🗓️ Próxima semana'+(px?' <i>●</i>':'')+'</button></div>';
-    const bt=a?'<button class="mini-btn" style="margin-bottom:14px" onclick="modalPlaylist(\''+(prox?'prox':'')+'\')">✏️ '+(prox?'Montar playlist da próxima semana':'Montar / editar playlist desta semana')+'</button>':'';
-    const btTools='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><button class="mini-btn" style="margin:0" onclick="compartilharSetlist()">📤 Compartilhar</button><button class="mini-btn" style="margin:0" onclick="projetarSetlist(\''+(prox?'prox':'')+'\')">🎬 Projetar setlist</button></div>';
-    const topo='<button class="mini-btn" style="margin-bottom:12px" onclick="go(\'playlist\')">← Voltar</button><div class="page-ttl">📅 SETLIST</div>'+tabs+bt+btTools;
-    if(!sl||!sl.itens.length) return '<div class="page">'+topo+'<div class="empty"><div class="big">🎼</div>'+(prox?'O SETLIST da próxima semana ainda não foi publicado.':'Nenhum SETLIST publicado para esta semana.')+'</div></div>';
+    abaPl=arg;
+    const prox=arg==='prox'; const ehExtra=String(arg||'').indexOf('slx_')===0; const ctxDet= ehExtra? arg : (prox?'prox':'');
+    const sl= ehExtra? normSl(((typeof APP_CFG!=='undefined'&&APP_CFG)||{})[arg],arg) : (prox? px : at);
+    if(ehExtra && !sl) return '<div class="page"><button class="mini-btn" style="margin-bottom:12px" onclick="go(\'playlist\')">← Voltar</button><div class="empty"><div class="big">🎼</div>SETLIST não encontrado.</div></div>';
+const tabs= ehExtra? '' : '<div class="pl-tabs"><button class="'+(!prox?'on':'')+'" onclick="go(\'playlist\',\'atual\')">📅 Esta semana</button><button class="'+(prox?'on':'')+'" onclick="go(\'playlist\',\'prox\')">🗓️ Próxima semana'+(px?' <i>●</i>':'')+'</button></div>';
+const bt=a? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><button class="mini-btn" style="margin:0" onclick="modalPlaylist(\''+(ehExtra?arg:(prox?'prox':''))+'\')">'+(ehExtra?'✏️ Editar SETLIST':(prox?'✏️ Montar playlist da próxima semana':'✏️ Montar / editar playlist desta semana'))+'</button><button class="mini-btn" style="margin:0" onclick="plNovoEvento(\''+(ehExtra?arg:(prox?'prox':'atual'))+'\')">➕ Novo evento</button></div>' : '';
+const btTools='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><button class="mini-btn" style="margin:0" onclick="compartilharSetlist()">📤 Compartilhar</button><button class="mini-btn" style="margin:0" onclick="projetarSetlist(\''+(ehExtra?arg:(prox?'prox':''))+'\')">🎬 Projetar setlist</button></div>';
+const topo='<button class="mini-btn" style="margin-bottom:12px" onclick="go(\'playlist\')">← Voltar</button><div class="page-ttl">'+(ehExtra? '📌 '+e(String(sl.nome||'SETLIST')) : '📅 SETLIST')+'</div>'+tabs+bt+btTools;
+if(!sl||(!sl.itens.length&&!(sl.eventos&&sl.eventos.length))) return '<div class="page">'+topo+'<div class="empty"><div class="big">🎼</div>'+(ehExtra?'SETLIST sem músicas e sem eventos ainda — toque em <b>➕ Novo evento</b> ou <b>✏️ Editar</b>.':(prox?'O SETLIST da próxima semana ainda não foi publicado.':'Nenhum SETLIST publicado para esta semana.'))+'</div></div>';
     /* título usa a 1ª e a última data dos eventos (se houver) */
     const _dts=(sl.eventos||[]).map(x=>String(x.data||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort();
     const _dt1=_dts.length? _dts[0] : sl.inicio, _dt2=_dts.length? _dts[_dts.length-1] : sl.fim;
     const eu=escaladoNoPeriodo(sl);
-    return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">'+(prox?'SETLIST DA PRÓXIMA SEMANA':'SETLIST DA SEMANA')+'</div><div class="dt">'+fmtData(_dt1)+' - '+fmtData(_dt2)+'</div>'+((sl.tema||sl.textoBase)?'<div class="sb-tt">'+(sl.tema?'🔥 '+e(sl.tema):'')+((sl.tema&&sl.textoBase)?' · ':'')+(sl.textoBase?'📖 '+e(sl.textoBase):'')+'</div>':'')+(sl.youtube?'<a class="yt-home" href="'+e(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist do YouTube</a>':'')+'</div>'+
+    return '<div class="page">'+topo+'<div class="semana-badge"><div class="lbl">'+(ehExtra? 'SETLIST · '+String(sl.nome||'') : (prox?'SETLIST DA PRÓXIMA SEMANA':'SETLIST DA SEMANA'))+'</div><div class="dt">'+fmtData(_dt1)+' - '+fmtData(_dt2)+'</div>'+((sl.tema||sl.textoBase)?'<div class="sb-tt">'+(sl.tema?'🔥 '+e(sl.tema):'')+((sl.tema&&sl.textoBase)?' · ':'')+(sl.textoBase?'📖 '+e(sl.textoBase):'')+'</div>':'')+(sl.youtube?'<a class="yt-home" href="'+e(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist do YouTube</a>':'')+'</div>'+
       (eu?'<div class="pl-eu">📍 Você está escalado(a) neste período'+(eu!==true?' — '+e(eu):'')+'. Toque nas músicas para ver letra, cifra e áudio.</div>':'')+
-      cardSetlistSmart(sl,(sl.eventos&&sl.eventos.length)? 'Eventos da semana ('+sl.itens.length+' música(s)/hino(s))' : 'Ordem dos Eventos da semana ('+sl.itens.length+')',prox?'prox':'')+'</div>';
+      cardSetlistSmart(sl,(sl.eventos&&sl.eventos.length)? 'Eventos da semana ('+sl.itens.length+' música(s)/hino(s))' : 'Ordem dos Eventos da semana ('+sl.itens.length+')',ctxDet)+'</div>';
   };
   if(ROTAS.inicio){
     const _ini=ROTAS.inicio;
@@ -511,7 +614,9 @@ function proxSemana(){ const d=new Date(); const w=(d.getDay()+6)%7; const s=new
 window.modalPlaylist=function(qual){
   const prox=qual==='prox';
   const pl=DB.playlist||{};
-  let sl=setlist(prox?'prox':'');
+  const ehExtra=String(qual||'').indexOf('slx_')===0;
+  let sl= ehExtra? normSl(((typeof APP_CFG!=='undefined'&&APP_CFG)||{})[qual],qual) : setlist(prox?'prox':'');
+  if(!sl && ehExtra) return toast('SETLIST não encontrado.');
   if(!sl){ const [a,b]=prox?proxSemana():[String(pl.inicio||'').slice(0,10),String(pl.fim||'').slice(0,10)]; sl={inicio:a,fim:b,itens:[],tons:{},youtube:''}; }
   const ini=String(sl.inicio||'').slice(0,10), fim=String(sl.fim||'').slice(0,10);
   /* eventos: os desta playlist; se vazios, herda da outra semana (nomes salvos, datas +7) */
@@ -519,9 +624,9 @@ window.modalPlaylist=function(qual){
   if(!evs){ const outro=setlist(prox?'':'prox'); if(outro&&outro.eventos) evs=seedEventos(outro.eventos,ini,fim); }
   if(!evs && sl.itens.length) evs=[{id:evtUid(),nome:'CULTO',data:'',itens:sl.itens.slice(),concluido:false}];
   if(!evs) evs=[];
-  _ed={qual:prox?'prox':'',inicio:ini,fim:fim,evs,tons:Object.assign({},sl.tons),youtube:sl.youtube||'',tema:sl.tema||'',textoBase:sl.textoBase||'',chave:sl.chave||(prox?'setlist_prox':'setlist'),
+  _ed={qual:ehExtra?qual:(prox?'prox':''),nome:String(sl.nome||'').slice(0,60),inicio:ini,fim:fim,evs,tons:Object.assign({},sl.tons),youtube:sl.youtube||'',tema:sl.tema||'',textoBase:sl.textoBase||'',chave:sl.chave||(prox?'setlist_prox':'setlist'),
     aberto: evs.length? evs[0].id : null, trocando:null};
-  abrirModal('<h3>'+(prox?'🗓️ SETLIST da próxima semana':'📅 SETLIST desta semana')+'</h3>'+
+  abrirModal('<h3>'+(ehExtra? '📌 '+e(String(sl.nome||'SETLIST')) : (prox?'🗓️ SETLIST da próxima semana':'📅 SETLIST desta semana'))+'</h3>'+
     (prox?'<p class="pl-dica">Ao publicar, as músicas ficam disponíveis no app. Marque 🔔 abaixo para avisar os membros.</p>':'')+
     '<div class="pl-dica">📌 <b>Eventos da semana</b> — dê o nome (CULTO, EBD, ANIVERSÁRIO…), escolha a data, busque as músicas com o evento aberto e reordene com ↑↓. Ao salvar, os nomes ficam guardados e já aparecem no próximo SETLIST.</div>'+
     '<div id="plEvts"></div>'+
@@ -531,7 +636,7 @@ window.modalPlaylist=function(qual){
     '<div class="field"><label>📖 Texto Base (opcional)</label><input id="plTexto" type="text" maxlength="60" placeholder="Ex.: Hebreus 11.1" value="'+e(_ed.textoBase||'')+'"></div>'+
     '<label class="check-inline" style="color:var(--verde-escuro);display:block;margin:6px 0"><input type="checkbox" id="plAvisar"> 🔔 Avisar membros ao publicar (só marque se quiser notificar)</label>'+
     (prox?'<label class="check-inline" style="color:var(--verde-escuro);display:block;margin:6px 0"><input type="checkbox" id="plTodos"> Avisar também todos os membros</label>':'')+
-    '<div class="modal-acts" style="flex-wrap:wrap"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" id="plPub" onclick="publicarPlaylist()">📢 Publicar</button><button class="btn btn-ghost" style="color:#c0392b;border-color:#e6b0aa" onclick="removerSetlist(\''+(prox?'prox':'')+'\')">🗑 Remover SETLIST</button></div>');
+    '<div class="modal-acts" style="flex-wrap:wrap"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" id="plPub" onclick="publicarPlaylist()">'+(ehExtra?'💾 Salvar':'📢 Publicar')+'</button><button class="btn btn-ghost" style="color:#c0392b;border-color:#e6b0aa" onclick="removerSetlist(\''+(ehExtra?qual:(prox?'prox':''))+'\')">🗑 Remover SETLIST</button></div>');
   renderEvts();
 };
 function evAberto(){ return (_ed&&Array.isArray(_ed.evs))? (_ed.evs.find(x=>x.id===_ed.aberto)||null) : null; }
@@ -659,6 +764,13 @@ function linkYoutube(v){ v=String(v||'').trim(); if(!v) return ''; if(!/^https?:
 /* ADM: remover o SETLIST inteiro (config + publicação) */
 window.removerSetlist=async function(qual){
   if(!adm()) return;
+  if(String(qual||'').indexOf('slx_')===0){
+    const s2=normSl(((typeof APP_CFG!=='undefined'&&APP_CFG)||{})[qual],qual);
+    if(!s2) return toast('SETLIST não encontrado.');
+    if(!window.confirm('Remover o SETLIST "'+(s2.nome||'extra')+'"?')) return;
+    try{ await salvarConfig(qual,{}); }catch(err){ return toast('Erro: '+(err.message||err)); }
+    fecharModal(); toast('SETLIST removido.'); go('playlist'); return;
+  }
   const prox=qual==='prox';
   const sl=prox? setlist('prox') : setlist();
   if(!sl) return toast('Nenhum SETLIST '+(prox?'da próxima semana':'desta semana')+' para remover.');
@@ -681,6 +793,16 @@ window.removerSetlist=async function(qual){
   }catch(err){ toast('Erro ao remover: '+(err&&err.message||err)); }
 };
 window.publicarPlaylist=async function(){
+  if(String(_ed.qual||'').indexOf('slx_')===0){
+    const _evs=(_ed.evs||[]).map(x=>({id:x.id||evtUid(),nome:String(x.nome||'').trim()||'EVENTO',data:String(x.data||'').slice(0,10),itens:(x.itens||[]).slice(),concluido:!!x.concluido,concluido_em:x.concluido_em||null}));
+    const _its=[]; _evs.forEach(x=>x.itens.forEach(id=>{ if(_its.indexOf(id)<0) _its.push(id); }));
+    const _yt=linkYoutube((document.getElementById('plYt')||{}).value||''); if(_yt===null) return toast('O link precisa ser do YouTube (youtube.com ou youtu.be).');
+    const _ini=document.getElementById('plIni'), _fim=document.getElementById('plFim');
+    const _dados={inicio:String(_ini?_ini.value:(_ed.inicio||'')).slice(0,10),fim:String(_fim?_fim.value:(_ed.fim||'')).slice(0,10),itens:_its,tons:Object.assign({},_ed.tons),youtube:_yt||'',tema:String((document.getElementById('plTema')||{}).value||'').trim().slice(0,120),textoBase:String((document.getElementById('plTexto')||{}).value||'').trim().slice(0,60),eventos:_evs.length?_evs:null,nome:String(_ed.nome||'').slice(0,60)};
+    try{ await salvarConfig(_ed.qual,_dados); }catch(err){ return toast('Erro ao salvar: '+(err.message||err)); }
+    fecharModal(); toast('📌 SETLIST "'+(_dados.nome||'extra')+'" salvo!');
+    go('playlist',_ed.qual); return;
+  }
   const _iniEl=document.getElementById('plIni'), _fimEl=document.getElementById('plFim');
   const _dsEv=(_ed.evs||[]).map(function(x){return String(x.data||'');}).filter(Boolean).sort();
   if(_dsEv.length){ _ed.inicio=_dsEv[0]; _ed.fim=_dsEv[_dsEv.length-1]; }
@@ -845,7 +967,7 @@ function slidesHarpa(n){ const h=(window.HARPA||[]).find(x=>x.n===+n); if(!h) re
 function slidesDe(id){ id=String(id); if(id.indexOf('hr:')===0) return slidesHarpa(+id.slice(3)); return id.indexOf('cc:')===0? slidesHino(+id.slice(3)) : slidesMusica(id); }
 let PJ=null;
 window.projetar=function(id){ abrirProjetor([{id,slides:slidesDe(id)}]); };
-window.projetarSetlist=function(ctx){ const sl=setlist(ctx==='prox'?'prox':''); if(!sl) return; abrirProjetor(sl.itens.map(id=>({id,slides:slidesDe(id)}))); };
+window.projetarSetlist=function(ctx){ const q=(ctx&&String(ctx).indexOf('slx_')===0)? String(ctx) : (ctx==='prox'?'prox':''); const sl=setlist(q); if(!sl) return; abrirProjetor(sl.itens.map(id=>({id,slides:slidesDe(id)}))); };
 window.projetarSeAberto=function(id){ if(typeof PJ!=='undefined'&&PJ){ try{ abrirProjetor([{id:String(id),slides:slidesDe(String(id))}]); return true; }catch(e){} } return false; };
 function abrirProjetor(grupos){
   fecharProjetor();
@@ -1032,8 +1154,9 @@ if(typeof _booted!=='undefined' && _booted){ try{ montaMenu(); }catch(_){} }
 /* ================= COMPARTILHAR SETLIST COMO IMAGEM ================= */
 window.compartilharSetlist=function(){
   try{
-    const prox=(typeof window.getAbaPl==='function'&&window.getAbaPl()==='prox');
-    const sl=(typeof window.setlistDe==='function')? window.setlistDe(prox?'prox':'') : null;
+    const aba=(typeof window.getAbaPl==='function')? String(window.getAbaPl()||'') : '';
+    const ehExtra=aba.indexOf('slx_')===0; const prox=aba==='prox';
+    const sl=(typeof window.setlistDe==='function')? window.setlistDe(ehExtra? aba : (prox?'prox':'')) : null;
     if(!sl) return toast('Não há SETLIST publicado nesta aba.');
     const evs=(sl.eventos&&sl.eventos.length)? sl.eventos : null;
     const IM=(typeof window.infoM==='function')? window.infoM : function(){ return {ic:'🎵',t:'Música'}; };
@@ -1051,7 +1174,7 @@ window.compartilharSetlist=function(){
       ctx.moveTo(x+m,y); ctx.arcTo(x+w,y,x+w,y+h,m); ctx.arcTo(x+w,y+h,x,y+h,m); ctx.arcTo(x,y+h,x,y,m); ctx.arcTo(x,y,x+w,y,m); ctx.closePath(); };
     const parts=[];
     /* ---------- CABEÇALHO ---------- */
-    const titulo=prox?'SETLIST DA PRÓXIMA SEMANA':'SETLIST DA SEMANA';
+    const titulo=ehExtra? ('SETLIST · '+String((sl&&sl.nome)||'').toUpperCase()) : (prox?'SETLIST DA PRÓXIMA SEMANA':'SETLIST DA SEMANA');
     const periodo=(sl.inicio||sl.fim)? (fmtD(sl.inicio)+(sl.fim?' – '+fmtD(sl.fim):'')) : '';
     const sub=(sl.tema||sl.textoBase)? [sl.tema?'🔥 '+sl.tema:'', sl.textoBase?'📖 '+sl.textoBase:''].filter(Boolean).join('   ·   ') : '';
     ctx.font='bold 62px '+F; const lT=wrap(titulo,W-PAD*2-40);

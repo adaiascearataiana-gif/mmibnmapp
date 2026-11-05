@@ -67,7 +67,8 @@ function musicasNovas(todas){
 }
 /* materiais de estudo */
 let MATS=null;
-async function carregaMats(){ try{ const {data}=await sb.from('materiais').select('*'); MATS=data||[]; }catch(_){ MATS=[]; } }
+async function carregaMats(){ try{ const {data}=await sb.from('materiais').select('*'); MATS=data||[]; }catch(_){ MATS=[]; }
+window.materiaisSync=function(){ return carregaMats(); }; }
 const SECOES={}; try{ (MENU||[]).forEach(m=>{ (m.sub||[]).forEach(s=>{ if(s.id==='academia'&&s.arg) SECOES[s.arg]=s.ic+' '+s.nm; }); }); }catch(_){}
 function nomeSecao(k){ return SECOES[k] || String(k||'').replace(/-/g,' '); }
 function materiaisNovos(todas){

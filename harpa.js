@@ -83,6 +83,7 @@ async function cloudLoadLinks(){
     saveYt();
   }catch(e){}
 }
+window.harpaLinksSync=function(){ const f=cloudLoadLinks; return f(); };
 async function cloudSaveLink(n,id){
   try{
     if(typeof sb==='undefined'||!sb) return;
