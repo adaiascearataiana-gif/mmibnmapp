@@ -479,6 +479,7 @@ function abrirHino(n, keepScroll){
     '</div>'+
     introImg + missingBox +
     '<div class="cc-tools">'+
+      +(adm?'<button class="tog" onclick="enviarPraPlaylist(\'cc:'+n+'\')">⬇️ SETLIST</button>':'')+
       '<button class="tog" id="tc" aria-pressed="'+prefs.cifras+'" onclick="cantorCifras('+n+')">Cifras</button>'+
       '<button class="tog cc-part" onclick="cantorPartitura('+n+')">📜 PARTITURA</button>'+
       '<span class="chip" '+(prefs.cifras?'':'hidden')+'><button onclick="cantorTransp('+n+',-1)" aria-label="Baixar meio tom">−</button><span class="lbl">Tom <b>'+esc(key)+'</b></span><button onclick="cantorTransp('+n+',1)" aria-label="Subir meio tom">+</button></span>'+

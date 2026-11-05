@@ -161,7 +161,7 @@ a{color:var(--verde-med)}
 .pill{display:inline-block;background:var(--verde-claro);color:#063524;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin:2px 4px 2px 0}
 .semana-badge{background:linear-gradient(120deg,var(--verde),var(--verde-claro));color:#fff;border-radius:var(--radius);padding:16px 18px;text-align:center;margin-bottom:16px;box-shadow:var(--sombra)}
 .sb-tt{margin-top:4px;font-weight:800;font-size:15px;line-height:1.35;background:rgba(0,0,0,.16);border-radius:8px;padding:6px 10px;display:inline-block}
-.semana-badge .lbl{font-size:12px;letter-spacing:2px;opacity:.9}
+.semana-badge .lbl{font-size:12px;letter-spacing:2px;opacity:1}
 .semana-badge .dt{font-size:24px;font-weight:900;margin-top:4px}
 .semana-badge .yt-home{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;background:#c4302b;color:#fff;padding:12px;border-radius:10px;font-weight:800;font-size:14.5px;text-decoration:none;box-shadow:0 3px 10px rgba(0,0,0,.18)}
 .semana-badge .yt-home:active{transform:scale(.98)}
@@ -2371,7 +2371,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v57';
+window.APP_V='v58';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */
@@ -2455,6 +2455,7 @@ agendarReload=function(){ _arPrev(); clearTimeout(window._rt2t); window._rt2t=se
    são refeitos — o que o ADM fizer no desktop aparece para todos. */
 window.__ultSyncRt=0;
 function sincronismoAgora(){
+  try{ if(!history.state||!history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}
   const agora=Date.now();
   if(agora-(window.__ultSyncRt||0)<20000) return;
   window.__ultSyncRt=agora;
@@ -3009,9 +3010,23 @@ if(typeof ligarRealtime==='function'){
     return false;
   };
   window.addEventListener('popstate', function(){
+    /* reforço: garante a isca mesmo se o Chrome descartar a anterior */
+    try{ if(!history.state||!history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}
     if(window.__voltar()){ _arma(); return; }
-    try{ history.back(); }catch(e){}   /* só chega aqui estando na HOME → fecha o app */
+    if(window.__ibnmSaindo){ window.__ibnmSaindo=false; try{ history.back(); }catch(e){} return; }
+    _arma();
+    /* no Início → pergunta antes de fechar o app */
+    try{ abrirModal('<h3>👋 Deseja sair?</h3>'+
+      '<p style="font-size:14px;color:#456;margin-bottom:6px">Você está na tela inicial do app.</p>'+
+      '<div class="modal-acts"><button class="btn btn-dark" onclick="__sairNao()">Não, ficar</button><button class="btn btn-primary" onclick="__sairSim()">Sim, sair</button></div>'); }catch(e){}
   });
+  window.__sairNao=function(){ try{ fecharModal(); }catch(e){} };
+  window.__sairSim=function(){
+    window.__ibnmSaindo=true;
+    try{ fecharModal(); }catch(e){}
+    try{ window.close(); }catch(e){}
+    setTimeout(function(){ try{ history.back(); }catch(e){} },150);
+  };
 })();
 </script>
 <script src="hinos.js"></script>

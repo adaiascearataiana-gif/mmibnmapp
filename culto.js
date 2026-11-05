@@ -362,7 +362,9 @@ window.listarSetlists=listarSetlists;
    disponíveis; dentro do escolhido, os eventos ou a criação de um novo. */
 window.enviarPraPlaylist=function(musicaId){
   if(!adm()) return;
-  const m=(DB.musicas||[]).find(x=>x.id===musicaId); if(!m) return toast('Música não encontrada.');
+  const _mid=String(musicaId||'');
+  const m=(_mid.indexOf('cc:')===0||_mid.indexOf('hr:')===0)?(function(){ const f=info(_mid); return {id:_mid,titulo:f.t,artista:f.s}; })():(DB.musicas||[]).find(x=>x.id===musicaId);
+  if(!m) return toast('Música não encontrada.');
   const lista=listarSetlists();
   if(!lista.length) return toast('Nenhum SETLIST ainda. Toque em ➕ Novo SETLIST para criar um.');
   const rotuloDe=(x)=>{ const s=x.sl;
@@ -392,7 +394,7 @@ window.enviarPraPlaylist=function(musicaId){
     window.__envAddGeral=function(){ fecharModal(); addGeral(); };
     window.__envAddEv=function(i){ fecharModal(); addEv(i); };
     window.__envCriarEv=function(){ fecharModal(); envFormEvento(chave); };
-    const listaEv=evs? evs.map((ev,i)=>'<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__envAddEv('+i+')">📅 '+e(String(ev.nome||'EVENTO'))+(ev.data? ' · '+dataBR(ev.data):'')+' <small style="color:#678">· '+(ev.itens||[]).length+' música(s)</small></button>').join('')
+    const listaEv=evs? evs.map((ev,i)=>'<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__envAddEv('+i+')">📅 '+e(String(ev.nome||'EVENTO'))+(ev.data? ' · '+dataBR(ev.data):'')+' <small style="color:#fff;opacity:.95">· '+(ev.itens||[]).length+' música(s)</small></button>').join('')
       : '<p style="font-size:13.5px;color:#556;margin:6px 0">Este SETLIST ainda não tem eventos — crie um ou use a lista geral:</p>';
     const geralBtn=evs? '' : '<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__envAddGeral()">🎼 Adicionar na lista geral do SETLIST</button>';
     abrirModal('<h3>📅 '+e(rot)+'</h3><p style="font-size:13.5px;color:#556;margin-bottom:8px">Onde entra <b>'+e(m.titulo)+'</b>? Escolha um evento ou crie um novo:</p>'+
@@ -421,7 +423,7 @@ window.enviarPraPlaylist=function(musicaId){
   window.__envNova=function(){ fecharModal(); criarSetlistExtra(musicaId); };
   abrirModal('<h3>⬇️ Enviar para o SETLIST</h3>'+
     '<p style="font-size:13.5px;color:#556;margin-bottom:8px">Escolha o SETLIST que recebe <b>'+e(m.titulo)+'</b>:</p>'+
-    lista.map(x=>'<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__envPasso2(\''+x.chave+'\')">'+x.ico+' <b>'+e(x.rot)+'</b><br><small style="color:#678">'+e(rotuloDe(x))+'</small></button>').join('')+
+    lista.map(x=>'<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__envPasso2(\''+x.chave+'\')">'+x.ico+' <b>'+e(x.rot)+'</b><br><small style="color:#fff;opacity:.95">'+e(rotuloDe(x))+'</small></button>').join('')+
     '<button class="mini-btn" style="display:block;width:100%;margin:8px 0;text-align:left;border-style:dashed" onclick="window.__envNova()">➕ Criar nova SETLIST</button>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button></div>');
 };
