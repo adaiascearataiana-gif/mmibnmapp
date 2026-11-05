@@ -223,7 +223,7 @@ window.carregarFoto=carregarFoto=async function(inp){
   if(up.error){ toast('Erro ao enviar foto: '+up.error.message); return; }
   const url=sb.storage.from('fotos').getPublicUrl(path).data.publicUrl;
   const velha=u.foto;
-  await sb.from('perfis').update({foto:url}).eq('id',u.id);
+  await sb.from('perfis').update({foto:url,foto_drive:''}).eq('id',u.id);
   u.foto=url; try{ $('#perfilFoto')&&($('#perfilFoto').src=url); $('#topAvatar').src=url; montaMenu(); }catch(_){}
   apagaFotoVelha(velha);
   toast('Foto atualizada!'); go('perfil');
@@ -241,7 +241,7 @@ async function otimizaMinhaFoto(){
     const path='perfil/'+u.id+'_'+Date.now()+'_otim.jpg';
     const up=await sb.storage.from('fotos').upload(path,b,{upsert:true,contentType:'image/jpeg',cacheControl:'31536000'}); if(up.error) return;
     const url=sb.storage.from('fotos').getPublicUrl(path).data.publicUrl;
-    const res=await sb.from('perfis').update({foto:url}).eq('id',u.id); if(res.error) return;
+    const res=await sb.from('perfis').update({foto:url,foto_drive:''}).eq('id',u.id); if(res.error) return;
     const velha=u.foto; u.foto=url; localStorage.setItem(k,url); apagaFotoVelha(velha); try{ montaMenu(); }catch(_){}
   }catch(_){}
 }

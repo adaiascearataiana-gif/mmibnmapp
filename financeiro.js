@@ -105,7 +105,7 @@ async function anexoCompleto(caminhoBucket,file,nomeArq,pastaDriveNome){
   const url=sb.storage.from('anexos').getPublicUrl(path).data.publicUrl;
   let drive='';
   try{ const D=window.__drive;
-    if(D&&D.ok&&D.ok()&&D.conectado&&D.conectado()&&pastaDriveNome){
+    if(D&&D.ok&&D.ok()&&D.conectado&&D.conectado()&&pastaDriveNome&&(typeof ehAdmin!=='function'||ehAdmin())){
       const fid=await D.sobe(b,nomeArq,pastaDriveNome);
       drive='https://drive.google.com/file/d/'+fid+'/view';
     } }catch(_){}
@@ -501,10 +501,11 @@ window.driveSinc=async function(){
   try{
     const D=window.__drive;
     if(!D||!D.ok||!D.ok()||!D.conectado||!D.conectado()) return 0;
+    if(typeof ehAdmin==='function'&&!ehAdmin()) return 0; /* v64: so aparelho de principal sincroniza */
     if(typeof sb==='undefined'||!sb) return 0;
     _sincRodando=true;
     let n=0;
-    const isBucket=u=>/\/storage\/v1\/object\/public\/anexos\//.test(String(u||''));
+    const isBucket=u=>/\/storage\/v1\/object\/public\/(anexos|fotos)\//.test(String(u||''));
     const isDrive=u=>/drive\.google\.com/.test(String(u||''));
     const sobe=async(tabela,colUrl,colDrive,id,tipo)=>{
       try{
@@ -517,7 +518,7 @@ window.driveSinc=async function(){
           try{
             const blob=await (await fetch(u)).blob();
             const pasta=tabela==='financeiro'?(r.tipo==='entrada'?'Setor Financeiro/Entradas':'Setor Financeiro/Saídas'):
-                        tabela==='inventario'?'Inventário':'Setor Financeiro/Doações';
+                        tabela==='inventario'?'Inventário':tabela==='perfis'?'Perfil':'Setor Financeiro/Doações';
             const nome=tabela+'_'+r.id+'.jpg';
             const fid=await D.sobe(blob,nome,pasta);
             const novo='https://drive.google.com/file/d/'+fid+'/view';
@@ -530,6 +531,7 @@ window.driveSinc=async function(){
     await sobe('financeiro','anexo_url','anexo_drive');
     await sobe('inventario','foto_url','foto_drive');
     await sobe('doacoes','comprovante_url','comprovante_drive');
+    await sobe('perfis','foto','foto_drive');
     if(n) try{ toast('☁️ '+n+' foto(s) copiadas pro seu Google Drive ✓'); }catch(_){}
     return n;
   }catch(_){ return 0; }

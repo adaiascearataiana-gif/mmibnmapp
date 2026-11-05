@@ -2075,11 +2075,11 @@ async function carregarFoto(inp){ const f=inp.files[0]; if(!f) return; const u=u
   const up=await sb.storage.from('fotos').upload(path,f,{upsert:true,contentType:f.type});
   if(up.error){ toast('Erro ao enviar foto: '+up.error.message); return; }
   const url=sb.storage.from('fotos').getPublicUrl(path).data.publicUrl;
-  await sb.from('perfis').update({foto:url}).eq('id',u.id);
+  await sb.from('perfis').update({foto:url,foto_drive:''}).eq('id',u.id);
   u.foto=url; $('#perfilFoto')&&($('#perfilFoto').src=url); $('#topAvatar').src=url; montaMenu(); toast('Foto atualizada!'); go('perfil');
 }
 async function removerFoto(){ const u=usuarioAtual(); u.foto='';
-  await sb.from('perfis').update({foto:''}).eq('id',u.id);
+  await sb.from('perfis').update({foto:'',foto_drive:''}).eq('id',u.id);
   $('#topAvatar').src=AVATAR_PADRAO; montaMenu(); go('perfil');
 }
 async function criarMusica(){ const t=$('#nmTit').value.trim(); if(!t) return toast('Informe o titulo.');
@@ -2376,7 +2376,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v63';
+window.APP_V='v64';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */
