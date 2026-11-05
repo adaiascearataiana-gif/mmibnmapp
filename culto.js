@@ -1043,7 +1043,7 @@ window.compartilharSetlist=function(){
     const wrap=(txt,max)=>{ const ws=String(txt||'').split(' '); const ls=[]; let cur='';
       ws.forEach(w=>{ const t=cur?cur+' '+w:w; if(ctx.measureText(t).width>max&&cur){ ls.push(cur); cur=w; } else cur=t; });
       if(cur) ls.push(cur); return ls.length?ls:['']; };
-    const fmtD=s=>{ const p=String(s||'').split('-'); return p.length>=5? p[2]+'/'+p[1] : (p[0]||''); };
+    const fmtD=s=>{ const m=String(s||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m? m[3]+'/'+m[2] : String(s||''); };
     const nomeEv=ev=>{ const n=String((ev&&(ev.nome||ev.titulo))||'EVENTO').trim()||'EVENTO'; const d=fmtD(ev&&ev.data); return (d? d+' · ':'')+n; };
     const rr=(x,y,w,h,r)=>{ const m=Math.max(0,Math.min(r,w/2,h/2));
       ctx.beginPath();

@@ -1,5 +1,5 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v55';
+const CACHE = 'mmibnm-v56';
 const CORE = [
   './',
   './index.html',
@@ -51,6 +51,8 @@ self.addEventListener('fetch', function (e) {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  // sw.js sempre vai direto à rede: a página usa isso para conferir se há versão nova
+  if (/\/sw\.js$/.test(url.pathname)) return;
   // Fotos de perfil do Supabase: guardadas no celular (não baixam de novo a cada abertura).
   if (/supabase\.co$/.test(url.hostname) && url.pathname.indexOf('/storage/v1/object/public/fotos/') >= 0) {
     e.respondWith(caches.open('ibnm-fotos').then(function (c) {

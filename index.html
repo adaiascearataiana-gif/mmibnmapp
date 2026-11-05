@@ -222,7 +222,9 @@ html.escuro .content .song-row .s-ic i{filter:grayscale(1) brightness(0) invert(
 .sub-links button{background:var(--cinza);color:var(--verde-escuro);padding:9px 16px;border-radius:20px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;border:1.5px solid transparent}
 .sub-links button:active{border-color:var(--verde-claro)}
 .cifra-box{background:#fffdf5;border:1px solid #efe7c9;border-radius:12px;padding:16px;font-family:'Courier New',monospace;font-size:14px;line-height:1.9;white-space:pre-wrap;color:#2b2b2b;overflow-x:auto}
-.cifra-box .ch{color:var(--verde-med);font-weight:800}
+.cifra-box .ch{color:var(--cor-acorde,#a8350a);font-weight:800}
+.cifra-box .cf-ac{color:var(--cor-acorde,#a8350a);font-weight:800}
+.cifra-box .cf-lb{color:#6b7c74}
 .letra-box{background:#fff;border-radius:12px;padding:18px;font-size:16px;line-height:2;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,0,0,.07)}
 .zoom-bar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
 .zoom-bar button{height:34px;min-width:40px;padding:0 12px;border:1px solid #c9ced6;background:#fff;color:var(--verde-escuro);border-radius:8px;font-weight:800;font-size:15px;cursor:pointer}
@@ -1223,11 +1225,35 @@ function renderMusica(){
     ${corpo}</div>`;
 }
 function realcaCifra(txt){ // realca acordes (linhas com padrao de acordes)
+  const ehTk=k=>/^[A-G][#b]?(m|maj|min|sus|dim|aug|add)?[0-9]{0,2}(\/[A-G][#b]?)?$/.test(k);
+  const pinta=l=>l.replace(/\[([^\]\s]{1,14})\]/g,(m,k)=> ehTk(k)? '<span class="cf-ac">['+k+']</span>' : m);
   return esc(txt).split('\n').map(l=>{
-    if(/^[\s]*([A-G][#b]?(m|maj|min|sus|dim|aug|add)?[0-9]?(\/[A-G][#b]?)?[\s]*)+$/.test(l) && l.trim())
-      return '<span class="ch">'+l+'</span>'; return l; }).join('\n');
+    if(/^\s*([A-G][#b]?(m|maj|min|sus|dim|aug|add)?[0-9]?(\/[A-G][#b]?)?\s*)+$/.test(l) && l.trim())
+      return '<span class="ch">'+l+'</span>'; return pinta(l); }).join('\n'); }
+/* HTML salvo no banco: aplica a mesma pintura do texto puro —
+   linha só de acordes vira .ch e [acorde] no meio do texto vira .cf-ac. */
+function pintaHtmlCifra(html){
+  const box=document.createElement('div'); box.innerHTML=html||'';
+  const ehLinhaCh=s=>/^\s*([A-G][#b]?(m|maj|min|sus|dim|aug|add)?[0-9]?(\/[A-G][#b]?)?\s*)+$/.test(s)&&s.trim();
+  const ehTk=k=>/^[A-G][#b]?(m|maj|min|sus|dim|aug|add)?[0-9]{0,2}(\/[A-G][#b]?)?$/.test(k);
+  [...box.querySelectorAll('div,p')].forEach(bg=>{
+    if(bg.querySelector('div,p')) return;
+    const tx=bg.textContent||'';
+    if(ehLinhaCh(tx) && !bg.querySelector('.ch')) bg.innerHTML='<span class="ch">'+bg.innerHTML+'</span>';
+  });
+  const w=document.createTreeWalker(box,NodeFilter.SHOW_TEXT,null); const ns=[]; while(w.nextNode()) ns.push(w.currentNode);
+  ns.forEach(n=>{
+    const pe=n.parentElement; if(!pe) return;
+    if(pe.closest('.ch')||pe.closest('.cf-ac')) return;
+    if(!/\[[^\]\s]{1,14}\]/.test(n.nodeValue)) return;
+    const tmp=document.createElement('span');
+    tmp.innerHTML=n.nodeValue.replace(/\[([^\]\s]{1,14})\]/g,(m,k)=> ehTk(k)? '<span class="cf-ac">['+k+']</span>' : m);
+    while(tmp.firstChild) n.parentNode.insertBefore(tmp.firstChild,n);
+    n.parentNode.removeChild(n);
+  });
+  return box.innerHTML;
 }
-function renderCifraView(c){ if(!c) return ''; if(/<[a-z!\/][\s\S]*>/i.test(c)) return limparCifraHtml(c); return realcaCifra(c); }
+function renderCifraView(c){ if(!c) return ''; if(/<[a-z!\/][\s\S]*>/i.test(c)) return pintaHtmlCifra(limparCifraHtml(c)); return realcaCifra(c); }
 function musWhatsTxt(id, aba){
   const m=DB.musicas.find(x=>x.id===id); if(!m) return '';
   const a=aba||abaAtual;
@@ -1349,10 +1375,11 @@ function limparCifraHtml(html){
         if(!ok[n.tagName]){ while(n.firstChild) no.insertBefore(n.firstChild,n); n.remove(); return; }
         [...n.attributes].forEach(a=>{
           const nm=a.name.toLowerCase();
-          if(n.tagName==='FONT' && (nm==='color'||nm==='size'||nm==='face')) return;
+          if(n.tagName==='FONT'){ if(nm==='color'){ n.removeAttribute('color'); return; } if(nm==='size'||nm==='face') return; }
+          if(nm==='class'){ if(!/^(cf-ac|cf-lb|ch)$/.test((a.value||'').trim())) n.removeAttribute('class'); return; }
           if(nm==='style'){ const s=a.value||''; let keep='';
             const g=(re)=>{ const mm=s.match(re); return mm? mm[1].trim().replace(/["'`\\]/g,'') : ''; };
-            const col=g(/color\s*:\s*([^;]+)/i); if(col) keep+='color:'+col+';';
+            /* cor manual não sobrevive: quem manda é a paleta (--cor-acorde) */
             const ff=g(/font-family\s*:\s*([^;]+)/i); if(ff) keep+='font-family:'+ff+';';
             const fs=g(/font-size\s*:\s*([^;]+)/i); if(fs) keep+='font-size:'+fs+';';
             const fw=g(/font-weight\s*:\s*([^;]+)/i); if(fw) keep+='font-weight:'+fw+';';
@@ -2321,6 +2348,30 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
+window.APP_V='v56';
+/* Confere a versão direto na rede (sem depender do ciclo do service worker):
+   se o sw.js estiver à frente do que está rodando, limpa os caches do app
+   e recarrega — a página vem nova da rede e os scripts também. */
+function confereVersaoApp(){
+  if(typeof APP_V==='undefined') return;
+  if(window.__verChecando) return; window.__verChecando=1;
+  fetch('./sw.js?'+Date.now(),{cache:'no-store'}).then(function(r){ return r.text(); }).then(function(txt){
+    window.__verChecando=0;
+    var m=/mmibnm-v(\d+)/.exec(txt||''); if(!m) return;
+    var atual=parseInt(String(APP_V).replace(/\D/g,''),10)||0;
+    var nova=parseInt(m[1],10)||0;
+    if(nova<=atual) return;
+    /* evita loop se o CDN demorar a entregar o index novo */
+    var ult=parseInt(localStorage.getItem('ibnm_ver_rl')||'0',10)||0;
+    if(Date.now()-ult<120000) return;
+    localStorage.setItem('ibnm_ver_rl',String(Date.now()));
+    try{ localStorage.setItem('ibnm_sw_novo','1'); }catch(e){}
+    if(window.caches&&caches.keys){ caches.keys().then(function(ks){
+      ks.filter(function(k){ return /^mmibnm-v/.test(k); }).forEach(function(k){ caches.delete(k); });
+    }).catch(function(){}); }
+    setTimeout(function(){ location.reload(); },400);
+  }).catch(function(){ window.__verChecando=0; });
+}
 function registrarSW(){
   if(!('serviceWorker' in navigator)) return;
   if(location.protocol!=='https:' && location.hostname!=='localhost') return;
@@ -2330,6 +2381,9 @@ function registrarSW(){
     setInterval(chk, 3600000);
     document.addEventListener('visibilitychange',function(){ if(!document.hidden) chk(); });
     window.addEventListener('focus',chk);
+    window.addEventListener('focus',confereVersaoApp);
+    document.addEventListener('visibilitychange',function(){ if(!document.hidden) confereVersaoApp(); });
+    setTimeout(confereVersaoApp,4000); setInterval(confereVersaoApp,600000);
     var marca=function(w){ if(!w) return; w.addEventListener('statechange',function(){ if(this.state==='installed'&&navigator.serviceWorker.controller) window._swNovo=1; }); };
     marca(reg.installing);
     reg.addEventListener('updatefound',function(){ marca(reg.installing); });

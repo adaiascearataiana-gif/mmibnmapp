@@ -814,7 +814,7 @@ const st=document.createElement('style'); st.textContent=`
 .cifra-box.cf-fit div,.cifra-box.cf-fit p{white-space:pre;margin:0}
 .cifra-box.cf-fit,.cifra-box.cf-fit *{letter-spacing:0!important;word-spacing:normal!important;font-weight:400!important;font-style:normal!important;color:#262626!important;text-decoration:none!important;background:none!important;font-family:'Courier New',ui-monospace,monospace!important}
 .cifra-box.cf-fit{background:#fffdf5!important}
-.cifra-box.cf-fit .cf-ac{font-weight:800!important;color:var(--cor-acorde,#a8350a)!important}
+.cifra-box.cf-fit .cf-ac,.cifra-box.cf-fit .ch{font-weight:800!important;color:var(--cor-acorde,#a8350a)!important}
 .cifra-box.cf-fit .cf-lb{color:#6b7c74!important}
 .cifra-box.cf-fit .cf-sec{color:#6b7c74!important}
 .editor-rich{white-space:pre!important;overflow-x:auto;overflow-y:visible!important;max-height:none!important;height:auto!important;overscroll-behavior:auto}
