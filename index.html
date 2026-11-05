@@ -29,6 +29,8 @@
 [data-theme=dark] .page,[data-theme=dark] .ct-page{color:var(--txt)}
 [data-theme=dark] .ct-bar{background:#142520}
 [data-theme=dark] .song-row,[data-theme=dark] .fc-item,[data-theme=dark] .av-it{background:#16281f;border-color:#28443a}
+[data-theme=dark] .song-row .s-nm{color:#d9efe6}
+[data-theme=dark] .song-row .s-ar{color:#9fb8ae}
 [data-theme=dark] .mini-btn,[data-theme=dark] .btn:not(.btn-primary):not(.btn-dark){background:#1d3a30;color:#e7f3ed}
 [data-theme=dark] .info-row,[data-theme=dark] .field label{color:#b8cfc5}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -312,7 +314,7 @@ table.escala tr.vigente td{font-weight:700}
 .btn-dark{background:var(--verde-med);color:#fff}
 .fab{position:fixed;right:18px;bottom:78px;width:58px;height:58px;border-radius:50%;background:var(--dourado);color:#3a2f00;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.3);z-index:45;font-weight:300}
 .admin-tag{background:var(--dourado);color:#3a2f00;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px}
-.empty{text-align:center;color:#9aa;padding:40px 20px;font-size:14px}
+.empty{text-align:center;color:#5f7268;padding:40px 20px;font-size:14px}
 .empty .big{font-size:46px;margin-bottom:10px;opacity:.5}
 
 /* ===== BOAS-VINDAS / ONBOARDING ===== */
@@ -2371,7 +2373,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v58';
+window.APP_V='v59';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */
@@ -2389,6 +2391,7 @@ function confereVersaoApp(){
     if(Date.now()-ult<120000) return;
     localStorage.setItem('ibnm_ver_rl',String(Date.now()));
     try{ localStorage.setItem('ibnm_sw_novo','1'); }catch(e){}
+    try{ navigator.serviceWorker.getRegistration().then(function(r){ if(r&&r.update) r.update(); }); }catch(e){}
     if(window.caches&&caches.keys){ caches.keys().then(function(ks){
       ks.filter(function(k){ return /^mmibnm-v/.test(k); }).forEach(function(k){ caches.delete(k); });
     }).catch(function(){}); }
@@ -3026,6 +3029,7 @@ if(typeof ligarRealtime==='function'){
     try{ fecharModal(); }catch(e){}
     try{ window.close(); }catch(e){}
     setTimeout(function(){ try{ history.back(); }catch(e){} },150);
+    setTimeout(function(){ try{ toast('⚠️ O Chrome não deixa a aba fechar sozinho. Feche a aba ou use o app instalado.'); }catch(e){} },700);
   };
 })();
 </script>

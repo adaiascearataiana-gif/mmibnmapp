@@ -54,7 +54,7 @@ const css=`
 .pl-sug .tx b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pl-sug .tx small{font-size:11.5px;color:#6b8378}
 .pl-sug i{font-style:normal;font-size:11.5px;font-weight:800;color:var(--verde-med);white-space:nowrap}
-.pl-sug .nada{font-size:12.5px;color:#9aa;padding:6px 4px}
+.pl-sug .nada{font-size:12.5px;color:#5f7268;padding:6px 4px}
 .pl-tabs{display:flex;gap:6px;margin:0 0 12px}
 .pl-tabs button{flex:1;height:42px;border-radius:12px;border:1px solid var(--verde-med);background:#fff;color:var(--verde-escuro);font-weight:800;font-size:13.5px}
 .pl-tabs button.on{background:var(--verde-med);color:#fff}
@@ -92,7 +92,7 @@ const css=`
 .pl-evv-h .tag{font-size:11px;font-weight:800;color:#1c6b47;background:#e1f4ea;border-radius:8px;padding:2px 7px}
 .pl-evv-h .mv{display:flex;gap:4px;margin-left:auto}
 .pl-evv-h .mv button{border:1px solid #c9ced6;background:#fff;border-radius:7px;min-width:30px;height:30px;font-weight:800;color:var(--verde-escuro);cursor:pointer}
-.pl-evv-vazio{font-size:12.5px;color:#9aa;padding:4px 2px 6px}
+.pl-evv-vazio{font-size:12.5px;color:#5f7268;padding:4px 2px 6px}
 .pl-evv-ft{font-size:11.5px;color:#789;font-weight:700;margin-top:6px}
 .pl-ev-todo{margin-top:8px;width:100%;border:1.5px solid #ea580c;background:#fff7ed;color:#c2410c;font-weight:900;border-radius:10px;min-height:44px;font-size:14.5px;letter-spacing:.6px;cursor:pointer}
 .pl-ev-todo:active{background:#ffedd5;transform:translateY(1px)}
@@ -646,7 +646,7 @@ function jaNoEv(id){ const ev=evAberto(); return !!ev && ev.itens.indexOf(String
 function syncEdDatas(){ if(!_ed||!Array.isArray(_ed.evs)) return; const ds=_ed.evs.map(function(x){return String((x&&x.data)||'');}).filter(Boolean).sort(); if(!ds.length) return; _ed.inicio=ds[0]; _ed.fim=ds[ds.length-1]; const a=document.getElementById('plIni'), b=document.getElementById('plFim'); if(a) a.value=_ed.inicio; if(b) b.value=_ed.fim; }
 function renderEvts(){ syncEdDatas();
   const box=document.getElementById('plEvts'); if(!box||!_ed) return;
-  if(!_ed.evs.length){ box.innerHTML='<p style="font-size:13px;color:#9aa;padding:6px 2px">Nenhum evento ainda — toque em <b>Adicionar evento</b>.</p>'; return; }
+  if(!_ed.evs.length){ box.innerHTML='<p style="font-size:13px;color:#5f7268;padding:6px 2px">Nenhum evento ainda — toque em <b>Adicionar evento</b>.</p>'; return; }
   box.innerHTML=_ed.evs.map((ev,i)=>{
     const on=_ed.aberto===ev.id;
     return '<div class="pl-ev'+(on?' on':'')+'"><div class="pl-ev-head">'+
@@ -700,7 +700,7 @@ function renderLista(){
     return '<div class="it"><span>'+(i+1)+'. '+f.ic+'</span><span class="nm">'+e(f.t)+'</span><span style="flex-basis:100%;height:0"></span>'+
       '<button type="button" onclick="plTom('+i+',-1)" aria-label="Baixar tom">−</button><span class="st">'+(v?rotuloSemitom(v):'tom')+'</span><button type="button" onclick="plTom('+i+',1)" aria-label="Subir tom">+</button>'+
       '<button type="button" onclick="plMov('+i+',-1)" aria-label="Subir na ordem">↑</button><button type="button" onclick="plMov('+i+',1)" aria-label="Descer na ordem">↓</button><button type="button" onclick="plTrocar('+i+')" aria-label="Substituir" title="Substituir esta música" style="color:#ea580c">🔁</button><button type="button" onclick="plDel('+i+')" aria-label="Remover" style="color:#c0392b">✕</button></div>'; }).join('')
-    || '<p style="font-size:13px;color:#9aa;padding:8px">Busque abaixo e toque na música ou no hino para adicionar.</p>';
+    || '<p style="font-size:13px;color:#5f7268;padding:8px">Busque abaixo e toque na música ou no hino para adicionar.</p>';
   const qt=document.getElementById('qt-'+ev.id); if(qt) qt.textContent=(ev.itens||[]).length+' música(s)';
 }
 window.plTom=function(i,d){ const ev=evAberto(); if(!ev) return; const id=ev.itens[i]; let v=(((((_ed.tons[id]||0)+d)%12)+12)%12); if(v>6) v-=12; if(v) _ed.tons[id]=v; else delete _ed.tons[id];
