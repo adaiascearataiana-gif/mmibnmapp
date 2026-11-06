@@ -142,7 +142,7 @@ ROTAS.inventario=function(){
     h+='<div class="card"><div class="empty">'+(INV.length?'Nada encontrado com esses filtros.':'Nenhum equipamento cadastrado ainda.'+(pode?' Toque em "Novo equipamento".':''))+'</div></div>';
   }else{
     const th='style="text-align:left;padding:8px 6px;border-bottom:2px solid #dde;font-size:11.5px;color:#567;font-weight:800;white-space:nowrap"';
-    const td='style="padding:7px 6px;border-bottom:1px solid #eef;font-size:12.5px;vertical-align:middle"';
+    const td='style="padding:6px 6px;border-bottom:1px solid #eef;font-size:12.5px;vertical-align:middle;white-space:nowrap"';
     h+='<div class="card"><div style="overflow-x:auto">'+
       '<table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:620px">'+
       '<thead><tr>'+

@@ -182,7 +182,7 @@ const css=`
 .esc-vazio{font-size:13px;color:#9aa;font-style:italic;padding-top:6px}
 .esc-vazia{text-align:center;color:#8a9;padding:30px 10px;font-size:14px}
 .escala-wrap table.escala{font-size:14px}
-.escala-wrap table.escala td{padding:11px 10px;vertical-align:top}
+.escala-wrap table.escala td{padding:9px 8px;vertical-align:middle}
 @media (max-width:360px){ .esc-role{width:76px} .esc-nome{font-size:14.5px;padding:5px 10px} }
 `;
 const st=document.createElement('style'); st.id='ibnmEscala'; st.textContent=css; document.head.appendChild(st);
@@ -252,9 +252,9 @@ function tabela(E){
 const cssTab=document.createElement('style'); cssTab.textContent=`
 .esc-tw{overflow:auto;max-height:calc(100dvh - var(--ibnm-topbar,64px) - 80px);background:#fff;border-radius:14px;box-shadow:0 3px 14px rgba(11,61,46,.10);border:1px solid #e3ece7;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .esc-tb{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:13.5px}
-.esc-tb th{position:sticky;top:0;z-index:2;background:var(--verde-escuro);color:#fff;font-size:12px;font-weight:800;letter-spacing:.02em;text-align:left;padding:11px 12px;white-space:nowrap}
+.esc-tb th{position:sticky;top:0;z-index:2;background:var(--verde-escuro);color:#fff;font-size:12px;font-weight:800;letter-spacing:.02em;text-align:left;padding:9px 10px;white-space:nowrap}
 .esc-tb th.c1{left:0;z-index:4}
-.esc-tb td{padding:10px 12px;vertical-align:top;background:#fff;border-bottom:1px solid #e9efec;min-width:118px}
+.esc-tb td{padding:8px 10px;vertical-align:middle;background:#fff;border-bottom:1px solid #e9efec;min-width:118px}
 .esc-tb td+td{border-left:1px solid #f1f5f3}
 .esc-tb tbody tr:nth-child(even) td{background:#f8fbf9}
 .esc-tb td.c1{position:sticky;left:0;z-index:1;min-width:128px;max-width:150px;box-shadow:6px 0 8px -6px rgba(0,0,0,.18)}

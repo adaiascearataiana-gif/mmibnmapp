@@ -418,12 +418,13 @@ const css=`
 .mb-info{font-size:11.5px;color:#7a8f86;margin:6px 0 8px}
 .mb-wrap{overflow:auto;max-height:calc(100dvh - var(--ibnm-topbar,64px) - 120px);background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .mb-tab{border-collapse:separate;border-spacing:0;min-width:1140px;width:100%;font-size:14px}
-.mb-tab th{position:sticky;top:0;z-index:2;background:var(--verde-escuro);color:#fff;text-align:left;font-size:12px;font-weight:800;padding:10px;white-space:nowrap;cursor:pointer}
+.mb-tab th{position:sticky;top:0;z-index:2;background:var(--verde-escuro);color:#fff;text-align:left;font-size:12px;font-weight:800;padding:8px;white-space:nowrap;cursor:pointer}
 .mb-tab th.on{background:#145c44}
-.mb-tab td{padding:7px 8px;line-height:1.35;border-bottom:1px solid #edf2ef;vertical-align:top;color:#1f3a30}
+.mb-tab td{padding:6px 8px;line-height:1.28;border-bottom:1px solid #edf2ef;vertical-align:middle;color:#1f3a30}
 .mb-tab td:nth-child(3){white-space:nowrap} /* nasc nao quebra no meio (28/10/199 6) */
 .mb-tab th,.mb-tab td{white-space:nowrap} /* EVITA QUALQUER QUEBRA: nome, e-mail, chip e botao numa linha so */
-.mb-tab td small{display:block;font-size:11.5px;color:#7a8f86;margin-top:2px}
+.mb-tab td small{display:block;font-size:11.5px;color:#7a8f86;margin-top:1px}
+.mb-tab tbody tr:not(.inc):nth-child(even) td{background:#f8fbf9} /* zebra sutil, igual a escala ADM (linhas incompletas ficam rosas) */
 .mb-tab tr.inc td{background:#fff8f6}
 .mb-tab td.nm{position:sticky;left:0;z-index:1;background:#fff;min-width:200px;box-shadow:4px 0 6px -4px rgba(0,0,0,.15)}
 .mb-tab tr.inc td.nm{background:#fff8f6}
