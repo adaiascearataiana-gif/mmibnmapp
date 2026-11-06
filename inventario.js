@@ -289,15 +289,15 @@ window.invForm=function(id){
       '<select id="ivEstado" onchange="invOutrosVigia()" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;background:#fff;min-width:0;width:100%;box-sizing:border-box">'+optHTML(estadosLista(),estVal)+'</select>'+
       '<input id="ivEstadoNovo" placeholder="Novo estado… (escreva e salve)" style="display:none;padding:10px;border:1px solid #1c7a4e;border-radius:8px;font-size:14px;min-width:0;width:100%;box-sizing:border-box">'+
     '</div>'+
-    '<div style="display:flex;gap:8px">'+
-      '<input id="ivSerie" placeholder="Nº de série" value="'+e(it?it.serie:'')+'" style="flex:1;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
-      '<input id="ivPatr" placeholder="Patrimônio (código interno)" value="'+e(it?it.patrimonio:'')+'" style="flex:1;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px"></div>'+
-    '<input id="ivLocal" placeholder="Local (ex.: Palco, Almoxarifado, Sala do ministério)" value="'+e(it?it.local:'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
-    '<div style="display:flex;gap:8px">'+
-      '<input id="ivValor" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Valor (R$)" value="'+(it&&it.valor!=null?Number(it.valor).toFixed(2):'')+'" style="flex:1;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
-      '<input id="ivAq" type="date" title="Data de aquisição" value="'+e(it&&it.data_aquisicao?String(it.data_aquisicao):'')+'" style="flex:1;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px"></div>'+
-    '<input id="ivGar" type="date" title="Garantia até" value="'+e(it&&it.garantia_ate?String(it.garantia_ate):'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
-    '<textarea id="ivObs" placeholder="Observações (acessórios, defeitos, histórico...)" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;min-height:60px">'+e(it?it.obs:'')+'</textarea>'+
+    '<div style="display:flex;gap:8px;min-width:0">'+
+      '<input id="ivSerie" placeholder="Nº de série" value="'+e(it?it.serie:'')+'" style="flex:1 1 0;min-width:0;width:0;box-sizing:border-box;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
+      '<input id="ivPatr" placeholder="Patrimônio (código interno)" value="'+e(it?it.patrimonio:'')+'" style="flex:1 1 0;min-width:0;width:0;box-sizing:border-box;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px"></div>'+
+    '<input id="ivLocal" placeholder="Local (ex.: Palco, Almoxarifado, Sala do ministério)" value="'+e(it?it.local:'')+'" style="width:100%;box-sizing:border-box;min-width:0;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
+    '<div style="display:flex;gap:8px;min-width:0">'+
+      '<input id="ivValor" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Valor (R$)" value="'+(it&&it.valor!=null?Number(it.valor).toFixed(2):'')+'" style="flex:1 1 0;min-width:0;width:0;box-sizing:border-box;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
+      '<input id="ivAq" type="date" title="Data de aquisição" value="'+e(it&&it.data_aquisicao?String(it.data_aquisicao):'')+'" style="flex:1 1 0;min-width:0;width:0;box-sizing:border-box;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px"></div>'+
+    '<input id="ivGar" type="date" title="Garantia até" value="'+e(it&&it.garantia_ate?String(it.garantia_ate):'')+'" style="width:100%;box-sizing:border-box;min-width:0;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
+    '<textarea id="ivObs" placeholder="Observações (acessórios, defeitos, histórico...)" style="width:100%;box-sizing:border-box;min-width:0;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;min-height:60px">'+e(it?it.obs:'')+'</textarea>'+
     '<label style="font-size:13px;color:#456">📷 Foto do equipamento (vai para o Google Drive)<input id="ivFoto" type="file" accept="image/*" capture="environment" style="display:block;margin-top:4px;font-size:13px"></label>'+
     '</div><div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button>'+
     '<button class="btn btn-primary" onclick="invSalvar(\''+(it?it.id:'')+'\')">Salvar</button></div>');
