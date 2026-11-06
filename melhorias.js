@@ -36,12 +36,6 @@ if(typeof atualizaBannerVivo==='function'){
       b.innerHTML='🔴 AO VIVO — Hino '+n+(h?' · '+esc(h.titulo):'')+(ehAdmin()?' <span style="font-weight:400">(toque p/ encerrar)</span>':' <span style="font-weight:400">(acompanhando)</span>');
       b.onclick=function(){ if(ehAdmin()){ if(confirm('Encerrar a transmissão ao vivo?')) encerrarAoVivo(); } else if(window.cantorAbrir) window.cantorAbrir(n); };
     }
-    if(b && AO_VIVO && String(AO_VIVO.musica_id||'').indexOf('hr:')===0){
-      const n=+String(AO_VIVO.musica_id).slice(3);
-      const h=(window.HARPA||[]).find(x=>x.n===n);
-      b.innerHTML='🔴 AO VIVO — Harpa '+n+(h?' · '+esc(h.titulo):'')+(ehAdmin()?' <span style="font-weight:400">(toque p/ encerrar)</span>':' <span style="font-weight:400">(acompanhando)</span>');
-      b.onclick=function(){ if(ehAdmin()){ if(confirm('Encerrar a transmissão ao vivo?')) encerrarAoVivo(); } else if(window.harpaAbrir) window.harpaAbrir(n); };
-    }
     medirTopo();
   };
 }
@@ -246,26 +240,15 @@ window.ccAoVivo=function(n){
   } else iniciarAoVivo(id,'cifra');
   setTimeout(()=>{ try{ if(window.cantorRedesenhar) window.cantorRedesenhar(); }catch(e){} },500);
 };
-window.hrAoVivo=function(n){
-  const id='hr:'+n;
-  if(!ehAdmin()) return;
-  if(AO_VIVO&&AO_VIVO.ativo){
-    if(AO_VIVO.musica_id===id){ if(confirm('Encerrar a transmissão ao vivo?')) encerrarAoVivo(); return; }
-    trocarAoVivo(id,'cifra');
-  } else iniciarAoVivo(id,'cifra');
-  setTimeout(()=>{ try{ if(window.harpaAbrir && document.querySelector('.cc-song')) window.harpaAbrir(n); }catch(e){} },500);
-};
 if(typeof aplicarAoVivo==='function'){
   const _av=aplicarAoVivo;
   window.aplicarAoVivo=aplicarAoVivo=function(force){
     const id=AO_VIVO&&AO_VIVO.ativo? String(AO_VIVO.musica_id||'') : '';
-    const ehHino=id.indexOf('cc:')===0, ehHarpa=id.indexOf('hr:')===0;
-    if(!ehHino && !ehHarpa) return _av(force);
+    if(id.indexOf('cc:')!==0) return _av(force);
     atualizaBannerVivo();
     if(ehAdmin()) return;
     const key=id+'|hino'; if(!force && key===_liveLast) return; _liveLast=key;
-    if(ehHino && window.cantorAbrir) window.cantorAbrir(+id.slice(3));
-    if(ehHarpa && window.harpaAbrir) window.harpaAbrir(+id.slice(3));
+    if(window.cantorAbrir) window.cantorAbrir(+id.slice(3));
   };
 }
 
@@ -1097,10 +1080,5 @@ window.padronizarTodas=async function(){
   for(const m of ms){ const c=padroniza(m.cifra); const {error}=await sb.from('musicas').update({cifra:c}).eq('id',m.id); if(!error){ m.cifra=c; ok++; } }
   toast(ok+' cifra(s) padronizada(s).'); try{ go('admin'); }catch(_){}
 };
-if(typeof ROTAS!=='undefined' && ROTAS.admin){
-  const _ad=ROTAS.admin;
-  ROTAS.admin=function(){ const h=_ad.apply(this,arguments); if(!ehAdmin()) return h; const n=foraDoPadrao().length;
-    const card='<div class="card"><h3>🧹 Formatação das cifras</h3><p style="font-size:13px;color:#556;margin-bottom:10px">'+(n? n+' cifra(s) com formatação manual (negrito/cor/fonte). Padronize para todas ficarem iguais.' : '✅ Todas as cifras estão no padrão.')+'</p>'+(n?'<button class="mini-btn" onclick="padronizarTodas()">Padronizar '+n+' cifra(s)</button>':'')+'</div>';
-    const i=h.indexOf('<div class="card">'); return i>=0? h.slice(0,i)+card+h.slice(i) : h+card; };
-}
+
 })();

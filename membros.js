@@ -17,7 +17,12 @@ const $id = id => document.getElementById(id);
 /* ================= 1) MODO ADM / MODO USUÁRIO ================= */
 const _ehAdminReal = (typeof ehAdmin==='function') ? ehAdmin : ()=>false;
 function chaveModo(){ const u=(typeof usuarioAtual==='function')&&usuarioAtual(); return 'ibnm_modo_usuario_'+(u?u.email:''); }
-window.ehAdminReal=function(){ try{ return !!_ehAdminReal(); }catch(_){ return false; } };
+window.ehAdminReal=function(){ try{
+  if(!_ehAdminReal()) return false;                       /* nem é admin */
+  const u=usuarioAtual(); if(!u) return false;
+  let p=null; try{ p=(typeof PAPEIS!=='undefined'&&PAPEIS)?PAPEIS[u.id]:null; }catch(_){}
+  return !(p&&(p.financeiro||p.inventario));              /* principal = admin sem área liberada (secundário tem área) */
+}catch(_){ return false; } };
 window.modoUsuario=function(){ return ehAdminReal() && localStorage.getItem(chaveModo())==='1'; };
 window.ehAdmin=ehAdmin=function(){ return ehAdminReal() && !modoUsuario(); };
 window.alternarModo=function(m){
@@ -33,7 +38,7 @@ window.alternarModo=function(m){
   try{
     const pag=(window.__navStack&&window.__navStack().slice(-1)[0])||'go|inicio|';
     const p=pag.split('|');
-    if(p[0]==='go' && (p[1]==='admin'||p[1]==='membros') && m==='usuario') go('inicio');
+    if(p[0]==='go' && ['admin','membros','central','cifras','telegram','ferramentas'].indexOf(p[1])>=0 && m==='usuario') go('inicio');
     else if(typeof _viewAtual==='function'){ const y=scrollY; _viewAtual(); scrollTo(0,y); }
   }catch(_){}
 };

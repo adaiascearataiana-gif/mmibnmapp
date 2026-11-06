@@ -199,7 +199,7 @@ ROTAS.financeiro=function(){
   else if(finAba==='doacoes') h+=finHTMLDoacoes();
   else h+=finHTMLMinhas();
   /* config PIX (só ADM principal/completo) */
-  try{ if(ehAdmin()){ h+=finHTMLCfg(); if(typeof cardSetores==='function') h+=cardSetores(); } }catch(_){}
+  try{ if(ehAdmin()) h+=finHTMLCfg(); }catch(_){}
   h+='</div>';
   return h;
 };
@@ -483,28 +483,18 @@ window.cardSetores=function(){
     '<b>👑 Principal</b> = acesso TOTAL (e pode designar outros). '+
     '<b>🛠 Setor</b> = cuida só daquela área (💰 financeiro / 🔧 inventário). '+
     '<b>👤 Membro</b> = só visualiza.</p>';
-  /* ---- Principais ---- */
+  const temArea=u=>{ const p=PAPEIS[u.id]||{}; return !!(p.financeiro||p.inventario); };
+  /* ---- Principais (admin sem área = acesso total) ---- */
   h+='<div style="font-size:11.5px;font-weight:800;color:#8a9;letter-spacing:1px;text-transform:uppercase;margin:2px 0 6px">👑 Principais (acesso total)</div>';
-  us.filter(u=>u.admin).forEach(u=>{
+  us.filter(u=>u.admin&&!temArea(u)).forEach(u=>{
     h+='<div class="info-row"><span class="v" style="text-align:left;font-weight:700">'+e(u.nome)+
       '<br><span style="font-weight:400;font-size:12px;color:#789">'+e(u.email||'')+'</span></span>'+
       '<span>'+(souEu(u)?'<span style="font-size:11.5px;color:#1c7a4e;font-weight:800">você</span>':
         '<button class="mini-btn sec" onclick="painelToggleAdmin(\''+u.id+'\')">Remover 👑</button>')+'</span></div>';
   });
-  /* ---- designar novo principal ---- */
-  const futuros=us.filter(u=>!u.admin);
-  if(futuros.length){
-    h+='<div style="font-size:11.5px;font-weight:800;color:#8a9;letter-spacing:1px;text-transform:uppercase;margin:10px 0 6px">➕ Tornar alguém principal</div>';
-    futuros.forEach(u=>{
-      h+='<div class="info-row"><span class="v" style="text-align:left;font-weight:700">'+e(u.nome)+
-        '<br><span style="font-weight:400;font-size:12px;color:#789">'+e(u.email||'')+'</span></span>'+
-        '<span><button class="mini-btn" onclick="painelToggleAdmin(\''+u.id+'\')" style="background:#b8860b;color:#fff">Tornar 👑</button></span></div>';
-    });
-  }
-  /* ---- setores ---- */
-  h+='<div style="font-size:11.5px;font-weight:800;color:#8a9;letter-spacing:1px;text-transform:uppercase;margin:10px 0 6px">🛠 ADMs de setor (exclusivo da área)</div>';
-  const setados=futuros.filter(u=>{ const p2=PAPEIS[u.id]||{}; return p2.financeiro||p2.inventario; });
-  const semSet=futuros.filter(u=>setados.indexOf(u)<0);
+  /* ---- ADMs: áreas liberadas (promoção de ADM = tabela de Membros) ---- */
+  h+='<div style="font-size:11.5px;font-weight:800;color:#8a9;letter-spacing:1px;text-transform:uppercase;margin:10px 0 6px">🛠 Áreas de cada ADM</div>';
+  h+='<p style="font-size:12.5px;color:#789;margin:2px 0 6px">Marque as áreas de cada ADM. Quem tem área liberada vira <b>ADM secundário</b> (vê só o que você marcar + tudo de membro). Desmarque tudo pra devolver o acesso total. Novos ADMs entram pela <b>tabela de Membros</b>.</p>';
   const linhaSet=u=>{ const p2=PAPEIS[u.id]||{};
     return '<div class="info-row"><span class="v" style="text-align:left;font-weight:700">'+e(u.nome)+
       (p2.financeiro?' <span class="admin-tag" style="background:#1c7a4e;color:#fff">💰</span>':'')+
@@ -514,13 +504,10 @@ window.cardSetores=function(){
       '<label style="font-size:12.5px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" '+(p2.financeiro?'checked':'')+' onchange="setorToggle(\''+u.id+'\',\'financeiro\',this.checked)"> 💰</label>'+
       '<label style="font-size:12.5px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" '+(p2.inventario?'checked':'')+' onchange="setorToggle(\''+u.id+'\',\'inventario\',this.checked)"> 🔧</label>'+
       '</span></div>'; };
-  h+=setados.map(linhaSet).join('');
-  if(!setados.length) h+='<p style="font-size:12.5px;color:#789;margin:2px 0 6px">Ninguém designado ainda — marque 💰/🔧 abaixo para dar acesso exclusivo a um membro.</p>';
-  if(semSet.length){
-    h+='<div style="font-size:11.5px;font-weight:800;color:#8a9;letter-spacing:1px;text-transform:uppercase;margin:10px 0 6px">Membros sem setor</div>';
-    h+=semSet.map(linhaSet).join('');
-  }
-  return h+'<p style="font-size:11.5px;color:#789;margin-top:8px">💾 As mudanças são salvas na hora no banco do app.</p></div>';
+  const outrosAdm=us.filter(u=>u.admin&&!souEu(u));
+  if(!outrosAdm.length) h+='<p style="font-size:12.5px;color:#789;margin:2px 0 6px">Nenhum outro ADM ainda — torne alguém ADM na tabela de Membros (👥 Membros).</p>';
+  h+=outrosAdm.map(linhaSet).join('');
+    return h+'<p style="font-size:11.5px;color:#789;margin-top:8px">💾 As mudanças são salvas na hora no banco do app.</p></div>';
 };
 window.painelToggleAdmin=async function(uid){
   try{
