@@ -422,6 +422,7 @@ const css=`
 .mb-tab th.on{background:#145c44}
 .mb-tab td{padding:7px 8px;line-height:1.35;border-bottom:1px solid #edf2ef;vertical-align:top;color:#1f3a30}
 .mb-tab td:nth-child(3){white-space:nowrap} /* nasc nao quebra no meio (28/10/199 6) */
+.mb-tab th,.mb-tab td{white-space:nowrap} /* EVITA QUALQUER QUEBRA: nome, e-mail, chip e botao numa linha so */
 .mb-tab td small{display:block;font-size:11.5px;color:#7a8f86;margin-top:2px}
 .mb-tab tr.inc td{background:#fff8f6}
 .mb-tab td.nm{position:sticky;left:0;z-index:1;background:#fff;min-width:200px;box-shadow:4px 0 6px -4px rgba(0,0,0,.15)}
@@ -429,7 +430,7 @@ const css=`
 .mb-pes{display:flex;gap:8px;align-items:center}
 .mb-pes img,.mb-pes .ini{width:38px;height:38px;border-radius:50%;object-fit:cover;flex:none;background:var(--verde-med);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900}
 .mb-pes b{font-size:14.5px}
-.mb-st{display:inline-block;font-size:11.5px;font-weight:800;border-radius:12px;padding:3px 9px;max-width:200px;white-space:nowrap} /* Completo nao vira 'Comp leto' */
+.mb-st{display:inline-block;font-size:11.5px;font-weight:800;border-radius:12px;padding:3px 9px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle} /* Completo nao vira 'Comp leto' */
 .mb-st.ok{background:#e1f4ea;color:#1c6b47}
 .mb-st.no{background:#fde4df;color:#a1301c}
 .mb-ch{display:inline-block;background:#e9f5ef;color:#0b3d2e;font-size:11.5px;font-weight:700;border-radius:12px;padding:2px 7px;margin:0 3px 3px 0}

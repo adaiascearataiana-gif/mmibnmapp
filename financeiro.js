@@ -251,7 +251,7 @@ function finHTMLMinhas(){
     h+='<div class="info-row"><span class="v" style="text-align:left"><b>'+brl(d.valor)+'</b><br>'+
       '<span style="font-weight:400;font-size:12px;color:#789">'+new Date(d.criado_em).toLocaleString('pt-BR')+' • '+badge+
       (d.comprovante_url?' • <a href="javascript:void(0)" onclick="finVerAnexo(\''+e(d.comprovante_url)+'\')" style="color:#1c7a4e">comprovante</a>':'')+
-      '</span></span><span>'+(d.status==='pendente'?'<button class="mini-btn sec" onclick="doaApagar(\''+d.id+'\')">Cancelar</button>':'')+'</span></div>';
+      '</span></span><span>'+(d.status==='pendente'?(d.comprovante_url?'':'<button class="mini-btn" onclick="doaAnexarDepois(\''+d.id+'\')" style="background:#1c7a4e;color:#fff">📷 Anexar</button> ')+'<button class="mini-btn sec" onclick="doaApagar(\''+d.id+'\')">Cancelar</button>':'')+'</span></div>';
   });
   return h+'</div>';
 }
@@ -386,15 +386,47 @@ window.finJaPaguei=async function(valor,encCode){
     if(error) throw new Error(error.message);
     const c=cfgFin(); const wpp=wppNormalizado(c.wpp);
     const msg='Olá! Fiz uma doação de '+brl(valor)+' para o Ministério de Música IBNM. Segue o comprovante. (Registrado no app como pendente — '+u.nome+', '+new Date().toLocaleString('pt-BR')+')';
-    if(wpp){ try{ window.open('https://wa.me/'+wpp+'?text='+encodeURIComponent(msg),'_blank','noopener'); }catch(_){} }
-    abrirModal('<h3> Doação registrada ✓</h3>'+
+    /* v77: NÃO abre o WhatsApp antes — ele anexa primeiro; o WhatsApp só abre no botão "Anexar e enviar" */
+    abrirModal('<h3>✅ Doação registrada</h3>'+
       '<p style="font-size:14px;color:#456;margin:8px 0"><b>'+brl(valor)+'</b> registrada no seu nome — aparece como <b>pendente</b> até o ADM financeiro confirmar.</p>'+
-      (wpp?'<p style="font-size:13px;color:#456">O WhatsApp do ministério foi aberto com a mensagem — mande o comprovante por lá.</p>':
-           '<p style="font-size:13px;color:#b8860b">O ADM ainda não cadastrou o WhatsApp — envie o comprovante como preferir; sua doação já está registrada.</p>')+
-      '<label style="font-size:13px;color:#456">📷 Anexar foto do comprovante (opcional)<input id="doaFoto" type="file" accept="image/*" capture="environment" style="display:block;margin-top:4px;font-size:13px"></label>'+
-      '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Fechar</button>'+
-      '<button class="btn btn-primary" onclick="doaAnexar(\''+data.id+'\')">Anexar</button></div>');
+      '<label style="font-size:14px;color:#456;font-weight:700">📷 Foto do comprovante <span class="req">*</span><input id="doaFoto" type="file" accept="image/*" capture="environment" style="display:block;margin-top:4px;font-size:13px"></label>'+
+      (wpp?'<p style="font-size:13px;color:#456;margin-top:8px">Depois de anexar, o WhatsApp do ministério abre com a mensagem pronta — é só confirmar o envio.</p>':
+           '<p style="font-size:13px;color:#b8860b;margin-top:8px">O ADM ainda não cadastrou o WhatsApp — o comprovante fica guardado no app.</p>')+
+      '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Agora não</button>'+
+      '<button class="btn btn-primary" id="doaEnvBtn" onclick="doaEnviar(\''+data.id+'\',\''+encodeURIComponent(msg)+'\')">'+(wpp?'📤 Anexar e enviar no WhatsApp':'📷 Anexar comprovante')+'</button></div>');
   }catch(err){ toast('Erro ao registrar: '+(err.message||err)); }
+};
+/* v77: anexa o comprovante e SÓ ENTÃO abre o WhatsApp do ministério */
+window.doaEnviar=async function(id,encMsg){
+  const f=(($('#doaFoto')||{}).files||[])[0];
+  if(!f) return toast('Anexe a foto do comprovante primeiro.');
+  const b=$('#doaEnvBtn'); if(b){ b.disabled=true; b.textContent='Enviando comprovante…'; }
+  try{
+    const url=await anexoSobe('financeiro/doacoes',f);
+    const {error}=await sb.from('doacoes').update({comprovante_url:url}).eq('id',id);
+    if(error) throw new Error(error.message);
+    const c=cfgFin(); const wpp=wppNormalizado(c.wpp);
+    toast('Comprovante anexado ✓');
+    fecharModal(); finSync(); setTimeout(carregaFin,400);
+    if(wpp){
+      const msg=decodeURIComponent(encMsg);
+      try{ window.open('https://wa.me/'+wpp+'?text='+encodeURIComponent(msg),'_blank','noopener'); }catch(_){}
+      setTimeout(function(){ try{ abrirModal('<h3>WhatsApp aberto ✓</h3><p style="font-size:14px;color:#456">A conversa com o ministério abriu com a mensagem — anexe também a foto do comprovante por lá.</p><div class="modal-acts"><button class="btn btn-primary" onclick="fecharModal()">Entendi</button></div>'); }catch(_){} },400);
+    }else{
+      setTimeout(function(){ try{ abrirModal('<h3>Comprovante guardado ✓</h3><p style="font-size:14px;color:#456">Sem WhatsApp cadastrado — o comprovante ficou no app para o ADM financeiro.</p><div class="modal-acts"><button class="btn btn-primary" onclick="fecharModal()">Entendi</button></div>'); }catch(_){} },400);
+    }
+  }catch(err){
+    toast('Erro no envio: '+(err.message||err));
+    if(b){ b.disabled=false; b.textContent='📤 Tentar de novo'; }
+  }
+};
+/* v77: anexar depois, pela lista "Minhas doações" (fechar sem anexar não deixa perdido) */
+window.doaAnexarDepois=function(id){
+  abrirModal('<h3>📷 Anexar comprovante</h3>'+
+    '<p style="font-size:13.5px;color:#456">Anexe a foto do comprovante desta doação pendente.</p>'+
+    '<label style="font-size:14px;color:#456;font-weight:700">Foto do comprovante <span class="req">*</span><input id="doaFoto" type="file" accept="image/*" capture="environment" style="display:block;margin-top:4px;font-size:13px"></label>'+
+    '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button>'+
+    '<button class="btn btn-primary" onclick="doaAnexar(\''+id+'\')">Salvar comprovante</button></div>');
 };
 window.doaAnexar=async function(id){
   const f=(($('#doaFoto')||{}).files||[])[0];
