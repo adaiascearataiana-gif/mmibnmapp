@@ -107,12 +107,29 @@ if(typeof ROTAS!=='undefined' && ROTAS.perfil){
     const i=h.lastIndexOf('</div>'); return i>=0? h.slice(0,i)+cardVersao()+h.slice(i) : h+cardVersao(); };
 }
 
+/* "Sim, sair": fecha o app de verdade (volta tudo de uma vez) */
+window.__sairSim=function(){
+  window.__ibnmSaindo=true;
+  try{ fecharModal(); }catch(_){}
+  try{ window.close(); }catch(_){}
+  setTimeout(()=>{ try{ history.go(-(history.length-1)); }catch(_){ try{ history.back(); }catch(__){} } },120);
+};
 /* ---------- 4) estilos ---------- */
 const st=document.createElement('style'); st.textContent=`
 #modalBox .env-sub{display:block;color:#fff!important;opacity:1!important;font-weight:600;font-size:12.5px;margin-top:2px;letter-spacing:.01em}
 #modalBox .mini-btn b{color:#fff}
 .av-ver .vr-l{font-size:13.5px;color:#334;margin-bottom:10px;line-height:1.5}
 .av-ver .vr-d{font-size:11.5px;color:#7a8f86;margin-top:8px}
+/* nada estoura a largura da tela */
+html,body{max-width:100%;overflow-x:clip}
+#content img,#content video,#content iframe,.modal img{max-width:100%;height:auto}
+#content .card,#content .page,.modal{min-width:0;overflow-wrap:anywhere}
+.cifra-box,.cifra-box *,pre,code{overflow-wrap:normal}
+.cc-hbar{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none;gap:6px!important}
+.cc-hbar::-webkit-scrollbar{display:none}
+.cc-hbar .ib,.cc-hbar button{flex:none;min-width:34px!important;padding:0 7px!important}
+.cc-hbar .sp,.cc-hbar .grow{flex:1 1 0!important;min-width:0!important}
+@media (max-width:380px){ .cc-hbar .ib,.cc-hbar button{min-width:30px!important;padding:0 5px!important;font-size:13px!important} }
 .cc-tools .cc-setlist{background:var(--verde-med)!important;color:#fff!important;border-color:var(--verde-med)!important;font-weight:800}
 `; document.head.appendChild(st);
 })();

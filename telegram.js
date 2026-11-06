@@ -187,8 +187,8 @@ if(typeof montaMenu==='function'){
   const _mm=montaMenu;
   window.montaMenu=montaMenu=function(){ _mm.apply(this,arguments);
     if(!ehAdmin() || document.querySelector('#sidemenu [data-telegram]')) return;
-    const sub=[...document.querySelectorAll('#sidemenu .sm-sub')].find(s=>(s.textContent||'').includes('Todas as músicas'));
-    if(sub) sub.insertAdjacentHTML('beforeend','<button data-telegram onclick="go(\'telegram\')"><span>📥</span> Importar músicas (JSON)</button>'); };
+    const adm=[...document.querySelectorAll('#sidemenu .sm-item')].find(b=>/go\('admin'\)/.test(b.getAttribute('onclick')||''));
+    if(adm) adm.insertAdjacentHTML('beforebegin','<button class="sm-item" data-telegram onclick="go(\'telegram\')"><span class="ic">📥</span>Importar músicas (JSON)</button>'); };
 }
 if(typeof ROTAS!=='undefined' && ROTAS.admin){
   const _ad=ROTAS.admin;

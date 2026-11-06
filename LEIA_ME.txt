@@ -1,43 +1,41 @@
-LEIA_ME — atualização v68 (05/11/2026)
-(v67 já pushada — este zip conserta o "Modo usuário × Modo ADM")
+LEIA_ME — atualização v72 (06/11/2026)
+DOIS PROBLEMAS RESOLVIDOS:
 
-INVESTIGAÇÃO (o que estava errado):
-• O "Modo usuário" escondia o menu, MAS os botões de setor
-  (💰 financeiro / 🔧 inventário) olhavam só os papéis do banco e
-  IGNORAVAM o modo — por isso você continuava vendo tudo de ADM.
-• A troca de modo agora é blindada: guarda a escolha, redesenha o
-  menu e sempre avisa na tela (antes, se algo falhasse no meio,
-  o menu ficava velho sem nenhum aviso).
-• Notificações (opção "presença") e o "Tour das ferramentas de ADM"
-  também passam a sumir no modo usuário.
-• Sync/reconexão do Google Drive continuam em segundo plano o tempo
-  todo (é serviço, não tela — funciona em qualquer modo).
+1) ⬅️ O APP FECHAVA ANTES DE CHEGAR NA HOME (sem pergunta)
+   Causa: quando o Android mata o app e você reabre, o app voltava pra
+   onde você estava, mas o histórico do navegador ficava curto — o 2º
+   "volta" saía do app na hora, antes da home, e a pergunta
+   "👋 Deseja sair?" nem tinha chance de aparecer.
+   Correção: ao restaurar a tela, o app agora recria o histórico
+   completo — o volta anda tela a tela, chega na HOME, e só aí pergunta
+   "Deseja sair?" com os botões SIM e NÃO.
 
-O QUE MUDA NA PRÁTICA:
-• ☰ menu → topo → "👤 Modo usuário" = você vê o app EXATAMENTE
-  como um membro: sem Painel do ADM, sem Membros, sem botões de
-  setor, sem config de PIX, sem presença de ADM. A pílula
-  "👤 Modo usuário · tocar p/ ADM" no topo volta tudo.
-• "🛡️ Modo ADM" = tudo de ADM de volta (Painel, Membros, setores,
-  config da doação, tour).
+2) 👑 PAINEL DE ADMs NÃO APARECIA
+   Conferi no banco: você É o ADM principal (admin=true, nenhum
+   ADM com área marcada). Se ainda não aparecer:
+   a) Feche TODO o app (tira das recentes) e abra de novo — o v72
+      atualiza sozinho na primeira abertura;
+   b) Olhe a pílula lá em cima do menu — se estiver escrito
+      "👤 Modo usuário", toque nela uma vez (isso volta pro modo ADM);
+   c) Abra ☰ → ⚙️ Painel do ADM — o card "👑 Painel de ADMs" está
+      lá, só com ADMs, com as caixinhas 💰/🔧 de área.
 
-ARQUIVOS: index.html, sw.js, financeiro.js, push.js, tour.js,
-membros.js, LEIA_ME.txt
+ARQUIVOS: index.html, sw.js, LEIA_ME.txt
 
-COMANDOS NO TERMUX (um por vez):
-ls -l ~/storage/downloads | grep v68
+COMANDOS NO TERMUX (um por vez — o PRIMEIRO baixa atualizações):
+ls -l ~/storage/downloads | grep v72
 cd ~/mmibnmapp
-unzip -o ~/storage/downloads/atualizacao_v68.zip
-grep -c "APP_V='v68'" index.html
-grep -c 'mmibnm-v68' sw.js
-grep -c 'modoUsuario()) return false' financeiro.js
-grep -c '!ehAdminReal()) return 0' financeiro.js
-grep -c "k!=='presenca'||(typeof ehAdmin" push.js
-grep -c 'Não consegui guardar' membros.js
-git add index.html sw.js financeiro.js push.js tour.js membros.js
-git commit -m "v68: modo usuario 100% membro (setores, notificacoes e tour fora) e troca de modo blindada"
+git pull
+unzip -o ~/storage/downloads/atualizacao_v72.zip
+grep -c "window.APP_V='v72'" index.html
+grep -c 'mmibnm-v72' sw.js
+grep -c 'var _prof=navStack.length' index.html
+grep -c 'Deseja sair?' index.html
+grep -c "VERSION = 'v1.3.3'" index.html
+git add index.html sw.js
+git commit -m "v72: volta com pergunta Deseja sair apos restore (historico fisico = pilha) e versao v1.3.3"
 git push
-(esperado dos greps: 1, 1, 1, 1, 1, 1)
+(esperado dos greps: 1, 1, 1, 2, 1)
 
 LEMBRETE: caminho de downloads do Termux é ~/storage/downloads
 (NÃO existe ~/Downloads). Apague a aba antiga antes de abrir o app.

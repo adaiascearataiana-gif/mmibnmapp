@@ -149,8 +149,8 @@ if(typeof montaMenu==='function'){
   const _mm=montaMenu;
   window.montaMenu=montaMenu=function(){ _mm.apply(this,arguments);
     if(!ehAdmin() || document.querySelector('#sidemenu [data-cifras]')) return;
-    const sub=[...document.querySelectorAll('#sidemenu .sm-sub')].find(s=>(s.textContent||'').includes('Todas as músicas'));
-    if(sub) sub.insertAdjacentHTML('beforeend','<button data-cifras onclick="go(\'cifras\')"><span>🎸</span> Buscar cifras</button>'); };
+    const adm=[...document.querySelectorAll('#sidemenu .sm-item')].find(b=>/go\('admin'\)/.test(b.getAttribute('onclick')||''));
+    if(adm) adm.insertAdjacentHTML('beforebegin','<button class="sm-item" data-cifras onclick="go(\'cifras\')"><span class="ic">🎸</span>Buscar cifras</button>'); };
 }
 if(typeof ROTAS!=='undefined' && ROTAS.musicas){
   const _mu=ROTAS.musicas;

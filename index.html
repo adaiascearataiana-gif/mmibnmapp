@@ -158,7 +158,7 @@ a{color:var(--verde-med)}
 .page{animation:fade .25s}
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .page-ttl{font-size:19px;font-weight:800;color:var(--verde-escuro);margin:4px 0 14px;display:flex;align-items:center;gap:10px}
-.card{background:#fff;border-radius:var(--radius);padding:18px;box-shadow:var(--sombra);margin-bottom:14px;overflow-x:clip;min-width:0}
+.card{background:#fff;border-radius:var(--radius);padding:18px;box-shadow:var(--sombra);margin-bottom:14px;overflow-x:clip}
 .card h3{font-size:15px;color:var(--verde-escuro);margin-bottom:10px}
 .pill{display:inline-block;background:var(--verde-claro);color:#063524;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin:2px 4px 2px 0}
 .semana-badge{background:linear-gradient(120deg,var(--verde),var(--verde-claro));color:#fff;border-radius:var(--radius);padding:16px 18px;text-align:center;margin-bottom:16px;box-shadow:var(--sombra)}
@@ -305,10 +305,8 @@ table.escala tr.vigente td{font-weight:700}
 /* ===== MODAL ===== */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:95;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;visibility:hidden;transition:.2s}
 .modal-bg.show{opacity:1;visibility:visible}
-.modal{background:#fff;border-radius:var(--radius);padding:22px;width:100%;max-width:420px;box-sizing:border-box;min-width:0;box-shadow:var(--sombra);max-height:88vh;overflow-y:auto;overflow-x:hidden}
+.modal{background:#fff;border-radius:var(--radius);padding:22px;width:100%;max-width:420px;box-sizing:border-box;box-shadow:var(--sombra);max-height:88vh;overflow-y:auto;overflow-x:hidden}
 @media (max-width:430px){.modal{padding:16px}}
-.modal input,.modal select,.modal textarea,.modal button{min-width:0;max-width:100%}
-.modal input[type=file]{width:100%}
 .modal h3{color:var(--verde-escuro);margin-bottom:14px;font-size:17px}
 .modal .field label{color:var(--verde-escuro)}
 .modal .field input,.modal .field select,.modal .field textarea{background:#fff;border:1px solid #ccd;color:var(--txt)}
@@ -404,7 +402,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
    Persistencia local (localStorage). Pontos de integracao
    para Google Login / Google Drive marcados com [INTEGRACAO].
 ============================================================ */
-const VERSION = 'v1.3.3';
+const VERSION = 'v1.4.1';
 const DB_KEY = 'ibnm_mm_db_v1';
 const SES_KEY = 'ibnm_mm_sessao';
 const LOGO = document.getElementById('logoTpl').innerHTML;
@@ -645,6 +643,8 @@ const MENU = [
      {id:'academia', arg:'baixo', ic:'\uD83C\uDFB8', nm:'Baixo'},
      {id:'academia', arg:'violao', ic:'\uD83E\uDE95', nm:'Violão'},
      {id:'academia', arg:'teoria-musical', ic:'\uD83D\uDCD6', nm:'Teoria musical'} ]},
+  {id:'perfil', ic:'\uD83D\uDC64', nm:'Meu Perfil'},
+  {id:'notificacoes', ic:'\uD83D\uDD14', nm:'Notificações'},
   {id:'ajuda', ic:'\u2753', nm:'Como usar o app'},
 ];
 /* ---------- INSTALAR O APP (APK/atalho nativo) ---------- */
@@ -673,7 +673,7 @@ function montaMenu(){
   const u=usuarioAtual();
   try{ const ta=$('#topAvatar'); if(ta){ ta.onerror=function(){ this.onerror=null; this.src=AVATAR_PADRAO; }; ta.src=(u&&u.foto)||AVATAR_PADRAO; } }catch(e){}
   let h=`<div class="sm-head"><div class="logo-emblema">${LOGO}</div>
-    <div class="nm">${esc(u.nome)}</div><div class="rl">${(typeof ehAdmin==='function'&&ehAdmin())?'Administrador':'Membro'} • IBNM</div></div><div class="sm-nav">`;
+    <div class="nm">${esc(u.nome)}</div><div class="rl">${u.admin?'Administrador':'Membro'} • IBNM</div></div><div class="sm-nav">`;
   MENU.forEach(m=>{
     if(m.sub){ h+=`<button class="sm-item" onclick="toggleSub(this)"><span class="ic">${m.ic}</span>${m.nm}<span class="ar">\u25B6</span></button><div class="sm-sub">`;
       m.sub.forEach(s=>{ if(s.grupo) h+=`<div class="sm-grupo" style="font-size:10.5px;font-weight:800;color:#8a9;letter-spacing:1.1px;text-transform:uppercase;padding:9px 14px 3px">${s.grupo}</div>`;
@@ -681,7 +681,7 @@ function montaMenu(){
       h+=`</div>`;
     } else h+=`<button class="sm-item" onclick="go('${m.id}')"><span class="ic">${m.ic}</span>${m.nm}</button>`;
   });
-  if(typeof ehAdmin==='function'&&ehAdmin()) h+=`<button class="sm-item" onclick="go('admin')"><span class="ic">\u2699\uFE0F</span>Painel do ADM</button>`;
+  if(u.admin) h+=`<button class="sm-item" onclick="go('admin')"><span class="ic">\u2699\uFE0F</span>Painel do ADM</button>`;
   try{ const _nf=(typeof filaQtd==='function')?filaQtd():0; if(_nf) h+=`<button class="sm-item" onclick="filaTenta()"><span class="ic">⏳</span>Fila: ${_nf} (tocar p/ sincronizar)</button>`; }catch(e){}
   h+=`<button class="sm-item" onclick="instalarApp()"><span class="ic">📲</span>Instalar o app</button>`;
   h+=`</div><button class="sm-item" onclick="logout()"><span class="ic">\uD83D\uDEAA</span>Sair</button>
@@ -2383,7 +2383,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v72';
+window.APP_V='v71';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */
@@ -2994,9 +2994,6 @@ if(typeof ligarRealtime==='function'){
       if(s.sc && window.__scrollMem){ Object.keys(s.sc).forEach(function(k){ window.__scrollMem[k]=s.sc[k]; }); }
       var y=s.y||0;
       _irPara(top);
-      /* v72: histórico físico acompanha a pilha restaurada — sem isso o 2º volta
-         fecha o app antes da home e a pergunta "Deseja sair?" nunca aparece */
-      try{ var _prof=navStack.length; for(var _i=0;_i<_prof;_i++){ history.pushState({ibnm:1},''); } }catch(e){}
       try{ if(history.length<2 || !history.state || !history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}
       setTimeout(function(){ window.scrollTo(0,y); },60);
       setTimeout(function(){ window.scrollTo(0,y); },450);
@@ -3046,7 +3043,7 @@ if(typeof ligarRealtime==='function'){
         /* no Início → pergunta antes de fechar o app */
         try{ abrirModal('<h3>👋 Deseja sair?</h3>'+
           '<p style="font-size:14px;color:#456;margin-bottom:6px">Você está na tela inicial do app.</p>'+
-          '<div class="modal-acts"><button class="btn btn-dark" onclick="__sairNao()">Não</button><button class="btn btn-primary" onclick="__sairSim()">Sim</button></div>'); }catch(e){}
+          '<div class="modal-acts"><button class="btn btn-dark" onclick="__sairNao()">Não, ficar</button><button class="btn btn-primary" onclick="__sairSim()">Sim, sair</button></div>'); }catch(e){}
       }
     }catch(err){
       try{ toast('⚠️ Voltar com erro — avise o suporte (v60).'); }catch(_){}
@@ -3089,5 +3086,6 @@ if(typeof ligarRealtime==='function'){
 <script src="sync.js"></script>
 <script src="financeiro.js"></script>
 <script src="inventario.js"></script>
+<script src="papeis.js"></script>
 </body>
 </html>

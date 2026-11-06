@@ -188,8 +188,7 @@ if(typeof montaMenu==='function'){
   window.montaMenu=montaMenu=function(){ _mm.apply(this,arguments);
     if(!ehAdmin() || document.querySelector('#sidemenu [data-central]')) return;
     const adm=[...document.querySelectorAll('#sidemenu .sm-item')].find(b=>/go\('admin'\)/.test(b.getAttribute('onclick')||''));
-    const html='<button class="sm-item" data-central onclick="go(\'central\')"><span class="ic">📣</span>Central de avisos</button>'+
-      '<button class="sm-item" data-notifcfg onclick="go(\'notificacoes\')"><span class="ic">🔔</span>Config. notificações</button>';
+    const html='<button class="sm-item" data-central onclick="go(\'central\')"><span class="ic">📣</span>Central de avisos</button>';
     if(adm) adm.insertAdjacentHTML('beforebegin',html); };
 }
 if(typeof _booted!=='undefined' && _booted){ try{ montaMenu(); }catch(_){} }
