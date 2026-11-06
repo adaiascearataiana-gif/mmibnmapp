@@ -1,0 +1,43 @@
+LEIA_ME — atualização v68 (05/11/2026)
+(v67 já pushada — este zip conserta o "Modo usuário × Modo ADM")
+
+INVESTIGAÇÃO (o que estava errado):
+• O "Modo usuário" escondia o menu, MAS os botões de setor
+  (💰 financeiro / 🔧 inventário) olhavam só os papéis do banco e
+  IGNORAVAM o modo — por isso você continuava vendo tudo de ADM.
+• A troca de modo agora é blindada: guarda a escolha, redesenha o
+  menu e sempre avisa na tela (antes, se algo falhasse no meio,
+  o menu ficava velho sem nenhum aviso).
+• Notificações (opção "presença") e o "Tour das ferramentas de ADM"
+  também passam a sumir no modo usuário.
+• Sync/reconexão do Google Drive continuam em segundo plano o tempo
+  todo (é serviço, não tela — funciona em qualquer modo).
+
+O QUE MUDA NA PRÁTICA:
+• ☰ menu → topo → "👤 Modo usuário" = você vê o app EXATAMENTE
+  como um membro: sem Painel do ADM, sem Membros, sem botões de
+  setor, sem config de PIX, sem presença de ADM. A pílula
+  "👤 Modo usuário · tocar p/ ADM" no topo volta tudo.
+• "🛡️ Modo ADM" = tudo de ADM de volta (Painel, Membros, setores,
+  config da doação, tour).
+
+ARQUIVOS: index.html, sw.js, financeiro.js, push.js, tour.js,
+membros.js, LEIA_ME.txt
+
+COMANDOS NO TERMUX (um por vez):
+ls -l ~/storage/downloads | grep v68
+cd ~/mmibnmapp
+unzip -o ~/storage/downloads/atualizacao_v68.zip
+grep -c "APP_V='v68'" index.html
+grep -c 'mmibnm-v68' sw.js
+grep -c 'modoUsuario()) return false' financeiro.js
+grep -c '!ehAdminReal()) return 0' financeiro.js
+grep -c "k!=='presenca'||(typeof ehAdmin" push.js
+grep -c 'Não consegui guardar' membros.js
+git add index.html sw.js financeiro.js push.js tour.js membros.js
+git commit -m "v68: modo usuario 100% membro (setores, notificacoes e tour fora) e troca de modo blindada"
+git push
+(esperado dos greps: 1, 1, 1, 1, 1, 1)
+
+LEMBRETE: caminho de downloads do Termux é ~/storage/downloads
+(NÃO existe ~/Downloads). Apague a aba antiga antes de abrir o app.

@@ -254,7 +254,7 @@ function renderLista(){
   loadFavs();
   const adm=ehAdm();
   return '<div class="page cc-page">'+
-    '<div class="page-ttl">📖 Cantor Cristão</div>'+
+    '<div class="page-ttl">♫ Harpa Cristã</div>'+
     '<p style="font-size:13px;color:#789;margin-bottom:12px">'+HINOS.length+' hinos cifrados · use a busca por número, título ou letra'+(adm?' · <b style="color:var(--verde-med)">você é ADM e pode editar as cifras</b>':' · somente o ADM edita as cifras')+'</p>'+
     '<input class="search-box" id="ccQ" placeholder="🔎 Número ou título do hino" value="'+esc(lastQuery)+'" oninput="harpaBuscar(this.value)" onkeydown="if(event.key===\'Enter\'){harpaAbrirPrimeiro()}">'+
     '<div id="ccRes">'+listaHtml()+'</div>'+
@@ -319,14 +319,14 @@ function abrirHino(n, keepScroll){
     '</div>'+
     missingBox +
     '<div class="cc-tools">'+
-      (adm?'<button class="tog" onclick="enviarPraPlaylist(\'hr:'+n+'\')">⬇️ SETLIST</button>':'')+
+      (adm?'<button class="tog cc-setlist" onclick="enviarPraPlaylist(\'hr:'+n+'\')">➕ Enviar para o SETLIST</button>':'')+
       '<button class="tog" id="tc" aria-pressed="'+prefs.cifras+'" onclick="harpaCifras('+n+')">Cifras</button>'+
       '<button class="tog cc-part" onclick="harpaPartitura('+n+')">📜 PARTITURA</button>'+
       '<span class="chip" '+(prefs.cifras?'':'hidden')+'><button onclick="harpaTransp('+n+',-1)" aria-label="Baixar meio tom">−</button><span class="lbl">Tom <b>'+esc(key)+'</b></span><button onclick="harpaTransp('+n+',1)" aria-label="Subir meio tom">+</button></span>'+
       (st?'<button class="tog" onclick="harpaTomOriginal('+n+')">Tom original</button>':'')+
       '<button class="tog" id="tsc" aria-pressed="'+(scrollOn?'true':'false')+'" onclick="harpaScroll()">'+(scrollOn?'⏸ Pausar rolagem':'▶ Rolagem')+'</button>'+
       (ytl?'<a class="tog cc-yt-chip" href="'+ytUrl(ytl)+'" target="_blank" rel="noopener">▶ Ouvir no YouTube</a>':'')+
-      (adm&&window.ccAoVivo?'<button class="tog cc-live'+(vivoAqui?' on':'')+'" onclick="ccAoVivo('+n+')">'+(vivoAqui?'⏹ Encerrar ao vivo':(vivoOutro?'🔴 Trazer ao vivo p/ este':'🔴 Ao vivo'))+'</button>':'')+
+      (adm&&window.hrAoVivo?'<button class="tog cc-live'+(vivoAqui?' on':'')+'" onclick="hrAoVivo('+n+')">'+(vivoAqui?'⏹ Encerrar ao vivo':(vivoOutro?'🔴 Trazer ao vivo p/ este':'🔴 Ao vivo'))+'</button>':'')+
       (adm?'<button class="tog cc-edit" id="ted" aria-pressed="'+editMode+'" onclick="harpaEditToggle('+n+')">'+(editMode?'Concluir edição':'Editar cifras')+'</button>':'')+
     '</div>'+
     (editMode?'<div class="cc-hint">Toque numa sílaba para pôr ou trocar o acorde. Toque em ✎ para editar a linha inteira.'+(isEdited(n)?'<br><button class="tog" onclick="harpaRst('+n+')">Restaurar cifras originais deste hino</button>':'')+'</div>':'')+

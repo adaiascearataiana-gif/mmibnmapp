@@ -1,5 +1,5 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v68';
+const CACHE = 'mmibnm-v69';
 const CORE = [
   './',
   './index.html',
@@ -24,6 +24,7 @@ const CORE = [
   './cores.js',
   './push.js',
   './tour.js',
+  './ajustes.js',
   './sync.js',
   './financeiro.js',
   './inventario.js',
@@ -37,7 +38,8 @@ self.addEventListener('install', function (e) {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then(function (c) {
     /* arquivo por arquivo: um falho na rede não derruba a instalação inteira */
-    return Promise.all(CORE.map(function (u) { return c.add(u).catch(function () {}); }));
+    /* cache:'reload' = pega do servidor, nunca da cópia velha do navegador */
+    return Promise.all(CORE.map(function (u) { return c.add(new Request(u, { cache: 'reload' })).catch(function () {}); }));
   }));
 });
 
@@ -70,7 +72,7 @@ self.addEventListener('fetch', function (e) {
   // Abrir o app: rede primeiro; sem internet, usa a cópia guardada.
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).then(function (r) {
+      fetch(req, { cache: 'no-cache' }).then(function (r) {
         const cp = r.clone();
         caches.open(CACHE).then(function (c) { c.put('./index.html', cp); });
         return r;
@@ -90,17 +92,29 @@ self.addEventListener('fetch', function (e) {
     return;
   }
 
-  // Scripts e demais arquivos: responde na hora com o que tem guardado
-  // e busca a versão nova em segundo plano (na próxima abertura já vem atualizado).
+  // Partituras da Harpa: não mudam, então cache primeiro.
+  if (url.pathname.indexOf('/partituras') >= 0) {
+    e.respondWith(caches.match(req).then(function (hit) {
+      return hit || fetch(req).then(function (r) {
+        if (r && r.ok) { const cp = r.clone(); caches.open(CACHE).then(function (c) { c.put(req, cp); }); }
+        return r;
+      });
+    }));
+    return;
+  }
+
+  // Scripts e demais arquivos: SEMPRE a versão do servidor (rede primeiro).
+  // Sem internet (ou se demorar mais de 5 s), usa a cópia guardada.
   e.respondWith(
     caches.open(CACHE).then(function (c) {
-      return c.match(req).then(function (hit) {
-        const rede = fetch(req).then(function (r) {
-          if (r && r.ok) c.put(req, r.clone());
-          return r;
-        }).catch(function () { return hit; });
-        return hit || rede;
+      const rede = fetch(req, { cache: 'no-cache' }).then(function (r) {
+        if (r && r.ok) c.put(req, r.clone());
+        return r;
       });
+      const espera = new Promise(function (ok) { setTimeout(ok, 5000); }).then(function () { return c.match(req); });
+      return Promise.race([rede.catch(function () { return c.match(req); }), espera.then(function (hit) { return hit || rede; })])
+        .then(function (r) { return r || rede; })
+        .catch(function () { return c.match(req); });
     })
   );
 });

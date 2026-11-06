@@ -418,7 +418,7 @@ window.enviarPraPlaylist=function(musicaId){
     window.__envAddGeral=function(){ fecharModal(); addGeral(); };
     window.__envAddEv=function(i){ fecharModal(); addEv(i); };
     window.__envCriarEv=function(){ fecharModal(); envFormEvento(chave); };
-    const listaEv=evs? evs.map((ev,i)=>'<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__envAddEv('+i+')">📅 '+e(String(ev.nome||'EVENTO'))+(ev.data? ' · '+dataBR(ev.data):'')+' <small style="color:#fff;opacity:.95">· '+(ev.itens||[]).length+' música(s)</small></button>').join('')
+    const listaEv=evs? evs.map((ev,i)=>'<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__envAddEv('+i+')">📅 '+e(String(ev.nome||'EVENTO'))+(ev.data? ' · '+dataBR(ev.data):'')+' <small class="env-sub">· '+(ev.itens||[]).length+' música(s)</small></button>').join('')
       : '<p style="font-size:13.5px;color:#556;margin:6px 0">Este SETLIST ainda não tem eventos — crie um ou use a lista geral:</p>';
     const geralBtn=evs? '' : '<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__envAddGeral()">🎼 Adicionar na lista geral do SETLIST</button>';
     abrirModal('<h3>📅 '+e(rot)+'</h3><p style="font-size:13.5px;color:#556;margin-bottom:8px">Onde entra <b>'+e(m.titulo)+'</b>? Escolha um evento ou crie um novo:</p>'+
@@ -447,7 +447,7 @@ window.enviarPraPlaylist=function(musicaId){
   window.__envNova=function(){ fecharModal(); criarSetlistExtra(musicaId); };
   abrirModal('<h3>⬇️ Enviar para o SETLIST</h3>'+
     '<p style="font-size:13.5px;color:#556;margin-bottom:8px">Escolha o SETLIST que recebe <b>'+e(m.titulo)+'</b>:</p>'+
-    lista.map(x=>'<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__envPasso2(\''+x.chave+'\')">'+x.ico+' <b>'+e(x.rot)+'</b><br><small style="color:#fff;opacity:.95">'+e(rotuloDe(x))+'</small></button>').join('')+
+    lista.map(x=>'<button class="mini-btn" style="display:block;width:100%;margin:6px 0;text-align:left" onclick="window.__envPasso2(\''+x.chave+'\')">'+x.ico+' <b>'+e(x.rot)+'</b><br><small class="env-sub">'+e(rotuloDe(x))+'</small></button>').join('')+
     '<button class="mini-btn" style="display:block;width:100%;margin:8px 0;text-align:left;border-style:dashed" onclick="window.__envNova()">➕ Criar nova SETLIST</button>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button></div>');
 };

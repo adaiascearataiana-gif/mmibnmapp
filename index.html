@@ -402,7 +402,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
    Persistencia local (localStorage). Pontos de integracao
    para Google Login / Google Drive marcados com [INTEGRACAO].
 ============================================================ */
-const VERSION = 'v1.1.0';
+const VERSION = 'v1.3.0';
 const DB_KEY = 'ibnm_mm_db_v1';
 const SES_KEY = 'ibnm_mm_sessao';
 const LOGO = document.getElementById('logoTpl').innerHTML;
@@ -2383,7 +2383,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v68';
+window.APP_V='v69';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */
@@ -3006,7 +3006,8 @@ if(typeof ligarRealtime==='function'){
     if(c && !c.innerHTML.trim() && window.__sessRestaura) window.__sessRestaura();
   }); }catch(e){}
   function _editorComMudancas(){ try{ return !!document.getElementById('edCifra') && typeof _edUndo!=='undefined' && _edUndo.length>0; }catch(e){ return false; } }
-  function _arma(){ try{ if(history.length<2 || !history.state || !history.state.ibnm){ history.pushState({ibnm:1}, ''); } }catch(e){} }
+  /* arma a "volta": se estamos na entrada-raiz (root) ou sem estado, cria a isca de novo */
+  function _arma(){ try{ if(history.length<2 || !history.state || !history.state.ibnm || history.state.root){ history.pushState({ibnm:1}, ''); } }catch(e){} }
   try{ history.replaceState({ibnm:1,root:1}, ''); }catch(e){}
   _arma();
   try{ if(!navStack.length) navStack=[INICIO]; }catch(e){}
@@ -3081,6 +3082,7 @@ if(typeof ligarRealtime==='function'){
 <script src="cores.js"></script>
 <script src="push.js"></script>
 <script src="tour.js"></script>
+<script src="ajustes.js"></script>
 <script src="sync.js"></script>
 <script src="financeiro.js"></script>
 <script src="inventario.js"></script>
