@@ -232,7 +232,8 @@ function finHTMLDoacoes(){
       '<span style="font-weight:400;font-size:12px;color:#789">'+new Date(d.criado_em).toLocaleString('pt-BR')+' • '+badge+
       (d.comprovante_url?' • <a href="javascript:void(0)" onclick="finVerAnexo(\''+e(d.comprovante_url)+'\')" style="color:#1c7a4e;font-weight:700">comprovante</a>':'')+
       '</span></span><span>'+
-      (d.status==='pendente'?'<button class="mini-btn" onclick="doaConf(\''+d.id+'\')" style="background:#1c7a4e;color:#fff">✓</button> <button class="mini-btn sec" onclick="doaRej(\''+d.id+'\')">✗</button>':'')+
+      (d.status==='pendente'?'<button class="mini-btn" onclick="doaConf(\''+d.id+'\')" style="background:#1c7a4e;color:#fff">✓</button> <button class="mini-btn sec" onclick="doaRej(\''+d.id+'\')">✗</button> ':'')+
+      '<button class="mini-btn" style="background:#b33;color:#fff" onclick="doaExcluir(\''+d.id+'\')">🗑 Excluir</button>'+
       '</span></div>';
   });
   return h+'</div>';
@@ -408,6 +409,20 @@ window.doaApagar=function(id){
   sb.from('doacoes').delete().eq('id',id).then(({error})=>{
     if(error) return toast('Erro: '+error.message);
     toast('Doação cancelada'); finSync(); setTimeout(carregaFin,400);
+  });
+};
+window.doaExcluir=function(id){
+  if(!podeSetor('financeiro')) return toast('Sem permissão.');
+  const d=DOA.find(x=>x.id===id); if(!d) return;
+  if(!confirm('Excluir definitivamente a doação de '+(d.nome||'membro')+' ('+brl(d.valor)+')? Isso não pode ser desfeito.')) return;
+  try{
+    const u=String(d.comprovante_url||'');
+    const m=u.match(/\/storage\/v1\/object\/public\/anexos\/([^?]+)/);
+    if(m && typeof sb!=='undefined' && sb && sb.storage) sb.storage.from('anexos').remove([decodeURIComponent(m[1])]);
+  }catch(_){}
+  sb.from('doacoes').delete().eq('id',id).then(({error})=>{
+    if(error) return toast('Erro: '+error.message);
+    toast('Doação excluída ✓'); finSync(); setTimeout(carregaFin,400);
   });
 };
 window.doaConf=async function(id){

@@ -305,7 +305,8 @@ table.escala tr.vigente td{font-weight:700}
 /* ===== MODAL ===== */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:95;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;visibility:hidden;transition:.2s}
 .modal-bg.show{opacity:1;visibility:visible}
-.modal{background:#fff;border-radius:var(--radius);padding:22px;width:100%;max-width:420px;box-shadow:var(--sombra);max-height:88vh;overflow-y:auto}
+.modal{background:#fff;border-radius:var(--radius);padding:22px;width:100%;max-width:420px;box-sizing:border-box;box-shadow:var(--sombra);max-height:88vh;overflow-y:auto;overflow-x:hidden}
+@media (max-width:430px){.modal{padding:16px}}
 .modal h3{color:var(--verde-escuro);margin-bottom:14px;font-size:17px}
 .modal .field label{color:var(--verde-escuro)}
 .modal .field input,.modal .field select,.modal .field textarea{background:#fff;border:1px solid #ccd;color:var(--txt)}
@@ -1942,7 +1943,7 @@ async function fazerCadastro(){
 async function loginGoogle(){
   try{
     toast('Abrindo o login com Google...');
-    const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href.split('#')[0],queryParams:{prompt:'select_account'}}});
+    const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href.split('#')[0]}});
     if(error){
       const msg=/provider|external|not enabled|disabled/i.test(error.message||'')
         ? 'Login com Google ainda não está ativado no servidor. O administrador precisa ativar Authentication > Providers > Google no Supabase (guia GOOGLE-LOGIN.md).'
@@ -2186,6 +2187,12 @@ editorCifra=function(id){ _editando=true; _viewAtual=null; return _editorOrig(id
    O cliente é criado já; o app só inicia depois que TODOS os módulos
    (melhorias, escala, avisos, economia de dados…) estiverem carregados. */
 try{ sb=supabase.createClient(SUPA_URL,SUPA_KEY); }catch(e){}
+/* v66: só a aba visível renova o token — aba oculta parada evita que uma
+   renovação velha derrube a sessão de todas as abas (loop de login). */
+try{ document.addEventListener('visibilitychange',function(){ try{
+  if(!sb||!sb.auth) return;
+  if(document.visibilityState==='visible') sb.auth.startAutoRefresh(); else sb.auth.stopAutoRefresh();
+}catch(_){} }); }catch(_){}
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>bootCloud()); else bootCloud();
 </script>
 <script id="v2feats">
@@ -2376,7 +2383,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v65';
+window.APP_V='v66';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */

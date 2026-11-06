@@ -266,28 +266,29 @@ window.invForm=function(id){
   const estVal=it?(it.estado||''):'Bom';
   abrirModal('<h3>'+(it?'✏ Editar':'＋ Novo')+' equipamento</h3>'+
     '<div style="display:grid;gap:8px;margin-top:8px">'+
-    '<input id="ivNome" placeholder="Nome * (ex.: Teclado Yamaha PSR-SX600)" value="'+e(it?it.nome:'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:15px;font-weight:700">'+
-    '<div style="display:grid;gap:6px">'+
+    '<input id="ivNome" placeholder="Nome * (ex.: Teclado Yamaha PSR-SX600)" value="'+e(it?it.nome:'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:15px;font-weight:700;min-width:0;width:100%;box-sizing:border-box">'+
+    '<div style="display:grid;gap:6px;min-width:0">'+
       '<label style="font-size:12px;color:#567;font-weight:700">Categoria (abre o menu)</label>'+
-      '<select id="ivCat" onchange="invOutrosVigia()" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;background:#fff">'+optHTML(catsNomes(),catVal)+'</select>'+
-      '<input id="ivCatNovo" placeholder="Nova categoria… (escreva e salve)" style="display:none;padding:10px;border:1px solid #1c7a4e;border-radius:8px;font-size:14px">'+
+      '<select id="ivCat" onchange="invOutrosVigia()" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;background:#fff;min-width:0;width:100%;box-sizing:border-box">'+optHTML(catsNomes(),catVal)+'</select>'+
+      '<input id="ivCatNovo" placeholder="Nova categoria… (escreva e salve)" style="display:none;padding:10px;border:1px solid #1c7a4e;border-radius:8px;font-size:14px;min-width:0;width:100%;box-sizing:border-box">'+
     '</div>'+
-    '<div style="display:flex;gap:8px">'+
-      '<input id="ivMarca" placeholder="Marca" value="'+e(it?it.marca:'')+'" style="flex:1;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
-      '<input id="ivModelo" placeholder="Modelo" value="'+e(it?it.modelo:'')+'" style="flex:1;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px"></div>'+
-    '<div style="display:grid;gap:6px">'+
+    '<div style="display:flex;gap:8px;min-width:0">'+
+      '<input id="ivMarca" placeholder="Marca" value="'+e(it?it.marca:'')+'" style="flex:1;min-width:0;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;box-sizing:border-box">'+
+      '<input id="ivModelo" placeholder="Modelo" value="'+e(it?it.modelo:'')+'" style="flex:1;min-width:0;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;box-sizing:border-box"></div>'+
+    '<div style="display:grid;gap:6px;min-width:0">'+
       '<label style="font-size:12px;color:#567;font-weight:700">Tipo (subcategoria da escolhida)</label>'+
-      '<div style="display:flex;gap:8px">'+
-        '<select id="ivTipo" onchange="invOutrosVigia()" style="flex:1;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;background:#fff">'+tiposSelHTML(catVal,tipoVal)+'</select>'+
-        '<input id="ivQtd" type="number" inputmode="numeric" step="1" min="0" placeholder="Qtd" value="'+(it&&it.quantidade!=null?e(String(it.quantidade)):'')+'" style="width:86px;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;text-align:center">'+
-      '</div>'+
-      '<input id="ivTipoNovo" placeholder="Novo tipo… (escreva e salve)" style="display:none;padding:10px;border:1px solid #1c7a4e;border-radius:8px;font-size:14px">'+
+      '<select id="ivTipo" onchange="invOutrosVigia()" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;background:#fff;min-width:0;width:100%;box-sizing:border-box">'+tiposSelHTML(catVal,tipoVal)+'</select>'+
+      '<input id="ivTipoNovo" placeholder="Novo tipo… (escreva e salve)" style="display:none;padding:10px;border:1px solid #1c7a4e;border-radius:8px;font-size:14px;min-width:0;width:100%;box-sizing:border-box">'+
     '</div>'+
-    '<div style="display:flex;gap:8px">'+
-      '<input id="ivCor" placeholder="Cor" value="'+e(it?it.cor:'')+'" style="flex:1;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
-      '<select id="ivEstado" onchange="invOutrosVigia()" style="flex:1.4;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;background:#fff">'+optHTML(estadosLista(),estVal)+'</select>'+
+    '<div style="display:flex;gap:8px;min-width:0">'+
+      '<input id="ivQtd" type="number" inputmode="numeric" step="1" min="0" placeholder="Quantidade" value="'+(it&&it.quantidade!=null?e(String(it.quantidade)):'')+'" style="flex:1;min-width:0;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;text-align:center;box-sizing:border-box">'+
+      '<input id="ivCor" placeholder="Cor" value="'+e(it?it.cor:'')+'" style="flex:1.4;min-width:0;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;box-sizing:border-box">'+
     '</div>'+
-    '<input id="ivEstadoNovo" placeholder="Novo estado de conservação… (escreva e salve)" style="display:none;padding:10px;border:1px solid #1c7a4e;border-radius:8px;font-size:14px">'+
+    '<div style="display:grid;gap:6px;min-width:0">'+
+      '<label style="font-size:12px;color:#567;font-weight:700">Estado de conservação (abre o menu)</label>'+
+      '<select id="ivEstado" onchange="invOutrosVigia()" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;background:#fff;min-width:0;width:100%;box-sizing:border-box">'+optHTML(estadosLista(),estVal)+'</select>'+
+      '<input id="ivEstadoNovo" placeholder="Novo estado… (escreva e salve)" style="display:none;padding:10px;border:1px solid #1c7a4e;border-radius:8px;font-size:14px;min-width:0;width:100%;box-sizing:border-box">'+
+    '</div>'+
     '<div style="display:flex;gap:8px">'+
       '<input id="ivSerie" placeholder="Nº de série" value="'+e(it?it.serie:'')+'" style="flex:1;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
       '<input id="ivPatr" placeholder="Patrimônio (código interno)" value="'+e(it?it.patrimonio:'')+'" style="flex:1;padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px"></div>'+
