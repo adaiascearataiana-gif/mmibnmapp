@@ -407,7 +407,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
    Persistencia local (localStorage). Pontos de integracao
    para Google Login / Google Drive marcados com [INTEGRACAO].
 ============================================================ */
-const VERSION = 'v1.4.4';
+const VERSION = 'v1.4.5';
 const DB_KEY = 'ibnm_mm_db_v1';
 const SES_KEY = 'ibnm_mm_sessao';
 const LOGO = document.getElementById('logoTpl').innerHTML;
@@ -1950,10 +1950,20 @@ async function fazerCadastro(){
   if(!data.session){ $('#cadErr').innerHTML='<div class="ok-msg">Conta criada! Verifique seu e-mail para confirmar e depois entre.</div>'; return; }
   await bootSessao();
 }
+function _redirectLimpo(){ return location.origin + location.pathname; }   /* nunca mandar ?error/# antigos pro Supabase */
+function _limpaErroAuth(){ try{
+  if(/[#&?]error=/.test(location.href)){
+    var m=location.href.match(/error_description=([^&#]*)/); var msg='nao concluido';
+    if(m){ try{ msg=decodeURIComponent(String(m[1]).replace(/\+/g,' ')); }catch(_){} }
+    history.replaceState(null,'',_redirectLimpo());
+    setTimeout(function(){ try{ toast('Login nao concluido: '+msg); }catch(_){} },400);
+  }
+}catch(_){} }
 async function loginGoogle(){
   try{
     toast('Abrindo o login com Google...');
-    const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href.split('#')[0]}});
+    _limpaErroAuth();
+    const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:_redirectLimpo()}});
     if(error){
       const msg=/provider|external|not enabled|disabled/i.test(error.message||'')
         ? 'Login com Google ainda não está ativado no servidor. O administrador precisa ativar Authentication > Providers > Google no Supabase (guia GOOGLE-LOGIN.md).'
@@ -1965,7 +1975,7 @@ async function loginGoogle(){
 async function enviarRecupera(){
   const email=$('#recEmail').value.trim().toLowerCase();
   if(!/^[^@]+@[^@]+\.[^@]+$/.test(email)) return erro('recErr','E-mail inválido.');
-  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:_redirectLimpo()});
   if(error) return erro('recErr',error.message);
   $('#recErr').innerHTML='<div class="ok-msg">Enviamos um link de redefinição para '+esc(email)+'. Verifique seu e-mail.</div>';
 }
@@ -1981,6 +1991,7 @@ async function salvarSenha(){
 async function bootCloud(){
   try{ if(!sb) sb=supabase.createClient(SUPA_URL,SUPA_KEY); }
   catch(e){ telaLogin(); return; }
+  _limpaErroAuth();
   const {data:{session}}=await sb.auth.getSession();
   if(!session){ telaLogin();
     sb.auth.onAuthStateChange((_e,s)=>{ if(s&&!_booted) bootSessao(); });
@@ -1995,7 +2006,7 @@ async function bootSessao(){
   _sessaoId=session.user.id;
   const usuarioOk=!!usuarioAtual();          /* cache local já tem o perfil? */
   if(usuarioOk){ try{ Promise.resolve(garantirPerfil(session.user)).catch(()=>{}); }catch(e){} }
-  else { await garantirPerfil(session.user); await cloudPerfis(); }
+  else { try{ await garantirPerfil(session.user); }catch(e){} try{ await cloudPerfis(); }catch(e){} }
   _booted=true;
   iniciarApp();                               /* PINTA o app imediatamente */
   ligarRealtime();
@@ -2393,7 +2404,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v75';
+window.APP_V='v76';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */

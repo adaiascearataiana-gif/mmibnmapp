@@ -203,7 +203,7 @@ function gate(){
   const g=document.createElement('div'); g.id='cadGate'; g.className='cad-gate';
   g.innerHTML='<div class="cg-card"><div class="cg-ic">📝</div><h2>Complete seu cadastro</h2>'+
     '<p>Para usar o app do Ministério, preencha todos os dados abaixo. Faltando: <b>'+e(falta.join(', '))+'</b>.</p><div id="cgErr"></div>'+
-    '<div class="field"><label>Nome completo <span class="req">*</span></label><input id="cgNome" value="'+e(u.nome)+'" placeholder="Nome e sobrenome"></div>'+
+    '<div class="field"><label>Nome completo <span class="req">*</span></label><input id="cgNome" value="'+e(String(u.nome||'').indexOf('@')>0?'':u.nome)+'" placeholder="Nome e sobrenome"></div>'+
     '<div class="field"><label>Data de nascimento <span class="req">*</span></label><input type="date" id="cgNasc" value="'+e(u.nasc||'')+'"></div>'+
     '<div class="field"><label>Telefone <span class="req">*</span></label><input id="cgTel" inputmode="numeric" value="'+e(u.tel||'')+'" placeholder="( 00 ) 00000-0000" oninput="maskTel(this)">'+radiosWpp('cgWpp',telOk(u.tel)?!!u.wpp:null,false,u.wpp_num)+'</div>'+
     '<div class="field"><label>Função no Ministério <span class="req">*</span></label><div class="cg-box"><b>🎤 Vocalista</b>'+ck(VOCAL,'cgVocal',u.vocal||[])+'<b>🎸 Instrumentista / 🎛️ Técnica</b>'+ck(INSTR,'cgInstr',u.instr||[])+'</div></div>'+
@@ -417,21 +417,24 @@ const css=`
 .mb-xls{height:40px;border:0;border-radius:10px;padding:0 14px;background:var(--verde-med);color:#fff;font-weight:800}
 .mb-info{font-size:11.5px;color:#7a8f86;margin:6px 0 8px}
 .mb-wrap{overflow:auto;max-height:calc(100dvh - var(--ibnm-topbar,64px) - 120px);background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
-.mb-tab{border-collapse:separate;border-spacing:0;min-width:1060px;width:100%;font-size:14px}
+.mb-tab{border-collapse:separate;border-spacing:0;min-width:1140px;width:100%;font-size:14px}
 .mb-tab th{position:sticky;top:0;z-index:2;background:var(--verde-escuro);color:#fff;text-align:left;font-size:12px;font-weight:800;padding:10px;white-space:nowrap;cursor:pointer}
 .mb-tab th.on{background:#145c44}
-.mb-tab td{padding:10px;border-bottom:1px solid #edf2ef;vertical-align:top;color:#1f3a30}
+.mb-tab td{padding:7px 8px;line-height:1.35;border-bottom:1px solid #edf2ef;vertical-align:top;color:#1f3a30}
+.mb-tab td:nth-child(3){white-space:nowrap} /* nasc nao quebra no meio (28/10/199 6) */
 .mb-tab td small{display:block;font-size:11.5px;color:#7a8f86;margin-top:2px}
 .mb-tab tr.inc td{background:#fff8f6}
 .mb-tab td.nm{position:sticky;left:0;z-index:1;background:#fff;min-width:200px;box-shadow:4px 0 6px -4px rgba(0,0,0,.15)}
 .mb-tab tr.inc td.nm{background:#fff8f6}
-.mb-pes{display:flex;gap:10px;align-items:center}
+.mb-pes{display:flex;gap:8px;align-items:center}
 .mb-pes img,.mb-pes .ini{width:38px;height:38px;border-radius:50%;object-fit:cover;flex:none;background:var(--verde-med);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900}
 .mb-pes b{font-size:14.5px}
-.mb-st{display:inline-block;font-size:11.5px;font-weight:800;border-radius:12px;padding:3px 9px;max-width:200px}
+.mb-st{display:inline-block;font-size:11.5px;font-weight:800;border-radius:12px;padding:3px 9px;max-width:200px;white-space:nowrap} /* Completo nao vira 'Comp leto' */
 .mb-st.ok{background:#e1f4ea;color:#1c6b47}
 .mb-st.no{background:#fde4df;color:#a1301c}
-.mb-ch{display:inline-block;background:#e9f5ef;color:#0b3d2e;font-size:12px;font-weight:700;border-radius:12px;padding:2px 8px;margin:0 4px 4px 0}
+.mb-ch{display:inline-block;background:#e9f5ef;color:#0b3d2e;font-size:11.5px;font-weight:700;border-radius:12px;padding:2px 7px;margin:0 3px 3px 0}
+.mb-tab td.ac button{padding:4px 7px;font-size:11.5px;margin:0 3px 3px 0;white-space:nowrap;cursor:pointer}
+.mb-tab td.ac{white-space:nowrap}
 .mb-ch.i{background:#eef0fb;color:#2b3a7a}
 .mb-x{color:#bbb}
 .mb-tab .tel{white-space:nowrap}
