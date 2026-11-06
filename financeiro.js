@@ -27,6 +27,7 @@ window.carregaPapeis=async function(){
 };
 let _finPapelRT=false;
 window.podeSetor=function(p){
+  try{ if(window.modoUsuario&&modoUsuario()) return false; }catch(_){} /* v68: modo usuário = membro comum */
   try{ if(typeof ehAdmin==='function'&&ehAdmin()) return true; }catch(_){}
   const u=(typeof usuarioAtual==='function')?usuarioAtual():null; if(!u) return false;
   const r=PAPEIS[u.id]; return !!(r&&r[p]);
@@ -571,7 +572,7 @@ window.driveSinc=async function(){
   try{
     const D=window.__drive;
     if(!D||!D.ok||!D.ok()||!D.conectado||!D.conectado()) return 0;
-    if(typeof ehAdmin==='function'&&!ehAdmin()) return 0; /* v64: so aparelho de principal sincroniza */
+    if(typeof ehAdminReal!=='function'||!ehAdminReal()) return 0; /* v68: so aparelho de principal sincroniza (em qualquer modo) */
     if(typeof sb==='undefined'||!sb) return 0;
     _sincRodando=true;
     let n=0;
@@ -627,7 +628,7 @@ if(!window.__sincAgendada){
   try{ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') setTimeout(()=>{ try{ driveSinc(); }catch(_){} },1500); }); }catch(_){}
   setInterval(()=>{ try{ driveSinc(); }catch(_){} },5*60*1000);
   setTimeout(()=>{ try{
-    const souAdm=(typeof ehAdmin==='function')&&ehAdmin();
+    const souAdm=(typeof ehAdminReal==='function')&&ehAdminReal(); /* v68: fundo não depende do modo de vista */
     const D=window.__drive;
     if(souAdm&&D&&D.ok()&&(!D.conectado()||false)&&!_silTentou){
       _silTentou=true;

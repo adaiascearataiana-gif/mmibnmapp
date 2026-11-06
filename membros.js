@@ -21,16 +21,21 @@ window.ehAdminReal=function(){ try{ return !!_ehAdminReal(); }catch(_){ return f
 window.modoUsuario=function(){ return ehAdminReal() && localStorage.getItem(chaveModo())==='1'; };
 window.ehAdmin=ehAdmin=function(){ return ehAdminReal() && !modoUsuario(); };
 window.alternarModo=function(m){
-  if(!ehAdminReal()) return;
-  if(m==='usuario') localStorage.setItem(chaveModo(),'1'); else localStorage.removeItem(chaveModo());
-  if(typeof toggleMenu==='function') toggleMenu(false);
-  montaMenu(); marcaTopo();
-  toast(m==='usuario'?'👤 Modo usuário: você vê o app como um membro.':'🛡️ Modo ADM ativado.');
+  if(!ehAdminReal()){ try{ toast('Sem permissão.'); }catch(_){} return; }
+  try{
+    if(m==='usuario') localStorage.setItem(chaveModo(),'1'); else localStorage.removeItem(chaveModo());
+  }catch(_){ try{ toast('Não consegui guardar a preferência neste navegador.'); }catch(__){} return; }
+  try{ if(typeof toggleMenu==='function') toggleMenu(false); }catch(_){}
+  try{ montaMenu(); }catch(_){ try{ window.montaMenu&&window.montaMenu(); }catch(__){} }
+  try{ marcaTopo(); }catch(_){}
+  try{ toast(m==='usuario'?'👤 Modo usuário: você vê o app como um membro.':'🛡️ Modo ADM ativado.'); }catch(_){}
   try{ if(window.cantorRedesenhar) window.cantorRedesenhar(); }catch(_){}
-  const pag=(window.__navStack&&window.__navStack().slice(-1)[0])||'go|inicio|';
-  const p=pag.split('|');
-  if(p[0]==='go' && (p[1]==='admin'||p[1]==='membros') && m==='usuario') go('inicio');
-  else if(typeof _viewAtual==='function'){ const y=scrollY; try{ _viewAtual(); }catch(_){} scrollTo(0,y); }
+  try{
+    const pag=(window.__navStack&&window.__navStack().slice(-1)[0])||'go|inicio|';
+    const p=pag.split('|');
+    if(p[0]==='go' && (p[1]==='admin'||p[1]==='membros') && m==='usuario') go('inicio');
+    else if(typeof _viewAtual==='function'){ const y=scrollY; _viewAtual(); scrollTo(0,y); }
+  }catch(_){}
 };
 function marcaTopo(){
   const tb=document.querySelector('.topbar .brand-sub, .topbar small, .topbar .sub');

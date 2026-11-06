@@ -10,7 +10,7 @@
 'use strict';
 const e = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $q = s => document.querySelector(s);
-const adm = () => { try{ return window.ehAdminReal? ehAdminReal() : ehAdmin(); }catch(_){ return false; } };
+const adm = () => { try{ return typeof ehAdmin==='function' ? !!ehAdmin() : false; }catch(_){ return false; } };
 const primeiraMusica = () => { const m=(DB.musicas||[]).find(x=>x.publicada!==false && x.cifra) || (DB.musicas||[])[0]; return m&&m.id; };
 const fechaMenu = () => { try{ toggleMenu(false); }catch(_){} };
 const abreMenu = () => { try{ toggleMenu(true); }catch(_){} };

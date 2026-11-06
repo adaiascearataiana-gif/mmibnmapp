@@ -103,7 +103,7 @@ function status(){
 function cartao(){
   const p=prefs();
   return '<div class="card ps-card"><h3>🔔 Notificações no celular</h3>'+status()+
-    '<div class="ps-sub">Quero receber:</div><div class="ps-tipos">'+TIPOS.filter(([k])=>k!=='presenca'||(window.ehAdminReal?ehAdminReal():ehAdmin())).map(([k,t])=>'<label class="ps-tipo"><span>'+t+'</span><input type="checkbox" data-t="'+k+'" '+(p[k]===false?'':'checked')+' onchange="salvarPrefsNotif()"><i></i></label>').join('')+'</div>'+
+    '<div class="ps-sub">Quero receber:</div><div class="ps-tipos">'+TIPOS.filter(([k])=>k!=='presenca'||(typeof ehAdmin==='function'&&ehAdmin())).map(([k,t])=>'<label class="ps-tipo"><span>'+t+'</span><input type="checkbox" data-t="'+k+'" '+(p[k]===false?'':'checked')+' onchange="salvarPrefsNotif()"><i></i></label>').join('')+'</div>'+
     '<p class="ps-dica">Desligado = não toca som, não abre janela e não vai para a barra do celular. O aviso continua guardado no 🔔 do app.</p></div>';
 }
 if(typeof ROTAS!=='undefined'){
