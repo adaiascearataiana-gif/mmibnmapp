@@ -2404,7 +2404,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v81';
+window.APP_V='v82';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */
@@ -3111,5 +3111,6 @@ if(typeof ligarRealtime==='function'){
 <script src="financeiro.js"></script>
 <script src="inventario.js"></script>
 <script src="papeis.js"></script>
+<script src="extras.js"></script>
 </body>
 </html>
