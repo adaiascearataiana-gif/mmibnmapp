@@ -87,9 +87,11 @@ window.tourFim=function(pulou){
   const b=document.getElementById('tourBox'); if(b) b.remove();
   if(T){ try{ const u=usuarioAtual(); if(u) localStorage.setItem('ibnm_bv_'+u.email,'1'); localStorage.setItem('ibnm_tour_'+T.tipo,'1'); }catch(_){} }
   const tipo=T&&T.tipo; T=null; fechaMenu();
+  if(window.__cgOculto){ window.__cgOculto=0; var _g=document.getElementById('cadGate'); if(_g) _g.style.display=''; else if(typeof gate==='function'){ try{ gate(); }catch(_){} } } /* devolve o cadastro se ainda faltar dado */
   if(tipo==='membro' && !pulou && adm()) setTimeout(()=>{ if(confirm('Quer ver também o tour das ferramentas de ADM?')) iniciarTour('adm'); else go('inicio'); },200);
 };
 window.iniciarTour=function(tipo){
+  var _cg=document.getElementById('cadGate'); if(_cg){ _cg.style.display='none'; window.__cgOculto=1; } /* cadastro sai do caminho do tour */
   const b=document.getElementById('bvScreen'); if(b) b.innerHTML='';
   T={tipo:tipo||'membro',lista:(tipo==='adm'?ADM:MEMBRO),i:0,dir:1}; mostra();
 };

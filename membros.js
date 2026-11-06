@@ -194,6 +194,7 @@ window.salvarPerfil=salvarPerfil=async function(){
 /* trava: cadastro incompleto precisa ser completado antes de usar o app */
 function gate(){
   const u=usuarioAtual(); if(!u) return;
+  if(document.getElementById('tourBox')){ setTimeout(gate,900); return; } /* tour do novo usuario vem primeiro */
   const falta=camposFaltando(u);
   const velho=$id('cadGate');
   if(!falta.length){ if(velho) velho.remove(); return; }
@@ -393,7 +394,7 @@ const css=`
 .cg-card .cg-ic{font-size:40px;text-align:center}
 .cg-card h2{text-align:center;margin:4px 0 6px;font-size:21px}
 .cg-card p{font-size:13.5px;color:#556;text-align:center;margin-bottom:14px}
-.cg-card .field label,.cg-card .check-inline,.cg-card #authScreens .wpp-q,#authScreens .wpp-q .check-inline,#authScreens .wpp-num label{color:#fff}
+.cg-card .field label,.cg-card .check-inline{color:var(--verde-escuro)}
 .wpp-q .check-inline{display:inline-flex;align-items:center;gap:4px;margin:0}
 .ver-foot{position:static;padding:14px 0 18px}
 .wpp-num{margin-top:8px;display:flex;flex-direction:column;gap:6px}

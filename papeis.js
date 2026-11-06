@@ -18,7 +18,7 @@ const eu = () => (typeof usuarioAtual==='function'&&usuarioAtual())||null;
 const real = () => { try{ return !!(window.ehAdminReal? ehAdminReal() : false); }catch(_){ return false; } };
 
 /* ---------- quem é o ADM principal ---------- */
-const PRINCIPAL_PADRAO=['adaiasceara@yahoo.com.br'];
+const PRINCIPAL_PADRAO=['adaiascearataiana@gmail.com'];
 function principais(){
   const c=cfg('adm_principais'); const lista=(Array.isArray(c)&&c.length? c : PRINCIPAL_PADRAO).map(x=>String(x).toLowerCase());
   /* segurança: se nenhum ADM tiver o e-mail da lista, todos os ADM atuais contam como principais (ninguém fica trancado) */
