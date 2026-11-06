@@ -44,7 +44,7 @@ async function carregaFin(){
   }catch(err){}
 }
 let _finUlt=null;
-function finPinta(){ try{ if(document.querySelector('.fin-page')&&typeof go==='function') go('financeiro'); }catch(_){} }
+function finPinta(){ try{ if(document.querySelector('.modal-bg.show')){ setTimeout(finPinta,600); return; } /* modal aberto: nao derruba, espera fechar */ if(document.querySelector('.fin-page')&&typeof go==='function') go('financeiro'); }catch(_){} }
 window.finSync=function(){ clearTimeout(_finT); _finT=setTimeout(carregaFin,250); };
 function finRT(){ try{ if(_finRT||typeof sb==='undefined'||!sb||!sb.channel) return; _finRT=true;
   const ch=sb.channel('fin-rt');
@@ -187,8 +187,8 @@ ROTAS.financeiro=function(){
      '<select id="finMes" onchange="finSetMes(this.value)" style="flex:1;min-width:120px;padding:9px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px;background:#fff">'+
        meses.map(m=>'<option value="'+m+'"'+(m===finMes?' selected':'')+'>'+(m.slice(5)+'/'+m.slice(0,4))+'</option>').join('')+'</select>';
   if(pode){
-    h+='<button class="mini-btn" onclick="finForm(null,\'entrada\')">＋ Entrada</button>'+
-       '<button class="mini-btn" onclick="finForm(null,\'saida\')">－ Saída</button>'+
+    /* v79: botao manual de ENTRADA removido — a doacao confirmada ja entra sozinha no relatorio */
+    h+='<button class="mini-btn" onclick="finForm(null,\'saida\')">－ Saída</button>'+
        '<button class="mini-btn sec" onclick="finCSV()">⬇ CSV</button>';
   }
   h+='<button class="mini-btn" onclick="finDoar()" style="background:#1c7a4e;color:#fff">🎁 Doar</button>';
@@ -378,13 +378,10 @@ window.finPixAuto=function(v){
     '</div>';
 };
 window.finCopiarNovo=function(enc){ copiar(decodeURIComponent(enc)); toast('Código copiado ✓'); };
-window.finJaPaguei=async function(valor,encCode){
+window.finJaPaguei=function(valor,encCode){
   const u=usuarioAtual(); if(!u) return;
   const code=decodeURIComponent(encCode);
-  try{
-    const {data,error}=await sb.from('doacoes').insert({user_id:u.id,nome:u.nome,valor:valor,pix_code:code}).select('id').single();
-    if(error) throw new Error(error.message);
-    const c=cfgFin(); const wpp=wppNormalizado(c.wpp);
+  const c=cfgFin(); const wpp=wppNormalizado(c.wpp);
     const msg='Olá! Fiz uma doação de '+brl(valor)+' para o Ministério de Música IBNM. Segue o comprovante. (Registrado no app como pendente — '+u.nome+', '+new Date().toLocaleString('pt-BR')+')';
     /* v77: NÃO abre o WhatsApp antes — ele anexa primeiro; o WhatsApp só abre no botão "Anexar e enviar" */
     abrirModal('<h3>✅ Doação registrada</h3>'+
@@ -393,15 +390,20 @@ window.finJaPaguei=async function(valor,encCode){
       (wpp?'<p style="font-size:13px;color:#456;margin-top:8px">Depois de anexar, o WhatsApp do ministério abre com a mensagem pronta — é só confirmar o envio.</p>':
            '<p style="font-size:13px;color:#b8860b;margin-top:8px">O ADM ainda não cadastrou o WhatsApp — o comprovante fica guardado no app.</p>')+
       '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Agora não</button>'+
-      '<button class="btn btn-primary" id="doaEnvBtn" onclick="doaEnviar(\''+data.id+'\',\''+encodeURIComponent(msg)+'\')">'+(wpp?'📤 Anexar e enviar no WhatsApp':'📷 Anexar comprovante')+'</button></div>');
-  }catch(err){ toast('Erro ao registrar: '+(err.message||err)); }
+      '<button class="btn btn-primary" id="doaEnvBtn" onclick="doaEnviar()">'+(wpp?'📤 Anexar e enviar no WhatsApp':'📷 Anexar comprovante')+'</button></div>');
+  try{ $('#modalBox').dataset.trava='1'; }catch(_){}
+  window._doaMsg=encodeURIComponent(msg);
+  window._doaInsertP=sb.from('doacoes').insert({user_id:u.id,nome:u.nome,valor:valor,pix_code:code}).select('id').single().then(function(r){ if(r&&r.error) throw new Error(r.error.message); return (r.data||{}).id; });
+  window._doaInsertP.catch(function(){});
 };
 /* v77: anexa o comprovante e SÓ ENTÃO abre o WhatsApp do ministério */
-window.doaEnviar=async function(id,encMsg){
+window.doaEnviar=async function(){
   const f=(($('#doaFoto')||{}).files||[])[0];
   if(!f) return toast('Anexe a foto do comprovante primeiro.');
   const b=$('#doaEnvBtn'); if(b){ b.disabled=true; b.textContent='Enviando comprovante…'; }
   try{
+    if(!window._doaInsertP) throw new Error('Registro da doação não encontrado — feche e toque em Já paguei de novo.');
+    const id=await window._doaInsertP;
     const url=await anexoSobe('financeiro/doacoes',f);
     const {error}=await sb.from('doacoes').update({comprovante_url:url}).eq('id',id);
     if(error) throw new Error(error.message);
@@ -409,7 +411,7 @@ window.doaEnviar=async function(id,encMsg){
     toast('Comprovante anexado ✓');
     fecharModal(); finSync(); setTimeout(carregaFin,400);
     if(wpp){
-      const msg=decodeURIComponent(encMsg);
+      const msg=decodeURIComponent(window._doaMsg||'');
       try{ window.open('https://wa.me/'+wpp+'?text='+encodeURIComponent(msg),'_blank','noopener'); }catch(_){}
       setTimeout(function(){ try{ abrirModal('<h3>WhatsApp aberto ✓</h3><p style="font-size:14px;color:#456">A conversa com o ministério abriu com a mensagem — anexe também a foto do comprovante por lá.</p><div class="modal-acts"><button class="btn btn-primary" onclick="fecharModal()">Entendi</button></div>'); }catch(_){} },400);
     }else{
@@ -427,6 +429,7 @@ window.doaAnexarDepois=function(id){
     '<label style="font-size:14px;color:#456;font-weight:700">Foto do comprovante <span class="req">*</span><input id="doaFoto" type="file" accept="image/*" capture="environment" style="display:block;margin-top:4px;font-size:13px"></label>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button>'+
     '<button class="btn btn-primary" onclick="doaAnexar(\''+id+'\')">Salvar comprovante</button></div>');
+  try{ $('#modalBox').dataset.trava='1'; }catch(_){}
 };
 window.doaAnexar=async function(id){
   const f=(($('#doaFoto')||{}).files||[])[0];
@@ -439,10 +442,9 @@ window.doaAnexar=async function(id){
 };
 window.doaApagar=function(id){
   if(!confirm('Cancelar esta doação pendente?')) return;
-  sb.from('doacoes').delete().eq('id',id).then(({error})=>{
-    if(error) return toast('Erro: '+error.message);
-    toast('Doação cancelada'); finSync(); setTimeout(carregaFin,400);
-  });
+  /* v79: some da tela NA HORA — apaga no servidor em segundo plano */
+  DOA=DOA.filter(x=>x.id!==id); try{ _finUlt=''; }catch(_){} finPinta(); toast('Doação cancelada ✓');
+  sb.from('doacoes').delete().eq('id',id).then(({error})=>{ if(error) toast('Erro ao apagar: '+error.message); else { try{ finSync(); }catch(_){} } });
 };
 window.doaExcluir=function(id){
   if(!podeSetor('financeiro')) return toast('Sem permissão.');
@@ -453,10 +455,11 @@ window.doaExcluir=function(id){
     const m=u.match(/\/storage\/v1\/object\/public\/anexos\/([^?]+)/);
     if(m && typeof sb!=='undefined' && sb && sb.storage) sb.storage.from('anexos').remove([decodeURIComponent(m[1])]);
   }catch(_){}
-  sb.from('doacoes').delete().eq('id',id).then(({error})=>{
-    if(error) return toast('Erro: '+error.message);
-    toast('Doação excluída ✓'); finSync(); setTimeout(carregaFin,400);
-  });
+  /* v79: apaga também a entrada que a confirmação criou no relatório */
+  if(d.lancamento_id){ try{ sb.from('financeiro').delete().eq('id',d.lancamento_id); }catch(_){} }
+  /* v79: some da tela NA HORA — apaga no servidor em segundo plano */
+  DOA=DOA.filter(x=>x.id!==id); try{ _finUlt=''; }catch(_){} finPinta(); toast('Doação excluída ✓');
+  sb.from('doacoes').delete().eq('id',id).then(({error})=>{ if(error) toast('Erro ao excluir: '+error.message); else { try{ finSync(); }catch(_){} } });
 };
 window.doaConf=async function(id){
   if(!podeSetor('financeiro')) return toast('Sem permissão.');

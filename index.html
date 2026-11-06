@@ -407,7 +407,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
    Persistencia local (localStorage). Pontos de integracao
    para Google Login / Google Drive marcados com [INTEGRACAO].
 ============================================================ */
-const VERSION = 'v1.4.7';
+const VERSION = 'v1.4.8';
 const DB_KEY = 'ibnm_mm_db_v1';
 const SES_KEY = 'ibnm_mm_sessao';
 const LOGO = document.getElementById('logoTpl').innerHTML;
@@ -942,10 +942,10 @@ function salvarSenha(){ const u=usuarioAtual();
 }
 
 /* ---------- Modal generico ---------- */
-function abrirModal(html){ $('#modalBox').innerHTML=html; $('#modalBox').classList.remove('modal-part'); $('#modalBg').classList.remove('mp'); $('#modalBg').classList.add('show'); }
-function fecharModal(){ $('#modalBg').classList.remove('show'); $('#modalBox').classList.remove('modal-part'); $('#modalBg').classList.remove('mp'); }
+function abrirModal(html){ $('#modalBox').dataset.trava=''; $('#modalBox').innerHTML=html; $('#modalBox').classList.remove('modal-part'); $('#modalBg').classList.remove('mp'); $('#modalBg').classList.add('show'); }
+function fecharModal(){ try{ $('#modalBox').dataset.trava=''; }catch(_){} $('#modalBg').classList.remove('show'); $('#modalBox').classList.remove('modal-part'); $('#modalBg').classList.remove('mp'); }
 document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ const bg=document.getElementById('modalBg'); if(bg&&bg.classList.contains('show')){ e.preventDefault(); fecharModal(); } } });
-$('#modalBg').addEventListener('click',e=>{ if(e.target===$('#modalBg')) fecharModal(); });
+$('#modalBg').addEventListener('click',e=>{ if(e.target===$('#modalBg')){ const _m=document.getElementById('modalBox'); if(_m && _m.dataset.trava==='1') return; fecharModal(); } });
 </script>
 <script>
 /* ============== MUSICAS (alfabeto + lista) ============== */
@@ -2404,7 +2404,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v78';
+window.APP_V='v79';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */
