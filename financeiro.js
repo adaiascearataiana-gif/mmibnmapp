@@ -671,7 +671,7 @@ if(!window.__sincAgendada){
   setTimeout(()=>{ try{
     const souAdm=(typeof ehAdminReal==='function')&&ehAdminReal(); /* v68: fundo não depende do modo de vista */
     const D=window.__drive;
-    if(souAdm&&D&&D.ok()&&(!D.conectado()||false)&&!_silTentou){
+    if(false){ /* v1.5: sem janela do Google automática — só abre quando a pessoa tocar em Conectar/Enviar */
       _silTentou=true;
       driveSilencioso().then(()=>{ try{ driveSinc(); }catch(_){} }).catch(()=>{});
     }else{ driveSinc(); }
