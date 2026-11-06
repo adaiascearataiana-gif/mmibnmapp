@@ -199,7 +199,7 @@ ROTAS.financeiro=function(){
   else if(finAba==='doacoes') h+=finHTMLDoacoes();
   else h+=finHTMLMinhas();
   /* config PIX (só ADM principal/completo) */
-  try{ if(ehAdmin()) h+=finHTMLCfg(); }catch(_){}
+  try{ if(ehAdmin()){ h+=finHTMLCfg(); if(typeof cardSetores==='function') h+=cardSetores(); } }catch(_){}
   h+='</div>';
   return h;
 };
