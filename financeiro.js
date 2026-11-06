@@ -9,6 +9,7 @@
 ============================================================ */
 (function(){
 'use strict';
+const ehPdf=f=>!!f&&(/pdf/i.test(f.type||'')||/\.pdf$/i.test(f.name||''));
 const $=s=>document.querySelector(s);
 const e=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const brl=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -136,24 +137,24 @@ function wppNormalizado(w){ let d=String(w||'').replace(/\D/g,''); if(!d) return
 
 /* ---------- anexos: Drive primeiro, fallback no app ---------- */
 async function anexoSobe(caminho,file){
-  let b=file; try{ b=await reduzImagem(file,1600,0.8); }catch(_){}
-  const path=caminho+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg';
-  const up=await sb.storage.from('anexos').upload(path,b,{contentType:'image/jpeg',cacheControl:'31536000'});
+  const _pdf=ehPdf(file); let b=file; if(!_pdf){ try{ b=await reduzImagem(file,1600,0.8); }catch(_){} }
+  const path=caminho+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+(_pdf?'.pdf':'.jpg');
+  const up=await sb.storage.from('anexos').upload(path,b,{contentType:_pdf?'application/pdf':'image/jpeg',cacheControl:'31536000'});
   if(up.error) throw new Error(up.error.message);
   return sb.storage.from('anexos').getPublicUrl(path).data.publicUrl;
 }
 /* Foto: SEMPRE no app (bucket anexos) p/ todos verem; e, se o aparelho
    estiver conectado ao Drive, copia na hora pro Drive do ADM principal. */
 async function anexoCompleto(caminhoBucket,file,nomeArq,pastaDriveNome){
-  let b=file; try{ b=await reduzImagem(file,1600,0.8); }catch(_){}
-  const path=caminhoBucket+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg';
-  const up=await sb.storage.from('anexos').upload(path,b,{contentType:'image/jpeg',cacheControl:'31536000'});
+  const _pdf=ehPdf(file); let b=file; if(!_pdf){ try{ b=await reduzImagem(file,1600,0.8); }catch(_){} }
+  const path=caminhoBucket+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+(_pdf?'.pdf':'.jpg');
+  const up=await sb.storage.from('anexos').upload(path,b,{contentType:_pdf?'application/pdf':'image/jpeg',cacheControl:'31536000'});
   if(up.error) throw new Error(up.error.message);
   const url=sb.storage.from('anexos').getPublicUrl(path).data.publicUrl;
   let drive='';
   try{ const D=window.__drive;
     if(D&&D.ok&&D.ok()&&D.conectado&&D.conectado()&&pastaDriveNome&&(typeof ehAdmin!=='function'||ehAdmin())){
-      const fid=await D.sobe(b,nomeArq,pastaDriveNome);
+      const fid=await D.sobe(b,_pdf?String(nomeArq).replace(/\.\w+$/,'')+'.pdf':nomeArq,pastaDriveNome);
       drive='https://drive.google.com/file/d/'+fid+'/view';
     } }catch(_){}
   return {url:url,drive:drive};
@@ -286,6 +287,11 @@ window.finCfgSalvar=async function(){
 
 /* ---------- ver comprovante ---------- */
 window.finVerAnexo=function(u){ if(!u) return;
+  if(/\.pdf(\?|$)/i.test(String(u))){
+    abrirModal('<h3>📄 Comprovante (PDF)</h3><iframe src="https://docs.google.com/viewer?embedded=true&url='+encodeURIComponent(u)+'" style="width:100%;height:60vh;border:0;border-radius:10px;background:#f4f4f4"></iframe>'+
+      '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Fechar</button><a class="btn btn-primary" href="'+u+'" target="_blank" rel="noopener" style="text-align:center;text-decoration:none">Abrir o PDF</a></div>');
+    return;
+  }
   let src=u; const m=String(u).match(/drive\.google\.com\/file\/d\/([-\w]+)/);
   if(m) src='https://drive.google.com/thumbnail?id='+m[1]+'&sz=w1200';
   abrirModal('<div style="text-align:center"><img src="'+e(src)+'" style="max-width:100%;max-height:64vh;border-radius:10px" '+
@@ -307,7 +313,7 @@ window.finForm=function(id,tipoPrev){
     '<input id="lfDesc" placeholder="O que foi? (ex.: Aluguel do som, Oferta, Toner...)" value="'+e(r?r.descricao:'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:15px">'+
     '<input id="lfValor" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="Valor (R$)" value="'+(r?Number(r.valor).toFixed(2):'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:15px">'+
     '<input id="lfData" type="date" value="'+(r?String(r.data):new Date().toISOString().slice(0,10))+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:15px">'+
-    '<label style="font-size:13px;color:#456">📷 Comprovante/foto (opcional — vai p/ o Google Drive)<input id="lfFoto" type="file" accept="image/*" capture="environment" style="display:block;margin-top:4px;font-size:13px"></label>'+
+    '<label style="font-size:13px;color:#456">📎 Comprovante: foto ou PDF (opcional — vai p/ o Google Drive)<input id="lfFoto" type="file" accept="image/*,application/pdf" style="display:block;margin-top:4px;font-size:13px"></label>'+
     '</div><div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button>'+
     '<button class="btn btn-primary" onclick="finSalvar(\''+(r?r.id:'')+'\')">Salvar</button></div>');
 };
@@ -386,7 +392,7 @@ window.finJaPaguei=function(valor,encCode){
     /* v77: NÃO abre o WhatsApp antes — ele anexa primeiro; o WhatsApp só abre no botão "Anexar e enviar" */
     abrirModal('<h3>✅ Doação registrada</h3>'+
       '<p style="font-size:14px;color:#456;margin:8px 0"><b>'+brl(valor)+'</b> registrada no seu nome — aparece como <b>pendente</b> até o ADM financeiro confirmar.</p>'+
-      '<label style="font-size:14px;color:#456;font-weight:700">📷 Foto do comprovante <span class="req">*</span><input id="doaFoto" type="file" accept="image/*" capture="environment" style="display:block;margin-top:4px;font-size:13px"></label>'+
+      '<label style="font-size:14px;color:#456;font-weight:700">📷 Foto do comprovante <span class="req">*</span><input id="doaFoto" type="file" accept="image/*,application/pdf" style="display:block;margin-top:4px;font-size:13px"></label>'+
       (wpp?'<p style="font-size:13px;color:#456;margin-top:8px">Depois de anexar, o WhatsApp do ministério abre com a mensagem pronta — é só confirmar o envio.</p>':
            '<p style="font-size:13px;color:#b8860b;margin-top:8px">O ADM ainda não cadastrou o WhatsApp — o comprovante fica guardado no app.</p>')+
       '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Agora não</button>'+
@@ -426,14 +432,14 @@ window.doaEnviar=async function(){
 window.doaAnexarDepois=function(id){
   abrirModal('<h3>📷 Anexar comprovante</h3>'+
     '<p style="font-size:13.5px;color:#456">Anexe a foto do comprovante desta doação pendente.</p>'+
-    '<label style="font-size:14px;color:#456;font-weight:700">Foto do comprovante <span class="req">*</span><input id="doaFoto" type="file" accept="image/*" capture="environment" style="display:block;margin-top:4px;font-size:13px"></label>'+
+    '<label style="font-size:14px;color:#456;font-weight:700">Foto do comprovante <span class="req">*</span><input id="doaFoto" type="file" accept="image/*,application/pdf" style="display:block;margin-top:4px;font-size:13px"></label>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button>'+
     '<button class="btn btn-primary" onclick="doaAnexar(\''+id+'\')">Salvar comprovante</button></div>');
   try{ $('#modalBox').dataset.trava='1'; }catch(_){}
 };
 window.doaAnexar=async function(id){
   const f=(($('#doaFoto')||{}).files||[])[0];
-  if(!f) return toast('Escolha a foto do comprovante.');
+  if(!f) return toast('Escolha a foto ou o PDF do comprovante.');
   try{ const url=await anexoSobe('financeiro/doacoes',f);
     const {error}=await sb.from('doacoes').update({comprovante_url:url}).eq('id',id);
     if(error) throw new Error(error.message);

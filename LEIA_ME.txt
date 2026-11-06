@@ -1,41 +1,49 @@
-LEIA_ME — atualização v72 (06/11/2026)
-DOIS PROBLEMAS RESOLVIDOS:
+LEIA_ME — atualização v79 (06/11/2026)
 
-1) ⬅️ O APP FECHAVA ANTES DE CHEGAR NA HOME (sem pergunta)
-   Causa: quando o Android mata o app e você reabre, o app voltava pra
-   onde você estava, mas o histórico do navegador ficava curto — o 2º
-   "volta" saía do app na hora, antes da home, e a pergunta
-   "👋 Deseja sair?" nem tinha chance de aparecer.
-   Correção: ao restaurar a tela, o app agora recria o histórico
-   completo — o volta anda tela a tela, chega na HOME, e só aí pergunta
-   "Deseja sair?" com os botões SIM e NÃO.
+1) 📷 BOTÃO "ANEXAR E ENVIAR" NÃO SOME MAIS SOZINHO
+   • causa raiz: o realtime do financeiro repintava a tela e o
+     "go()" fechava o modal automático ~¼ de segundo depois —
+     corrigido: a repintura ESPERA o modal fechar;
+   • modal TRAVADO: só fecha nos botões (Agora não/Cancelar) —
+     toque fora não derruba mais;
+   • o modal do comprovante agora ABRE NA HORA do "Já paguei"
+     (o registro roda em paralelo — sem espera nem "sumiço").
+   O botão some somente depois: 1) anexar a foto; 2) você acionar
+   "Anexar e enviar".
 
-2) 👑 PAINEL DE ADMs NÃO APARECIA
-   Conferi no banco: você É o ADM principal (admin=true, nenhum
-   ADM com área marcada). Se ainda não aparecer:
-   a) Feche TODO o app (tira das recentes) e abra de novo — o v72
-      atualiza sozinho na primeira abertura;
-   b) Olhe a pílula lá em cima do menu — se estiver escrito
-      "👤 Modo usuário", toque nela uma vez (isso volta pro modo ADM);
-   c) Abra ☰ → ⚙️ Painel do ADM — o card "👑 Painel de ADMs" está
-      lá, só com ADMs, com as caixinhas 💰/🔧 de área.
+2) 🗑️ EXCLUIR/CANCELAR DOAÇÃO = IMEDIATO
+   • a linha some da tela NA HORA (remoção otimista) e o servidor
+     é avisado em segundo plano — fim dos ~2s de espera.
 
-ARQUIVOS: index.html, sw.js, LEIA_ME.txt
+3) 💰 DOAÇÃO CONFIRMADA JÁ VIRA ENTRADA NO RELATÓRIO
+   • ao tocar em ✓ Confirmar, a doação entra AUTOMATICAMENTE como
+     ▲ Entrada no saldo (descricao "Doação — nome", comprovante
+     vinculado) — era assim e segue assim, agora testado;
+   • REMOVIDO o botão manual "＋ Entrada" (sobra "－ Saída",
+     CSV e 🎁 Doar) — a própria doação confirmada é a entrada;
+   • se o ADM EXCLUIR uma doação confirmada, a entrada vinculada
+     é apagada junto (sem fantasma no saldo).
+
+ARQUIVOS: index.html, financeiro.js, membros.js, escala.js,
+          inventario.js, sw.js, LEIA_ME.txt
+VERSÃO: v79 (APP_V) / v1.4.8 (VERSION) / mmibnm-v79 (SW)
 
 COMANDOS NO TERMUX (um por vez — o PRIMEIRO baixa atualizações):
-ls -l ~/storage/downloads | grep v72
+ls -l ~/storage/downloads | grep v79
 cd ~/mmibnmapp
 git pull
-unzip -o ~/storage/downloads/atualizacao_v72.zip
-grep -c "window.APP_V='v72'" index.html
-grep -c 'mmibnm-v72' sw.js
-grep -c 'var _prof=navStack.length' index.html
-grep -c 'Deseja sair?' index.html
-grep -c "VERSION = 'v1.3.3'" index.html
-git add index.html sw.js
-git commit -m "v72: volta com pergunta Deseja sair apos restore (historico fisico = pilha) e versao v1.3.3"
+unzip -o ~/storage/downloads/atualizacao_v79.zip
+grep -c "APP_V='v79'" index.html
+grep -c 'mmibnm-v79' sw.js
+grep -c 'dataset.trava' index.html
+grep -c 'setTimeout(finPinta,600)' financeiro.js
+grep -c 'DOA=DOA.filter(x=>x.id!==id)' financeiro.js
+grep -c '_doaInsertP' financeiro.js
+grep -c 'd.lancamento_id' financeiro.js
+grep -c "VERSION = 'v1.4.8'" index.html
+git add index.html financeiro.js membros.js escala.js inventario.js sw.js
+git commit -m "v79: modal de comprovante estavel, exclusao imediata e doacao confirmada vira entrada"
 git push
-(esperado dos greps: 1, 1, 1, 2, 1)
+(esperado dos greps: 1, 1, 3, 1, 2, 4, 1, 1)
 
-LEMBRETE: caminho de downloads do Termux é ~/storage/downloads
-(NÃO existe ~/Downloads). Apague a aba antiga antes de abrir o app.
+LEMBRETE: downloads do Termux = ~/storage/downloads (NÃO ~/Downloads).
