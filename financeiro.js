@@ -227,11 +227,11 @@ function finHTMLDoacoes(){
     const badge=d.status==='confirmada'?'<span style="color:#1c7a4e;font-weight:800">✓ confirmada</span>':
                 d.status==='rejeitada'?'<span style="color:#b33;font-weight:800">✗ rejeitada</span>':
                 '<span style="color:#b8860b;font-weight:800">⏳ pendente</span>';
-    h+='<div class="info-row"><span class="v" style="text-align:left">'+
+    h+='<div class="info-row"><span class="v" style="text-align:left;flex:1;min-width:0">'+
       '<span style="font-weight:700">'+e(d.nome||'Membro')+' — '+brl(d.valor)+'</span><br>'+
       '<span style="font-weight:400;font-size:12px;color:#789">'+new Date(d.criado_em).toLocaleString('pt-BR')+' • '+badge+
       (d.comprovante_url?' • <a href="javascript:void(0)" onclick="finVerAnexo(\''+e(d.comprovante_url)+'\')" style="color:#1c7a4e;font-weight:700">comprovante</a>':'')+
-      '</span></span><span>'+
+      '</span></span><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;flex:none;max-width:100%">'+
       (d.status==='pendente'?'<button class="mini-btn" onclick="doaConf(\''+d.id+'\')" style="background:#1c7a4e;color:#fff">✓</button> <button class="mini-btn sec" onclick="doaRej(\''+d.id+'\')">✗</button> ':'')+
       '<button class="mini-btn" style="background:#b33;color:#fff" onclick="doaExcluir(\''+d.id+'\')">🗑 Excluir</button>'+
       '</span></div>';
