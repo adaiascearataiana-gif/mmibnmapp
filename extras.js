@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.8.2)
+   MM IBNM — Extras (v1.8.3)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -403,6 +403,42 @@ function aplicaLetra(forca){
   } else { song.style.display=''; if(box) box.remove(); }
 }
 let _lt=0; new MutationObserver(()=>{ clearTimeout(_lt); _lt=setTimeout(()=>aplicaLetra(false),30); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+
+/* ======================= 13) EDIÇÕES DA HARPA NA NUVEM ======================= */
+/* Igual ao Cantor: o ADM corrige um hino da Harpa e todos veem.
+   Precisa do SQL "harpa_edits". Sem a tabela, continua como antes (só no aparelho). */
+const HK='ibnm_hr_ed';
+const podeHinos=()=>{ try{ if(window.ehPrincipal&&ehPrincipal()) return true; return !!(window.secaoLiberada&&secaoLiberada('hinos')); }catch(_){ return false; } };
+const _setItem=Storage.prototype.setItem;
+let _hrSync=false, _hrTabela=null;
+async function hrSobe(antes,depois){
+  if(!podeHinos() || _hrTabela===false || typeof sb==='undefined') return;
+  const ns=new Set([...Object.keys(antes||{}),...Object.keys(depois||{})]);
+  for(const n of ns){
+    const a=JSON.stringify(antes[n]||null), d=JSON.stringify(depois[n]||null); if(a===d) continue;
+    try{ const r= depois[n] && Object.keys(depois[n]).length
+        ? await sb.from('harpa_edits').upsert({num:+n,linhas:depois[n],updated_at:new Date().toISOString()})
+        : await sb.from('harpa_edits').delete().eq('num',+n);
+      if(r && r.error){ _hrTabela=false; toast('Correção da Harpa salva só neste aparelho. Rode o SQL "harpa_edits" para todos verem.'); return; } }catch(_){}
+  }
+}
+Storage.prototype.setItem=function(k,v){
+  if(this===localStorage && k===HK && !_hrSync){ let antes={}; try{ antes=JSON.parse(localStorage.getItem(HK)||'{}')||{}; }catch(_){}
+    _setItem.call(this,k,v); let depois={}; try{ depois=JSON.parse(v||'{}')||{}; }catch(_){} hrSobe(antes,depois); return; }
+  return _setItem.call(this,k,v);
+};
+async function hrBaixa(){
+  try{
+    if(typeof sb==='undefined'||!sb) return;
+    const {data,error}=await sb.from('harpa_edits').select('num,linhas'); if(error){ _hrTabela=false; return; }
+    _hrTabela=true;
+    const nuvem={}; (data||[]).forEach(r=>{ if(r.linhas && typeof r.linhas==='object' && Object.keys(r.linhas).length) nuvem[r.num]=r.linhas; });
+    let local={}; try{ local=JSON.parse(localStorage.getItem(HK)||'{}')||{}; }catch(_){}
+    if(podeHinos()){ for(const n of Object.keys(local)) if(!nuvem[n]){ nuvem[n]=local[n]; try{ await sb.from('harpa_edits').upsert({num:+n,linhas:local[n],updated_at:new Date().toISOString()}); }catch(_){} } }
+    if(JSON.stringify(nuvem)!==JSON.stringify(local)){ _hrSync=true; try{ localStorage.setItem(HK,JSON.stringify(nuvem)); }finally{ _hrSync=false; } }
+  }catch(_){}
+}
+setTimeout(hrBaixa,4000); setInterval(()=>{ if(document.visibilityState==='visible') hrBaixa(); },120000);
 
 /* ======================= 10) ✕ PARA FECHAR AS JANELAS ======================= */
 function poeX(){ const bg=document.getElementById('modalBg'), box=document.getElementById('modalBox');
