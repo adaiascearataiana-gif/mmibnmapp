@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.9.1)
+   MM IBNM — Extras (v1.10.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -471,7 +471,7 @@ const ALIAS={'':'','maj':'','m':'m','min':'m','-':'m','7':'7','7m':'7M','maj7':'
  'm7':'m7','min7':'m7','-7':'m7','m7b5':'m7(b5)','ø':'m7(b5)','m7(b5)':'m7(b5)','dim':'º','°':'º','º':'º','o':'º','dim7':'º7','°7':'º7','º7':'º7','o7':'º7',
  'aug':'+','+':'+','+5':'+','#5':'+','sus2':'sus2','2':'sus2','sus4':'sus4','sus':'sus4','4':'sus4','7sus4':'7sus4','7sus':'7sus4','74':'7sus4','7(4)':'7sus4',
  '6':'6','m6':'m6','add9':'add9','(9)':'add9','add2':'add9','madd9':'m(add9)','m(9)':'m(add9)','madd2':'m(add9)','9':'9','7(9)':'9','m9':'m9','m7(9)':'m9',
- 'maj9':'7M(9)','7m(9)':'7M(9)','7m9':'7M(9)','69':'6/9','6/9':'6/9','6(9)':'6/9','7b9':'7(b9)','7(b9)':'7(b9)','7#9':'7(#9)','7(#9)':'7(#9)',
+ 'maj9':'7M(9)','7/9':'9','7(9)':'9','m7/9':'m9','7/4':'7sus4','7(4)':'7sus4','7/4/9':'9','4/7':'7sus4','7m/9':'7M(9)','7M/9':'7M(9)','7/13':'13','7(13)':'13','7/11':'11','m7/11':'m11','7/b9':'7(b9)','7/#9':'7(#9)','7/5+':'7(#5)','7/5-':'7(b5)','m7/5-':'m7(b5)','m5-/7':'m7(b5)','m/7M':'m(7M)','5+':'+','º/7':'º7','dim/7':'º7','7m(9)':'7M(9)','7m9':'7M(9)','69':'6/9','6/9':'6/9','6(9)':'6/9','7b9':'7(b9)','7(b9)':'7(b9)','7#9':'7(#9)','7(#9)':'7(#9)',
  '7#5':'7(#5)','7(#5)':'7(#5)','7+5':'7(#5)','7b5':'7(b5)','7(b5)':'7(b5)','7-5':'7(b5)','11':'11','m11':'m11','13':'13','5':'5'};
 function lerAcorde(txt,baixo){
   let t=String(txt||'').trim().replace(/\s+/g,''); if(!t) return null;
@@ -649,6 +649,73 @@ if(typeof ROTAS!=='undefined'){
     return '<div class="page"><div class="page-ttl">🎼 Dicionário de acordes</div><div class="card" id="acBox"></div></div>'; };
 }
 
+/* ======================= 15) ACORDES DA MÚSICA (violão / piano) ======================= */
+/* Em cada música e hino: painel com o desenho de cada acorde usado (violão ou piano, à escolha),
+   toque no acorde da cifra para ver/ouvir, e um espaço a mais depois da introdução. */
+const instPref=()=> localStorage.getItem('ibnm_ac_inst')||'violao';
+window.acPainelInst=function(i){ localStorage.setItem('ibnm_ac_inst',i); document.querySelectorAll('.am-box').forEach(b=>b.dataset.sig=''); acordesDaMusica(true); };
+window.acPainelAbre=function(){ const v=localStorage.getItem('ibnm_ac_fechado')==='1'?'0':'1'; localStorage.setItem('ibnm_ac_fechado',v); acordesDaMusica(true); };
+function desenhoAcorde(nome,inst,idx,grande){
+  const A=lerAcorde(nome); if(!A||A.erro) return '<div class="am-cel sem"><b>'+e(nome)+'</b><small>—</small></div>';
+  if(inst==='piano'){ const v=variacoesPiano(A)[0]; (window.__amP=window.__amP||{})[idx]=v;
+    return '<button class="am-cel'+(grande?' gr':'')+'" onclick="amTocar(\'p\','+idx+')"><b>'+e(A.nome)+'</b>'+svgPiano(v.n,v.b,A.nomes)+'</button>'; }
+  const ps=posicoesViolao(A); if(!ps.length) return '<div class="am-cel sem"><b>'+e(A.nome)+'</b><small>sem forma</small></div>';
+  (window.__amV=window.__amV||{})[idx]=ps[0];
+  return '<button class="am-cel'+(grande?' gr':'')+'" onclick="amTocar(\'v\','+idx+')"><b>'+e(A.nome)+'</b>'+svgViolao(ps[0].f)+'</button>';
+}
+window.amTocar=function(t,i){ const ctx=audio(); if(!ctx) return;
+  const t0=ctx.currentTime+0.03;
+  if(t==='v'){ const p=(window.__amV||{})[i]; if(!p) return; let k=0; p.f.forEach((f,c)=>{ if(f<0) return; corda(ctx,hz(AFIN[c]+f),t0+k*0.045,0.55); k++; }); }
+  else { const v=(window.__amP||{})[i]; if(!v) return; if(v.b!=null) tecla(ctx,hz(60+v.b-12),t0,0.28); v.n.forEach(n=>tecla(ctx,hz(60+n),t0+(v.b!=null?0.06:0),0.2)); }
+};
+function acordesNaTela(){
+  const z=document.querySelector('#content #zoomTarget');
+  if(z) return {alvo:z, lista:[...z.querySelectorAll('.cf-ac')].map(x=>x.textContent.trim())};
+  const song=document.querySelector('#content .cc-song');
+  if(song && song.style.display!=='none') return {alvo:song, lista:[...song.querySelectorAll('.c')].map(x=>x.textContent.trim())};
+  return null;
+}
+function acordesDaMusica(forca){
+  const info=acordesNaTela(); const velho=document.querySelector('#content .am-box');
+  if(!info){ if(velho) velho.remove(); return; }
+  const lista=[...new Set(info.lista.filter(x=>x && /^[A-G]/.test(x)))].slice(0,30);
+  if(!lista.length){ if(velho) velho.remove(); return; }
+  const inst=instPref(), fechado=localStorage.getItem('ibnm_ac_fechado')==='1';
+  const sig=lista.join('|')+'#'+inst+'#'+fechado;
+  if(velho && velho.dataset.sig===sig && !forca) return;
+  window.__amV={}; window.__amP={};
+  const html='<div class="am-box card" data-sig="'+e(sig)+'"><div class="am-h"><b>🎼 Acordes desta música</b>'+
+    '<div class="am-seg"><button class="'+(inst==='violao'?'on':'')+'" onclick="acPainelInst(\'violao\')">🎸 Violão</button><button class="'+(inst==='piano'?'on':'')+'" onclick="acPainelInst(\'piano\')">🎹 Piano</button></div>'+
+    '<button class="am-x" onclick="acPainelAbre()" aria-label="Mostrar ou esconder">'+(fechado?'▾':'▴')+'</button></div>'+
+    (fechado? '<div class="am-chips">'+lista.map(c=>'<span>'+e(c)+'</span>').join('')+'</div>'
+             : '<div class="am-lista'+(inst==='piano'?' pn':'')+'">'+lista.map((c,i)=>desenhoAcorde(c,inst,i)).join('')+'</div><p class="am-dica">Toque no acorde para ouvir. Toque num acorde da cifra para ver o desenho.</p>')+'</div>';
+  if(velho) velho.outerHTML=html; else info.alvo.insertAdjacentHTML('beforebegin',html);
+}
+/* tocar num acorde da cifra: mostra o desenho (violão ou piano) */
+document.addEventListener('click',ev=>{
+  const c=ev.target.closest && ev.target.closest('#zoomTarget .cf-ac, .cc-song .c'); if(!c) return;
+  const nome=c.textContent.trim(); if(!nome || !/^[A-G]/.test(nome)) return;
+  if(c.closest('.cc-song.editing') || document.querySelector('.cc-song.editing, #zoomTarget[contenteditable=true]')) return;   /* editando: não atrapalha */
+  window.__amV={}; window.__amP={};
+  const inst=instPref();
+  abrirModal('<h3>🎼 '+e(nome)+'</h3><div class="am-seg md"><button class="'+(inst==='violao'?'on':'')+'" onclick="localStorage.setItem(\'ibnm_ac_inst\',\'violao\');document.getElementById(\'amPop\').innerHTML=desenhoAc(\''+e(nome)+'\',\'violao\')">🎸 Violão</button><button class="'+(inst==='piano'?'on':'')+'" onclick="localStorage.setItem(\'ibnm_ac_inst\',\'piano\');document.getElementById(\'amPop\').innerHTML=desenhoAc(\''+e(nome)+'\',\'piano\')">🎹 Piano</button></div>'+
+    '<div id="amPop" class="am-pop">'+desenhoAcorde(nome,inst,0,true)+'</div><p class="am-dica">Toque no desenho para ouvir.</p>');
+  setTimeout(()=>amTocar(inst==='piano'?'p':'v',0),120);
+},true);
+window.desenhoAc=(n,i)=>{ window.__amV={}; window.__amP={}; document.querySelectorAll('.am-seg.md button').forEach((b,k)=>b.classList.toggle('on',(k===0)===(i==='violao'))); return desenhoAcorde(n,i,0,true); };
+
+/* espaço a mais entre a introdução e a música */
+function espacoIntro(){
+  const z=document.querySelector('#content #zoomTarget'); if(!z || z.dataset.esp===z.innerHTML.length+'') return;
+  const ls=z.innerHTML.split('\n'); const i=ls.findIndex(l=>/Intro/i.test(l.replace(/<[^>]+>/g,'')));
+  if(i<0 || i>3){ z.dataset.esp=z.innerHTML.length+''; return; }
+  const ehAc=l=>/^<span class="cf-ch">/.test(l);
+  let j=i; while(j+2<ls.length && ehAc(ls[j+1]) && ehAc(ls[j+2])) j++;
+  if(j+1<ls.length && ls[j+1].replace(/<[^>]+>/g,'').trim()!==''){ ls.splice(j+1,0,''); z.innerHTML=ls.join('\n'); }
+  z.dataset.esp=z.innerHTML.length+'';
+}
+let _am=0; new MutationObserver(()=>{ clearTimeout(_am); _am=setTimeout(()=>{ espacoIntro(); acordesDaMusica(false); },120); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true,characterData:true});
+
 /* ======================= 10) ✕ PARA FECHAR AS JANELAS ======================= */
 function poeX(){ const bg=document.getElementById('modalBg'), box=document.getElementById('modalBox');
   if(!bg||!box||!bg.classList.contains('show')) return; if(box.querySelector(':scope > .mx-x')) return;
@@ -736,6 +803,28 @@ button.ac-pcel{border:1px solid #e3ece7;border-radius:10px;padding:6px;width:100
 .ac-svg.pn{max-width:none}
 .ac-pn{display:flex;flex-direction:column;gap:10px}
 .ac-pcel small{display:block;font-size:12px;font-weight:800;color:#5d7c6e;margin-bottom:4px}
+.am-box{padding:10px 12px!important;margin-bottom:10px}
+.am-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.am-h>b{flex:1;font-size:14px;color:var(--verde-escuro);min-width:150px}
+.am-seg{display:flex;background:#e6efea;border-radius:10px;padding:2px;gap:2px}
+.am-seg button{height:32px;border:0;border-radius:8px;background:transparent;font-weight:800;font-size:12.5px;color:#3e5a4d;padding:0 10px}
+.am-seg button.on{background:var(--verde-med);color:#fff}
+.am-seg.md{margin-bottom:8px}
+.am-x{width:34px;height:32px;border:1px solid #cfdad4;border-radius:8px;background:#fff;font-size:14px}
+.am-lista{display:flex;gap:6px;overflow-x:auto;padding:8px 0 4px;scrollbar-width:thin}
+.am-cel{flex:none;width:92px;display:flex;flex-direction:column;align-items:center;gap:2px;border:1px solid #e3ece7;border-radius:10px;background:#fff;padding:4px 2px;font:inherit;color:#223}
+.am-lista.pn .am-cel{width:170px}
+.am-cel b{font-size:14px;color:var(--cor-acorde,#a8350a)}
+.am-cel .ac-svg{max-width:84px}
+.am-lista.pn .am-cel .ac-svg{max-width:160px}
+.am-cel.sem{justify-content:center;min-height:70px}
+.am-cel.gr{width:100%;border:0}
+.am-cel.gr .ac-svg{max-width:200px}
+.am-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.am-chips span{font-weight:900;color:var(--cor-acorde,#a8350a);background:#fff8f2;border-radius:8px;padding:2px 8px;font-size:13px}
+.am-dica{font-size:11.5px;color:#7a8f86;margin:2px 0 0}
+.am-pop{display:flex;justify-content:center}
+#zoomTarget .cf-ac,.cc-song .c{cursor:pointer}
 .ex-rec{white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;border-radius:10px;padding:12px;color:#234}
 `; document.head.appendChild(st);
 })();
