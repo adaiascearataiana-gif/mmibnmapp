@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.8.0)
+   MM IBNM — Extras (v1.8.1)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -353,27 +353,45 @@ function hinoAtual(){
   const lista= harpa? (window.HARPA||[]) : (window.HINOS||[]);
   return {harpa, h: lista.find(x=>x.n===n)};
 }
-function letraHTML(h){
-  let est=0;
-  return '<div class="cc-letra"><div class="cl-t">'+e(h.n+' · '+h.titulo)+'</div>'+(h.partes||[]).map(p=>{
+function letraHTML(h,harpa){
+  let est=0; const fs=harpa?'harpaFs':'cantorFs';
+  return '<div class="cc-letra"><div class="cl-top"><div class="cl-t">'+e(h.n+' · '+h.titulo)+'</div>'+
+    '<div class="cl-z"><button onclick="'+fs+'(-2)" aria-label="Diminuir letra">A−</button><button onclick="'+fs+'(2)" aria-label="Aumentar letra">A+</button></div></div>'+(h.partes||[]).map(p=>{
     const coro=p.tipo==='coro'; if(!coro) est++;
     return '<div class="cl-p'+(coro?' coro':'')+'"><span class="cl-r">'+(coro?'Coro':est)+'</span>'+(p.linhas||[]).map(l=>'<div>'+e(limpaLetra(l))+'</div>').join('')+'</div>';
   }).join('')+'</div>';
 }
 window.__modoLetra=false;
-window.alternarLetraHino=function(){ window.__modoLetra=!window.__modoLetra; aplicaLetra(true); };
+window.alternarLetraHino=function(v){ window.__modoLetra= (v===undefined)? !window.__modoLetra : !!v; aplicaLetra(true); };
+/* barra de botões do hino organizada em grupos */
+function organiza(tools){
+  if(tools.dataset.org) return; tools.dataset.org='1';
+  const itens=[...tools.children];
+  const acha=f=>itens.filter(f);
+  const g=(cls,lbl,els)=>{ els=els.filter(Boolean); if(!els.length) return null; const d=document.createElement('div'); d.className='cc-grp '+cls; if(lbl) d.insertAdjacentHTML('afterbegin','<span class="cc-gl">'+lbl+'</span>'); els.forEach(x=>d.appendChild(x)); return d; };
+  const txt=x=>(x.textContent||'');
+  const adm=acha(x=>/SETLIST|Ao vivo|AO VIVO|Editar cifras|Salvar cifras|Cancelar/i.test(txt(x)) || x.id==='ted' || x.classList.contains('cc-live'));
+  const midia=acha(x=>/PARTITURA|YouTube|Ouvir|▶ YouTube/i.test(txt(x)) && !adm.includes(x));
+  const ver=acha(x=>!adm.includes(x) && !midia.includes(x));
+  const seg=document.createElement('div'); seg.className='cc-seg';
+  seg.innerHTML='<button class="cc-seg-c" onclick="alternarLetraHino(false)">🎸 Cifra</button><button class="cc-seg-l" onclick="alternarLetraHino(true)">📖 Letra</button>';
+  tools.innerHTML=''; tools.appendChild(seg);
+  [g('cc-gv','',ver),g('cc-gm','',midia),g('cc-ga','ADM',adm)].forEach(d=>{ if(d) tools.appendChild(d); });
+}
+function zoomLetra(box,song){ try{ const v=song.style.getPropertyValue('--cc-fs')||getComputedStyle(song).getPropertyValue('--cc-fs'); if(v) box.style.setProperty('--cc-fs',v.trim()); }catch(_){} }
 function aplicaLetra(forca){
   const tools=document.querySelector('#content .cc-tools'); if(!tools) return;
-  let bt=tools.querySelector('.cc-letra-bt');
-  if(!bt){ tools.insertAdjacentHTML('afterbegin','<button class="tog cc-letra-bt" onclick="alternarLetraHino()"></button>'); bt=tools.querySelector('.cc-letra-bt'); }
-  bt.textContent= window.__modoLetra? '🎸 Cifra' : '📖 Letra';
-  bt.setAttribute('aria-pressed',window.__modoLetra?'true':'false');
+  tools.querySelectorAll(':scope > .cc-letra-bt').forEach(b=>b.remove());
+  organiza(tools);
+  const L=window.__modoLetra;
+  tools.classList.toggle('modo-letra',L);
+  const c=tools.querySelector('.cc-seg-c'), l=tools.querySelector('.cc-seg-l'); if(c) c.classList.toggle('on',!L); if(l) l.classList.toggle('on',L);
   const song=document.querySelector('#content .cc-song'); if(!song) return;
   let box=document.querySelector('#content .cc-letra');
-  if(window.__modoLetra){
-    const {h}=hinoAtual(); if(!h) return;
-    if(!box || box.dataset.n!==String(h.n) || forca){ if(box) box.remove(); song.insertAdjacentHTML('afterend',letraHTML(h)); box=document.querySelector('#content .cc-letra'); box.dataset.n=String(h.n); }
-    song.style.display='none'; box.style.display='';
+  if(L){
+    const {h,harpa}=hinoAtual(); if(!h) return;
+    if(!box || box.dataset.n!==String(h.n) || forca){ if(box) box.remove(); song.insertAdjacentHTML('afterend',letraHTML(h,harpa)); box=document.querySelector('#content .cc-letra'); box.dataset.n=String(h.n); }
+    zoomLetra(box,song); song.style.display='none'; box.style.display='';
   } else { song.style.display=''; if(box) box.remove(); }
 }
 let _lt=0; new MutationObserver(()=>{ clearTimeout(_lt); _lt=setTimeout(()=>aplicaLetra(false),30); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
@@ -423,13 +441,23 @@ body.modo-culto .cifra-box{font-size:1.08em}
 .fin-cmp .info-row .fin-ic{min-width:38px;width:38px;height:38px;min-height:38px;padding:0;font-size:16px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px}
 .fin-cmp .info-row .v{font-size:14px}
 .rs-in{width:100%;box-sizing:border-box;font-variant-numeric:tabular-nums;font-weight:700}
-.cc-letra{background:#fff;border:1px solid #eef0f3;border-radius:14px;padding:16px 16px 20px;box-shadow:0 1px 5px rgba(0,0,0,.05);font-size:1.12em;line-height:1.65;color:#1d2b24}
-.cc-letra .cl-t{font-weight:900;color:var(--verde-escuro);margin-bottom:10px}
+.cc-letra{background:#fff;border:1px solid #eef0f3;border-radius:14px;padding:14px 16px 20px;box-shadow:0 1px 5px rgba(0,0,0,.05);font-size:calc(var(--cc-fs,20px) * 1.05);line-height:1.6;color:#1d2b24}
+.cc-letra .cl-top{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.cc-letra .cl-t{flex:1;font-weight:900;color:var(--verde-escuro);font-size:16px}
+.cc-letra .cl-z{display:flex;gap:6px}
+.cc-letra .cl-z button{width:40px;height:34px;border-radius:10px;border:1px solid #cfdad4;background:#f4f8f6;font-weight:900;color:var(--verde-escuro);font-size:14px}
+.cc-tools{display:flex!important;flex-direction:column;align-items:stretch!important;gap:8px!important}
+.cc-seg{display:flex;background:#e6efea;border-radius:12px;padding:3px;gap:3px}
+.cc-seg button{flex:1;height:38px;border:0;border-radius:10px;background:transparent;font-weight:900;font-size:14px;color:#3e5a4d}
+.cc-seg button.on{background:var(--verde-med);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.cc-grp{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cc-grp>*{margin:0!important}
+.cc-gl{font-size:10.5px;font-weight:900;letter-spacing:.06em;color:#8a9;background:#eef3f0;border-radius:6px;padding:2px 6px}
+.cc-tools.modo-letra .cc-gv>*:not(#tsc){display:none!important}
 .cc-letra .cl-p{margin:0 0 16px;position:relative;padding-left:30px}
 .cc-letra .cl-r{position:absolute;left:0;top:2px;min-width:22px;height:22px;border-radius:11px;background:#e9f5ef;color:var(--verde-escuro);font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 5px}
 .cc-letra .coro{font-style:italic;color:#14513b}
 .cc-letra .coro .cl-r{background:var(--dourado);color:#3a2f00;font-style:normal;font-size:10.5px}
-.cc-letra-bt[aria-pressed=true]{background:var(--verde-med)!important;color:#fff!important;border-color:var(--verde-med)!important}
 .ex-rec{white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;border-radius:10px;padding:12px;color:#234}
 `; document.head.appendChild(st);
 })();
