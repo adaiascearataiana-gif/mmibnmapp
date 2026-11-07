@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.6.4)
+   MM IBNM — Extras (v1.7.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -143,6 +143,7 @@ if(typeof ROTAS!=='undefined'){
   /* Financeiro: gráfico */
   if(ROTAS.financeiro){ const _fi=ROTAS.financeiro; ROTAS.financeiro=function(){ let h=_fi.apply(this,arguments); setTimeout(graficoFin,80);
     if(!podeFin()){ h=soSaidas(h); setTimeout(saldoMembro,60); }
+    h=finCompacto(h);
     return h+'<div class="card" id="exFin"><h3>📈 '+(podeFin()?'Entradas e saídas':'Saídas')+' (6 meses)</h3><p class="ex-vz">Carregando…</p></div>'; }; }
 }
 /* Financeiro: ADM principal (fora do Modo usuário) e o ADM secundário a quem o principal
@@ -174,6 +175,31 @@ function soSaidas(h){
   return box.innerHTML;
 }
 /* membros não recebem as entradas uma a uma: o saldo vem do resumo do banco (fin_resumo) */
+/* botões compactos, abas numa linha só e "＋ Entrada" sempre presente para quem pode lançar */
+function finCompacto(h){
+  const box=document.createElement('div'); box.innerHTML=h;
+  const pg=box.querySelector('.fin-page')||box;
+  pg.classList.add('fin-cmp');
+  if(podeFin()){
+    const btSai=[...pg.querySelectorAll('button')].find(b=>/Sa[ií]da/.test(b.textContent) && /finForm/.test(b.getAttribute('onclick')||''));
+    const temEnt=[...pg.querySelectorAll('button')].some(b=>/Entrada/.test(b.textContent) && /finForm/.test(b.getAttribute('onclick')||''));
+    if(btSai && !temEnt){ const oc=(btSai.getAttribute('onclick')||'').replace(/saida/g,'entrada'); btSai.insertAdjacentHTML('beforebegin','<button class="mini-btn" onclick="'+oc.replace(/"/g,'&quot;')+'">＋ Entrada</button>'); }
+  }
+  pg.querySelectorAll('button').forEach(b=>{
+    const t=b.textContent.trim();
+    if(/finSetAba/.test(b.getAttribute('onclick')||'')){
+      if(/Lançamentos/.test(t)) b.textContent='Lançamentos';
+      else if(/Saídas/.test(t)) b.textContent='Saídas';
+      else if(/Doações recebidas|Recebidas/.test(t)) b.textContent='Recebidas';
+      else if(/Minhas/.test(t)) b.textContent='Minhas';
+    }
+    else if(/Excluir$/.test(t) && /doaExcluir|finExcluir/.test(b.getAttribute('onclick')||'')){ b.textContent='🗑'; b.title='Excluir'; b.classList.add('fin-ic'); }
+    if(/doaConf|doaRej/.test(b.getAttribute('onclick')||'')){ b.classList.add('fin-ic'); b.title=/doaConf/.test(b.getAttribute('onclick'))?'Confirmar':'Recusar'; }
+  });
+  const abas=[...pg.querySelectorAll('div')].find(d=>d.querySelectorAll(':scope > button').length>=2 && [...d.querySelectorAll(':scope > button')].every(b=>/finSetAba/.test(b.getAttribute('onclick')||'')));
+  if(abas) abas.classList.add('fin-abas');
+  return box.innerHTML;
+}
 async function saldoMembro(){
   try{ const sel=document.getElementById('finMes'); const mes=(sel&&sel.value)||new Date().toISOString().slice(0,7);
     const {data:r,error}=await sb.rpc('fin_resumo',{p_mes:mes}); if(error||!r) return;
@@ -260,6 +286,35 @@ if(typeof window.finVerAnexo==='function'){
 const _fetch=window.fetch.bind(window);
 window.fetch=async function(input,init){ try{ const u=typeof input==='string'? input : (input&&input.url); if(u && privPath(u)) return _fetch(await linkPriv(u),init); }catch(_){} return _fetch(input,init); };
 
+/* ======================= 9) CAMPOS DE VALOR EM R$ ======================= */
+/* Os números entram da direita para a esquerda: 6 → R$ 0,06 · 64 → R$ 0,64 · 649 → R$ 6,49 …
+   O campo original (que o app lê) fica escondido e recebe o número puro (ex.: 6.49). */
+const fmtBR = c => 'R$ '+(c/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+function mascara(orig){
+  if(orig.dataset.rs) return; orig.dataset.rs='1';
+  const vis=document.createElement('input');
+  vis.type='text'; vis.inputMode='numeric'; vis.autocomplete='off'; vis.className='rs-in';
+  vis.setAttribute('style',orig.getAttribute('style')||''); vis.placeholder=(orig.placeholder||'Valor').replace(/\s*\(R\$\)\s*/,'')+' (R$ 0,00)';
+  let cent=Math.round((parseFloat(orig.value)||0)*100);
+  const pinta=()=>{ vis.value= cent? fmtBR(cent) : ''; };
+  const grava=()=>{ orig.value= cent? (cent/100).toFixed(2) : ''; orig.dispatchEvent(new Event('input',{bubbles:true})); orig.dispatchEvent(new Event('change',{bubbles:true})); };
+  pinta();
+  vis.addEventListener('beforeinput',ev=>{
+    ev.preventDefault();
+    if(ev.inputType && ev.inputType.indexOf('delete')===0) cent=Math.floor(cent/10);
+    else { const d=String(ev.data||'').replace(/\D/g,''); for(const ch of d){ if(String(cent).length<11) cent=cent*10+(+ch); } }
+    pinta(); grava(); requestAnimationFrame(()=>{ try{ vis.setSelectionRange(vis.value.length,vis.value.length); }catch(_){} });
+  });
+  vis.addEventListener('input',()=>{ const d=vis.value.replace(/\D/g,''); cent=d? Math.min(+d,99999999999) : 0; pinta(); grava(); });   /* teclados que não enviam beforeinput */
+  vis.addEventListener('focus',()=>setTimeout(()=>{ try{ vis.setSelectionRange(vis.value.length,vis.value.length); }catch(_){} },0));
+  orig.style.display='none'; orig.insertAdjacentElement('afterend',vis);
+  /* valores colocados pelo app (botões de valor pronto, edição) */
+  const t=setInterval(()=>{ if(!orig.isConnected){ clearInterval(t); return; } if(document.activeElement===vis) return;
+    const c=Math.round((parseFloat(orig.value)||0)*100); if(c!==cent){ cent=c; pinta(); } },300);
+}
+function procuraValores(){ document.querySelectorAll('#lfValor,#finValor,#ivValor,input[type=number][placeholder*="R$"]').forEach(mascara); }
+new MutationObserver(()=>procuraValores()).observe(document.body,{childList:true,subtree:true});
+
 /* ======================= estilos ======================= */
 const st=document.createElement('style'); st.textContent=`
 body.modo-culto .topbar{display:none}
@@ -289,6 +344,13 @@ body.modo-culto .cifra-box{font-size:1.08em}
 .ex-fin i.en,.ex-leg i.en{background:#1f9d63}.ex-fin i.sa,.ex-leg i.sa{background:#d35454}
 .ex-fin small{font-size:11px;color:#6b8378}
 .ex-leg{display:flex;gap:14px;font-size:12px;color:#456;margin-top:6px}.ex-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
+.fin-cmp .mini-btn{min-height:36px;height:auto;padding:6px 12px;font-size:13.5px;line-height:1.2;margin:0;border-radius:18px;white-space:nowrap}
+.fin-cmp .fin-abas{display:flex!important;gap:6px!important}
+.fin-cmp .fin-abas .mini-btn{flex:1 1 0;min-width:0;padding:7px 2px;font-size:12px;letter-spacing:-.1px;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.fin-cmp .info-row{gap:8px;align-items:center}
+.fin-cmp .info-row .fin-ic{min-width:38px;width:38px;height:38px;min-height:38px;padding:0;font-size:16px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px}
+.fin-cmp .info-row .v{font-size:14px}
+.rs-in{width:100%;box-sizing:border-box;font-variant-numeric:tabular-nums;font-weight:700}
 .ex-rec{white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;border-radius:10px;padding:12px;color:#234}
 `; document.head.appendChild(st);
 })();
