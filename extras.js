@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.8.1)
+   MM IBNM — Extras (v1.8.2)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -351,16 +351,23 @@ function hinoAtual(){
   const harpa=/^hr\|/.test(top) || (!/^cc\|/.test(top) && /Harpa/.test((document.querySelector('.cc-hbar')||{}).textContent||''));
   const n=+((top.match(/\|(\d+)/)||[])[1] || ((document.querySelector('.cc-head .n')||{}).textContent||'').replace(/\D/g,''));
   const lista= harpa? (window.HARPA||[]) : (window.HINOS||[]);
-  return {harpa, h: lista.find(x=>x.n===n)};
+  let h=lista.find(x=>x.n===n);
+  /* letras corrigidas só para a visão Letra (conferidas com o PDF) */
+  const ov= harpa? (window.HARPA_LETRA||{})[n] : (window.CANTOR_LETRA||{})[n];
+  if(h && ov) h=Object.assign({},h,{partes:ov});
+  return {harpa, h};
 }
+/* edições feitas pelo ADM em "Editar cifras" (o app guarda no aparelho de todos) */
+function edicoesDe(n,harpa){ try{ return (JSON.parse(localStorage.getItem(harpa?'ibnm_hr_ed':'ibnm_cc_ed')||'{}')||{})[n]||null; }catch(_){ return null; } }
 function letraHTML(h,harpa){
-  let est=0; const fs=harpa?'harpaFs':'cantorFs';
+  let est=0; const fs=harpa?'harpaFs':'cantorFs'; const ed=edicoesDe(h.n,harpa);
   return '<div class="cc-letra"><div class="cl-top"><div class="cl-t">'+e(h.n+' · '+h.titulo)+'</div>'+
-    '<div class="cl-z"><button onclick="'+fs+'(-2)" aria-label="Diminuir letra">A−</button><button onclick="'+fs+'(2)" aria-label="Aumentar letra">A+</button></div></div>'+(h.partes||[]).map(p=>{
+    '<div class="cl-z"><button onclick="'+fs+'(-2)" aria-label="Diminuir letra">A−</button><button onclick="'+fs+'(2)" aria-label="Aumentar letra">A+</button></div></div>'+(h.partes||[]).map((p,pi)=>{
     const coro=p.tipo==='coro'; if(!coro) est++;
-    return '<div class="cl-p'+(coro?' coro':'')+'"><span class="cl-r">'+(coro?'Coro':est)+'</span>'+(p.linhas||[]).map(l=>'<div>'+e(limpaLetra(l))+'</div>').join('')+'</div>';
+    return '<div class="cl-p'+(coro?' coro':'')+'"><span class="cl-r">'+(coro?'Coro':est)+'</span>'+(p.linhas||[]).map((l,li)=>{ const t=limpaLetra(linhaEd(ed,pi,li,l)); return t? '<div>'+e(t)+'</div>' : ''; }).join('')+'</div>';
   }).join('')+'</div>';
 }
+const linhaEd=(ed,pi,li,orig)=> (ed && Object.prototype.hasOwnProperty.call(ed,pi+'-'+li))? ed[pi+'-'+li] : orig;
 window.__modoLetra=false;
 window.alternarLetraHino=function(v){ window.__modoLetra= (v===undefined)? !window.__modoLetra : !!v; aplicaLetra(true); };
 /* barra de botões do hino organizada em grupos */
@@ -390,7 +397,8 @@ function aplicaLetra(forca){
   let box=document.querySelector('#content .cc-letra');
   if(L){
     const {h,harpa}=hinoAtual(); if(!h) return;
-    if(!box || box.dataset.n!==String(h.n) || forca){ if(box) box.remove(); song.insertAdjacentHTML('afterend',letraHTML(h,harpa)); box=document.querySelector('#content .cc-letra'); box.dataset.n=String(h.n); }
+    const sig=String(h.n)+'|'+JSON.stringify(edicoesDe(h.n,harpa)||{});
+    if(!box || box.dataset.sig!==sig || forca){ if(box) box.remove(); song.insertAdjacentHTML('afterend',letraHTML(h,harpa)); box=document.querySelector('#content .cc-letra'); box.dataset.n=String(h.n); box.dataset.sig=sig; }
     zoomLetra(box,song); song.style.display='none'; box.style.display='';
   } else { song.style.display=''; if(box) box.remove(); }
 }
