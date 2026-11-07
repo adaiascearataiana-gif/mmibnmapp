@@ -376,7 +376,7 @@ if(typeof iniciarApp==='function'){
   const _ia=iniciarApp;
   window.iniciarApp=iniciarApp=function(){ _ia.apply(this,arguments); setTimeout(()=>rotina(true),900); };
 }
-setInterval(()=>rotina(false),60000);
+setInterval(()=>rotina(false),300000);
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') rotina(false); });
 /* se o app terminou de carregar antes deste arquivo, recarrega as notificações com link/popup */
 if(typeof _booted!=='undefined' && _booted){ Promise.resolve(cloudNotif()).then(()=>{ conhecidas=null; try{ atualizaBadge(); }catch(_){} }).catch(()=>{}); setTimeout(()=>rotina(true),900); }

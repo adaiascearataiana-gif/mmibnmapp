@@ -667,7 +667,7 @@ function driveSilencioso(){ return new Promise((res,rej)=>{
 if(!window.__sincAgendada){
   window.__sincAgendada=true;
   try{ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') setTimeout(()=>{ try{ driveSinc(); }catch(_){} },1500); }); }catch(_){}
-  setInterval(()=>{ try{ driveSinc(); }catch(_){} },5*60*1000);
+  setInterval(()=>{ try{ driveSinc(); }catch(_){} },30*60*1000);
   setTimeout(()=>{ try{
     const souAdm=(typeof ehAdminReal==='function')&&ehAdminReal(); /* v68: fundo não depende do modo de vista */
     const D=window.__drive;

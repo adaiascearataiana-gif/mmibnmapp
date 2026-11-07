@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.8.3)
+   MM IBNM — Extras (v1.8.4)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -438,7 +438,7 @@ async function hrBaixa(){
     if(JSON.stringify(nuvem)!==JSON.stringify(local)){ _hrSync=true; try{ localStorage.setItem(HK,JSON.stringify(nuvem)); }finally{ _hrSync=false; } }
   }catch(_){}
 }
-setTimeout(hrBaixa,4000); setInterval(()=>{ if(document.visibilityState==='visible') hrBaixa(); },120000);
+setTimeout(hrBaixa,6000); setInterval(()=>{ if(document.visibilityState==='visible') hrBaixa(); },15*60*1000);
 
 /* ======================= 10) ✕ PARA FECHAR AS JANELAS ======================= */
 function poeX(){ const bg=document.getElementById('modalBg'), box=document.getElementById('modalBox');

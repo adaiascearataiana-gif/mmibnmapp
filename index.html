@@ -2404,7 +2404,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v91';
+window.APP_V='v93';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */
@@ -2492,13 +2492,13 @@ window.__ultSyncRt=0;
 function sincronismoAgora(){
   try{ if(history.length<2||!history.state||!history.state.ibnm){ history.pushState({ibnm:1},''); } }catch(e){}
   const agora=Date.now();
-  if(agora-(window.__ultSyncRt||0)<20000) return;
+  if(agora-(window.__ultSyncRt||0)<120000) return;
   window.__ultSyncRt=agora;
   try{ agendarReload(); }catch(e){}
 }
 document.addEventListener('visibilitychange',function(){ if(!document.hidden) sincronismoAgora(); });
 window.addEventListener('focus',sincronismoAgora);
-setInterval(function(){ if(!document.hidden) sincronismoAgora(); },60000);
+setInterval(function(){ if(!document.hidden) sincronismoAgora(); },300000);
 
 const _iniPrev=iniciarApp;
 iniciarApp=function(){ _iniPrev(); try{ registrarSW(); atualizaBannerVivo(); aplicarAoVivo(true); }catch(e){} };
