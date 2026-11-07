@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.7.1)
+   MM IBNM — Extras (v1.8.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -312,6 +312,72 @@ function mascara(orig){
 function procuraValores(){ document.querySelectorAll('#lfValor,#finValor,#ivValor,input[type=number][placeholder*="R$"]').forEach(mascara); }
 new MutationObserver(()=>procuraValores()).observe(document.body,{childList:true,subtree:true});
 
+/* ======================= 11) LANÇAMENTO = SÓ SAÍDA ======================= */
+/* As entradas vêm das doações confirmadas. No formulário some o "Entrada/Saída":
+   lançamento novo é sempre SAÍDA; ao editar, mantém o tipo que já era. */
+function soSaidaNoForm(){
+  const sel=document.querySelector('#modalBox #lfTipo'); if(!sel || sel.dataset.sx) return; sel.dataset.sx='1';
+  const h=document.querySelector('#modalBox h3'); const novo=h && /Novo/.test(h.textContent);
+  if(novo){ sel.value='saida'; sel.dispatchEvent(new Event('change',{bubbles:true})); }
+  sel.style.display='none';
+  if(h){ const x=h.querySelector('.mx-x'); h.textContent= novo? '－ Nova saída' : (sel.value==='entrada'? '✏ Editar entrada' : '✏ Editar saída'); if(x) h.appendChild(x); }
+  const d=document.querySelector('#modalBox #lfDesc'); if(d && novo) d.placeholder='O que foi? (ex.: Cordas, manutenção, cabo, toner...)';
+}
+new MutationObserver(soSaidaNoForm).observe(document.body,{childList:true,subtree:true});
+
+/* datas pelo horário do Brasil: depois das 21h o app gravava o dia seguinte (fuso UTC) */
+const hojeLocal = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const hojeUTC = () => new Date().toISOString().slice(0,10);
+function dataCerta(){ const i=document.querySelector('#modalBox #lfData'); if(!i||i.dataset.dl) return; i.dataset.dl='1'; if(i.value===hojeUTC() && hojeUTC()!==hojeLocal()) i.value=hojeLocal(); }
+new MutationObserver(dataCerta).observe(document.body,{childList:true,subtree:true});
+try{ if(typeof sb!=='undefined' && sb && !sb.__dataBR){ const _f=sb.from.bind(sb);
+  sb.from=function(t){ const q=_f(t); if(t!=='financeiro'||!q||!q.insert) return q; const ins=q.insert.bind(q);
+    q.insert=function(o,...r){ const fx=x=>{ if(x && x.data===hojeUTC() && hojeUTC()!==hojeLocal()) x=Object.assign({},x,{data:hojeLocal()}); return x; };
+      return ins(Array.isArray(o)? o.map(fx) : fx(o),...r); };
+    return q; }; sb.__dataBR=true; } }catch(_){}
+
+/* ======================= 12) 📖 LETRA DOS HINOS (Cantor Cristão e Harpa) ======================= */
+/* Usa as letras que o app já tem (581 hinos do Cantor e 640 da Harpa): tira os acordes,
+   junta as sílabas separadas do PDF ("fortale-za" → "fortaleza") e mostra só a letra. */
+const PRON=/^(me|te|se|nos|vos|lhe|lhes|o|a|os|as|lo|la|los|las|no|na|mos|ia|ei)$/i;
+function limpaLetra(l){
+  let t=String(l||'').replace(/\[[^\]]*\]/g,'');
+  t=t.replace(/(\p{L})\s+-\s+(\p{L})/gu,'$1$2');                         /* "Chu - vas" → "Chuvas" */
+  t=t.replace(/(\p{L})-(\p{L}+)/gu,(m,a,b)=> (PRON.test(b) || a.toLowerCase()===b[0].toLowerCase())? m : a+b);   /* "fortale-za" → "fortaleza", mantém "Manda-nos" */
+  return t.replace(/\s{2,}/g,' ').replace(/\s+([,.;:!?])/g,'$1').trim();
+}
+function hinoAtual(){
+  let top=''; try{ const st=window.__navStack? __navStack() : []; top=st[st.length-1]||''; }catch(_){}
+  const harpa=/^hr\|/.test(top) || (!/^cc\|/.test(top) && /Harpa/.test((document.querySelector('.cc-hbar')||{}).textContent||''));
+  const n=+((top.match(/\|(\d+)/)||[])[1] || ((document.querySelector('.cc-head .n')||{}).textContent||'').replace(/\D/g,''));
+  const lista= harpa? (window.HARPA||[]) : (window.HINOS||[]);
+  return {harpa, h: lista.find(x=>x.n===n)};
+}
+function letraHTML(h){
+  let est=0;
+  return '<div class="cc-letra"><div class="cl-t">'+e(h.n+' · '+h.titulo)+'</div>'+(h.partes||[]).map(p=>{
+    const coro=p.tipo==='coro'; if(!coro) est++;
+    return '<div class="cl-p'+(coro?' coro':'')+'"><span class="cl-r">'+(coro?'Coro':est)+'</span>'+(p.linhas||[]).map(l=>'<div>'+e(limpaLetra(l))+'</div>').join('')+'</div>';
+  }).join('')+'</div>';
+}
+window.__modoLetra=false;
+window.alternarLetraHino=function(){ window.__modoLetra=!window.__modoLetra; aplicaLetra(true); };
+function aplicaLetra(forca){
+  const tools=document.querySelector('#content .cc-tools'); if(!tools) return;
+  let bt=tools.querySelector('.cc-letra-bt');
+  if(!bt){ tools.insertAdjacentHTML('afterbegin','<button class="tog cc-letra-bt" onclick="alternarLetraHino()"></button>'); bt=tools.querySelector('.cc-letra-bt'); }
+  bt.textContent= window.__modoLetra? '🎸 Cifra' : '📖 Letra';
+  bt.setAttribute('aria-pressed',window.__modoLetra?'true':'false');
+  const song=document.querySelector('#content .cc-song'); if(!song) return;
+  let box=document.querySelector('#content .cc-letra');
+  if(window.__modoLetra){
+    const {h}=hinoAtual(); if(!h) return;
+    if(!box || box.dataset.n!==String(h.n) || forca){ if(box) box.remove(); song.insertAdjacentHTML('afterend',letraHTML(h)); box=document.querySelector('#content .cc-letra'); box.dataset.n=String(h.n); }
+    song.style.display='none'; box.style.display='';
+  } else { song.style.display=''; if(box) box.remove(); }
+}
+let _lt=0; new MutationObserver(()=>{ clearTimeout(_lt); _lt=setTimeout(()=>aplicaLetra(false),30); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+
 /* ======================= 10) ✕ PARA FECHAR AS JANELAS ======================= */
 function poeX(){ const bg=document.getElementById('modalBg'), box=document.getElementById('modalBox');
   if(!bg||!box||!bg.classList.contains('show')) return; if(box.querySelector(':scope > .mx-x')) return;
@@ -357,6 +423,13 @@ body.modo-culto .cifra-box{font-size:1.08em}
 .fin-cmp .info-row .fin-ic{min-width:38px;width:38px;height:38px;min-height:38px;padding:0;font-size:16px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px}
 .fin-cmp .info-row .v{font-size:14px}
 .rs-in{width:100%;box-sizing:border-box;font-variant-numeric:tabular-nums;font-weight:700}
+.cc-letra{background:#fff;border:1px solid #eef0f3;border-radius:14px;padding:16px 16px 20px;box-shadow:0 1px 5px rgba(0,0,0,.05);font-size:1.12em;line-height:1.65;color:#1d2b24}
+.cc-letra .cl-t{font-weight:900;color:var(--verde-escuro);margin-bottom:10px}
+.cc-letra .cl-p{margin:0 0 16px;position:relative;padding-left:30px}
+.cc-letra .cl-r{position:absolute;left:0;top:2px;min-width:22px;height:22px;border-radius:11px;background:#e9f5ef;color:var(--verde-escuro);font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 5px}
+.cc-letra .coro{font-style:italic;color:#14513b}
+.cc-letra .coro .cl-r{background:var(--dourado);color:#3a2f00;font-style:normal;font-size:10.5px}
+.cc-letra-bt[aria-pressed=true]{background:var(--verde-med)!important;color:#fff!important;border-color:var(--verde-med)!important}
 .ex-rec{white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;border-radius:10px;padding:12px;color:#234}
 `; document.head.appendChild(st);
 })();
