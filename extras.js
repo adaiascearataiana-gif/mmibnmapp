@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.9.0)
+   MM IBNM — Extras (v1.9.1)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -575,6 +575,43 @@ function svgPiano(nts,bx,nomes){
   return g+'</svg>';
 }
 let AC={inst:'violao',acorde:'',baixo:''};
+/* ----- som dos acordes (gerado no próprio celular, sem baixar nada) ----- */
+let _ac=null;
+function audio(){ if(!_ac){ const C=window.AudioContext||window.webkitAudioContext; if(!C) return null; _ac=new C(); } if(_ac.state==='suspended') _ac.resume(); return _ac; }
+const hz = m => 440*Math.pow(2,(m-69)/12);
+/* violão: corda dedilhada (Karplus-Strong) */
+function corda(ctx,freq,quando,vol){
+  const sr=ctx.sampleRate, dur=2.4, n=Math.floor(sr*dur), buf=ctx.createBuffer(1,n,sr), d=buf.getChannelData(0);
+  const P=Math.max(2,Math.round(sr/freq)); const r=new Float32Array(P); for(let i=0;i<P;i++) r[i]=Math.random()*2-1;
+  let k=0; for(let i=0;i<n;i++){ const a=r[k], b=r[(k+1)%P]; const v=0.4985*(a+b); r[k]=v; d[i]=a; k=(k+1)%P; }
+  const src=ctx.createBufferSource(); src.buffer=buf;
+  const g=ctx.createGain(); g.gain.setValueAtTime(vol,quando); g.gain.exponentialRampToValueAtTime(0.0008,quando+dur);
+  const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3200;
+  src.connect(lp); lp.connect(g); g.connect(ctx.destination); src.start(quando); src.stop(quando+dur);
+}
+/* piano: tom com harmônicos e decaimento */
+let _onda=null;
+function tecla(ctx,freq,quando,vol){
+  if(!_onda){ const re=new Float32Array([0,1,0.55,0.32,0.18,0.1,0.06,0.03]), im=new Float32Array(re.length); _onda=ctx.createPeriodicWave(re,im); }
+  const o=ctx.createOscillator(); o.setPeriodicWave(_onda); o.frequency.value=freq;
+  const g=ctx.createGain(); g.gain.setValueAtTime(0.0001,quando); g.gain.exponentialRampToValueAtTime(vol,quando+0.008); g.gain.exponentialRampToValueAtTime(vol*0.35,quando+0.35); g.gain.exponentialRampToValueAtTime(0.0006,quando+2.6);
+  const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.setValueAtTime(Math.min(9000,freq*8),quando); lp.frequency.exponentialRampToValueAtTime(Math.max(600,freq*2),quando+1.5);
+  o.connect(lp); lp.connect(g); g.connect(ctx.destination); o.start(quando); o.stop(quando+2.7);
+}
+window.acTocarViolao=function(i){
+  const ctx=audio(); const p=(AC.formas||[])[i]; if(!ctx||!p) return toast('Este aparelho não consegue tocar som.');
+  const t0=ctx.currentTime+0.03; let k=0;
+  p.f.forEach((f,c)=>{ if(f<0) return; corda(ctx,hz(AFIN[c]+f),t0+k*0.045,0.55); k++; });
+  pulso('acv'+i);
+};
+window.acTocarPiano=function(i){
+  const ctx=audio(); const v=(AC.pvars||[])[i]; if(!ctx||!v) return toast('Este aparelho não consegue tocar som.');
+  const t0=ctx.currentTime+0.03;
+  if(v.b!=null) tecla(ctx,hz(60+v.b-12),t0,0.28);
+  v.n.forEach(n=>tecla(ctx,hz(60+n),t0+(v.b!=null?0.06:0),0.2));
+  pulso('acp'+i);
+};
+function pulso(id){ const el=document.getElementById(id); if(!el) return; el.classList.remove('toca'); void el.offsetWidth; el.classList.add('toca'); }
 window.acInst=function(i){ AC.inst=i; acDesenha(); };
 window.acDigita=function(){ AC.acorde=document.getElementById('acTxt').value; AC.baixo=document.getElementById('acBx').value; acResultado(); };
 window.acTipo=function(t){ const r=(lerAcorde(AC.acorde)||{}).raiz || (AC.acorde.match(/^[A-Ga-g][#b]?/)||['C'])[0].toUpperCase(); AC.acorde=r+t; document.getElementById('acTxt').value=AC.acorde; acResultado(); };
@@ -586,11 +623,14 @@ function acResultado(){
   if(!A||A.erro){ box.innerHTML='<p class="ac-vz">'+e((A&&A.erro)||'Acorde inválido.')+'</p>'; return; }
   let h='<div class="ac-top"><div class="ac-nome">'+e(A.nome)+'</div><div class="ac-desc">'+e(A.desc)+' · notas: <b>'+A.notas.join(' · ')+'</b>'+(A.baixoNome?' · baixo: <b>'+e(A.baixoNome)+'</b>':'')+'</div></div>';
   if(AC.inst==='violao'){
-    const ps=posicoesViolao(A);
-    h+= ps.length? '<div class="ac-grid">'+ps.map((p,i)=>'<div class="ac-cel">'+svgViolao(p.f)+'<small>'+(i+1)+'ª forma</small></div>').join('')+'</div>'
+    const ps=posicoesViolao(A); AC.formas=ps;
+    if(ps.length) h=h.replace('</div></div>','</div><button class="ac-play" onclick="acTocarViolao(0)">▶ Ouvir</button></div>');
+    h+= ps.length? '<div class="ac-grid">'+ps.map((p,i)=>'<button class="ac-cel" id="acv'+i+'" onclick="acTocarViolao('+i+')" aria-label="Tocar a '+(i+1)+'ª forma">'+svgViolao(p.f)+'<small>▶ '+(i+1)+'ª forma</small></button>').join('')+'</div>'
       : '<p class="ac-vz">Não achei uma forma confortável no violão para esse acorde. Tente sem o baixo ou outro tipo.</p>';
   } else {
-    h+='<div class="ac-pn">'+variacoesPiano(A).map(v=>'<div class="ac-pcel"><small>'+e(v.nome)+'</small>'+svgPiano(v.n,v.b,A.nomes)+'</div>').join('')+'</div>';
+    const vs=variacoesPiano(A); AC.pvars=vs;
+    h=h.replace('</div></div>','</div><button class="ac-play" onclick="acTocarPiano(0)">▶ Ouvir</button></div>');
+    h+='<div class="ac-pn">'+vs.map((v,i)=>'<button class="ac-pcel" id="acp'+i+'" onclick="acTocarPiano('+i+')"><small>▶ '+e(v.nome)+'</small>'+svgPiano(v.n,v.b,A.nomes)+'</button>').join('')+'</div>';
   }
   box.innerHTML=h;
 }
@@ -680,7 +720,12 @@ body.modo-culto .cifra-box{font-size:1.08em}
 .ac-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
 .ac-chips button{min-width:38px;height:32px;border:1px solid #cfdad4;border-radius:8px;background:#fff;font-weight:800;font-size:13px;color:var(--verde-escuro);padding:0 7px}
 .ac-chips.tipos button{background:#f4f8f6}
-.ac-top{margin:14px 0 6px}
+.ac-top{margin:14px 0 6px;position:relative;padding-right:96px}
+.ac-play{position:absolute;right:0;top:4px;height:42px;padding:0 14px;border:0;border-radius:21px;background:var(--verde-med);color:#fff;font-weight:900;font-size:14px}
+button.ac-cel,button.ac-pcel{font:inherit;background:#fff;cursor:pointer;text-align:left}
+button.ac-pcel{border:1px solid #e3ece7;border-radius:10px;padding:6px;width:100%}
+.ac-cel.toca,.ac-pcel.toca{animation:acToca .6s ease}
+@keyframes acToca{0%{box-shadow:0 0 0 0 rgba(31,122,85,.6)}100%{box-shadow:0 0 0 12px rgba(31,122,85,0)}}
 .ac-nome{font-size:30px;font-weight:900;color:var(--cor-acorde,#a8350a)}
 .ac-desc{font-size:13px;color:#456}
 .ac-vz{font-size:13px;color:#7a8f86;margin-top:12px}
