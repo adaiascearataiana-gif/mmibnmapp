@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.7.0)
+   MM IBNM — Extras (v1.7.1)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -180,18 +180,15 @@ function finCompacto(h){
   const box=document.createElement('div'); box.innerHTML=h;
   const pg=box.querySelector('.fin-page')||box;
   pg.classList.add('fin-cmp');
-  if(podeFin()){
-    const btSai=[...pg.querySelectorAll('button')].find(b=>/Sa[ií]da/.test(b.textContent) && /finForm/.test(b.getAttribute('onclick')||''));
-    const temEnt=[...pg.querySelectorAll('button')].some(b=>/Entrada/.test(b.textContent) && /finForm/.test(b.getAttribute('onclick')||''));
-    if(btSai && !temEnt){ const oc=(btSai.getAttribute('onclick')||'').replace(/saida/g,'entrada'); btSai.insertAdjacentHTML('beforebegin','<button class="mini-btn" onclick="'+oc.replace(/"/g,'&quot;')+'">＋ Entrada</button>'); }
-  }
+  /* sem botão "＋ Entrada": as entradas vêm das doações confirmadas */
+  pg.querySelectorAll('button').forEach(b=>{ if(/Entrada/.test(b.textContent) && /finForm/.test(b.getAttribute('onclick')||'')) b.remove(); });
   pg.querySelectorAll('button').forEach(b=>{
     const t=b.textContent.trim();
     if(/finSetAba/.test(b.getAttribute('onclick')||'')){
       if(/Lançamentos/.test(t)) b.textContent='Lançamentos';
       else if(/Saídas/.test(t)) b.textContent='Saídas';
-      else if(/Doações recebidas|Recebidas/.test(t)) b.textContent='Recebidas';
-      else if(/Minhas/.test(t)) b.textContent='Minhas';
+      else if(/Doações recebidas|Recebidas/.test(t)) b.textContent='Doações recebidas';
+      else if(/Minhas/.test(t)) b.textContent= podeFin()? 'Minhas' : 'Minhas doações';
     }
     else if(/Excluir$/.test(t) && /doaExcluir|finExcluir/.test(b.getAttribute('onclick')||'')){ b.textContent='🗑'; b.title='Excluir'; b.classList.add('fin-ic'); }
     if(/doaConf|doaRej/.test(b.getAttribute('onclick')||'')){ b.classList.add('fin-ic'); b.title=/doaConf/.test(b.getAttribute('onclick'))?'Confirmar':'Recusar'; }
@@ -315,6 +312,12 @@ function mascara(orig){
 function procuraValores(){ document.querySelectorAll('#lfValor,#finValor,#ivValor,input[type=number][placeholder*="R$"]').forEach(mascara); }
 new MutationObserver(()=>procuraValores()).observe(document.body,{childList:true,subtree:true});
 
+/* ======================= 10) ✕ PARA FECHAR AS JANELAS ======================= */
+function poeX(){ const bg=document.getElementById('modalBg'), box=document.getElementById('modalBox');
+  if(!bg||!box||!bg.classList.contains('show')) return; if(box.querySelector(':scope > .mx-x')) return;
+  box.classList.add('mx-tem'); box.insertAdjacentHTML('afterbegin','<button type="button" class="mx-x" aria-label="Fechar" onclick="fecharModal()">✕</button>'); }
+new MutationObserver(poeX).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
+
 /* ======================= estilos ======================= */
 const st=document.createElement('style'); st.textContent=`
 body.modo-culto .topbar{display:none}
@@ -345,8 +348,11 @@ body.modo-culto .cifra-box{font-size:1.08em}
 .ex-fin small{font-size:11px;color:#6b8378}
 .ex-leg{display:flex;gap:14px;font-size:12px;color:#456;margin-top:6px}.ex-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
 .fin-cmp .mini-btn{min-height:36px;height:auto;padding:6px 12px;font-size:13.5px;line-height:1.2;margin:0;border-radius:18px;white-space:nowrap}
-.fin-cmp .fin-abas{display:flex!important;gap:6px!important}
-.fin-cmp .fin-abas .mini-btn{flex:1 1 0;min-width:0;padding:7px 2px;font-size:12px;letter-spacing:-.1px;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.fin-cmp .fin-abas{display:flex!important;flex-wrap:wrap;gap:5px!important}
+.fin-cmp .fin-abas .mini-btn{flex:1 1 auto;min-width:0;padding:7px 6px;font-size:11.5px;text-align:center}
+#modalBox .mx-x{position:absolute;top:8px;right:8px;width:34px;height:34px;border:0;border-radius:50%;background:#eef3f0;color:#456;font-size:18px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;z-index:5;cursor:pointer}
+#modalBox.mx-tem{position:relative}
+#modalBox.mx-tem>h3:first-child,#modalBox.mx-tem>div:first-child>h3:first-child{padding-right:40px}
 .fin-cmp .info-row{gap:8px;align-items:center}
 .fin-cmp .info-row .fin-ic{min-width:38px;width:38px;height:38px;min-height:38px;padding:0;font-size:16px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px}
 .fin-cmp .info-row .v{font-size:14px}
