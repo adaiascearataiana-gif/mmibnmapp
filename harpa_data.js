@@ -1,4 +1,4 @@
-window.HARPA_V='2026-11-07.1';
+window.HARPA_V='2026-11-07.2';
 /* HARPA CRISTÃ — dados (window.HARPA). Gerado por harpa/build_cifra_pdf.py (fonte: HARPA2.pdf) */
 window.HARPA = [
  {
@@ -180,7 +180,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "Se o coração [D7]palpitar de [G]dor, [D7]Deus velará [G]por ti;",
-     "Tú já provaste Seu [D7]terno [G]amor. [D7]Deus velará [G]por [G7]ti...",
+     "Tú já provaste Seu [D7]terno [G]amor. [D7]Deus velará [G]por [G7]ti..."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Nos [G]desalentos, nas [D7][G]provações, [D7]Deus velará [G]por ti;",
      "Lembra-te dEle nas [D7][G]tentações; [D7]Deus velará [G]por [G7]ti..."
     ]
@@ -366,7 +371,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "[F]Não há [F7]amigo mais [Bb]nobre e [F]digno,",
-     "[Dm]Não, não [C]há; não, não [F]há.",
+     "[Dm]Não, não [C]há; não, não [F]há."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Nem mais [F7]humilde e [Bb]mais [F]benigno,",
      "[Dm]Não, não [C]há; não, não [F]há..."
     ]
@@ -2301,7 +2311,12 @@ window.HARPA = [
      "Do [D]bom eterno [G]Pai, [G7]Do [C]bom [D7]eterno [G]Pai;",
      "Ao grande [C]autor da [D][G]salvação,",
      "Com [C]gló-[G]o [D]- o-[G]o-ria,",
-     "[C]Glória, [D]glória, [G]glória, Com [C]glória, [G][D][G][C][G]co-ro-ai!",
+     "[C]Glória, [D]glória, [G]glória, Com [C]glória, [G][D][G][C][G]co-ro-ai!"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Ó [G]perdoados, [D]cujo [G]amor",
      "Bem [D]triunfante [G]vai, [G7]Bem [C][D7][G]triunfante vai,",
      "Ao Deus [C]Varão, [D][G]Conquistador,",
@@ -3296,7 +3311,12 @@ window.HARPA = [
      "[A]Jesus mui [D]longe [A]me [E]buscou, Perdido me [A]encontrava!",
      "E do [A7]pecado [D]me salvou, O [A]qual me [E]atormenta-[A]va,",
      "[E7]Pertenço ao meu bom [A]Redentor, Ao [D]meu melhor [A]ami-[E]go",
-     "[A]Que me [A7]livrou de [D]toda a dor, E [A]sempre [D]está [E]comi-[A]go.",
+     "[A]Que me [A7]livrou de [D]toda a dor, E [A]sempre [D]está [E]comi-[A]go."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[A]Oh! Que prazer, [D]oh! [A]Que [E]prazer! Jesus é meu [A]amado!",
      "Do [A7]Salvador eu [D]quero ser Um [A]servo [E]consagra-[A]do;",
      "Pois [E7]já me deu a [A]salvação, Que [D]nos foi [A]prometi-[E]da,",
@@ -4554,7 +4574,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "Santificado [C]fiquei, Quando a Ele [F]roguei;",
-     "Ele me disse: [C]tomai; De minha [C7]graça [F]usai...",
+     "Ele me disse: [C]tomai; De minha [C7]graça [F]usai..."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Fui redimido, [C]também, Obra do meu Sumo [F]Bem;",
      "Tudo de graça [C]ganhei; Nada por [C7]obras da [F]lei..."
     ]
@@ -5093,7 +5118,12 @@ window.HARPA = [
      "Há [F]paz [C][F]inabalá-vel p'ra [Bb]quem está na [Gm]luz;",
      "Por [C7]preço incomparável [G7]Comprou-me a mim [C7]Jesus.",
      "O [F]dom do Pai [C][F]ama-do [Bb]minh‘alma [Gm]satisfaz,",
-     "[C7]Jesus é minha [F]paz, [C7]Jesus é minha [F]paz.",
+     "[C7]Jesus é minha [F]paz, [C7]Jesus é minha [F]paz."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Há [F]um poder que [C][F]sa-ra o [Bb]triste [Gm]coração,",
      "Que [C7]dá alívio à alma, [G7]paz e [C7]consolação,",
      "E [F]guarda minha [C][F]veste, [Bb]também, Em nívea [Gm]luz;",
@@ -5502,7 +5532,12 @@ window.HARPA = [
      "Se nada mais te [C/D][G]satisfaz, Aqui no [Em]mundo, [A7]ó [D7]perdi-[G]do,",
      "E se te [D7]sentes [G]abatido, Qual há de [D]ser a tua [G]paz?",
      "A minha é [D7]Jesus, é [G]Jesus, é [D]Jesus, A [G][C/D]minha é [G]Jesus,",
-     "Que não me deixa [C/D][D]desvali-[G]do.",
+     "Que não me deixa [C/D][D]desvali-[G]do."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "E quando o teu [C/D]fim [G]chegar, E te [Em]cobrir o [A7]véu da [D7]mor-[G]te,",
      "Qual há de [D7]ser a tua [G]sorte? Irás [D]sofrer? Irás [G]gozar?",
      "A minha é [D7]Jesus, é [G]Jesus, é [D]Jesus, A [G]minha [C/D]é [G]Jesus,",
@@ -6677,7 +6712,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "Dá, [D]hoje, a [G]Cristo, [E7]Teu [Am]coração, [Cm]teu [G]coração.",
-     "Pois nEle [D7]acharás a [G7]paz, o [C]perdão, [A7]Entrega teu [D]coração.",
+     "Pois nEle [D7]acharás a [G7]paz, o [C]perdão, [A7]Entrega teu [D]coração."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[G]Dá, [D]hoje, a [G]Cristo, [E7]Teu [Am]coração, [Cm]teu [G]coração.",
      "Pois nEle [D7]acharás a [G7]paz, o [C]perdão, [G]Entrega teu [D][G]coração."
     ]
@@ -8695,7 +8735,12 @@ window.HARPA = [
      "E muitos [F]já a [Dm]Cristo se [A]entregaram,",
      "E a estes [C]outros vão se [F]reunir,",
      "Sim, a Palavra, em vão, não se [C]semeia,",
-     "Pois quem a [Gm]deu, [C]também faz [F]fruir.",
+     "Pois quem a [Gm]deu, [C]também faz [F]fruir."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Poder do [F]alto p'ra ser [C]testemunha,",
      "Foi a [C7]promessa qu'Ele nos [F]deixou,",
      "Bem poucos crentes 'stão à sua [C]espera,",
@@ -9697,7 +9742,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "[F]An-[F7]dando [Bb]triste, aqui [F]Na [Dm]soli-[Bb/C]dão, [C][F]Paz [F7]e [Bb]descanso a mim",
-     "[F]Teus [C]braços [F]dão;",
+     "[F]Teus [C]braços [F]dão;"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Nas [Bb]trevas [F]vou sonhar, Mais [Bb]perto [F]quero [C]estar [F]Mais [F7]perto",
      "[Bb]quero [Bº]estar [F/C]Meu [C]Deus, de [F]ti!"
     ]
@@ -9706,7 +9756,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "[F][F7]Minh'alma [Bb]cantará [F]A [Dm]ti, [Bb/C]Senhor! [C][F]E em [F7]Betel [Bb]alçará",
-     "[F]Pa-[C]drão de [F]amor,",
+     "[F]Pa-[C]drão de [F]amor,"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Eu [Bb]sempre hei [F]de rogar Mais [Bb]perto [F]quero [C]estar [F]Mais [F7]perto",
      "[Bb]quero [Bº]estar [F/C]Meu [C]Deus, de [F]ti!"
     ]
@@ -9715,7 +9770,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "[F]E, [F7]quando [Bb]Cristo, enfim, [F]Me [Dm]vier [Bb/C]chamar, [C][F]Nos [F7]céus com",
-     "[Bb]serafins, [F]I-[C]rei [F]morar.",
+     "[Bb]serafins, [F]I-[C]rei [F]morar."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[Bb]Então me [F]alegrarei [Bb]Perto [F]de ti, meu [C]Rei. [F]Per-[F7]to [Bb]de ti,",
      "meu [Bº]Rei, [F/C]Meu [C]Deus, de [F]ti!"
     ]
@@ -10177,7 +10237,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "[E]Levanta os olhos e [B]conta o que [E]há, Na glória.",
-     "De [A]pedras [E]preciosas o lar [B7]brilha [E]lá, Em [B7]gló-[E]ria...",
+     "De [A]pedras [E]preciosas o lar [B7]brilha [E]lá, Em [B7]gló-[E]ria..."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[E]Ainda não vi, mas os [B]anjos [E]estão, Na glória.",
      "E [A]ruas [E]cobertas de [B7]ouro [E]serão, Na [B7]gló-[E]ria..."
     ]
@@ -10708,7 +10773,12 @@ window.HARPA = [
      "[C]Mansão do [C/E]rei [F]bendito, São [C]doze [Am]tuas [Dm]por-[G7]tas",
      "Que [C]sempre [C/E]são [F]transpostas Por [C][G]seres [C]imortais;",
      "Teus livros [F]têm [C]escritos Os nomes dos [F]re-[C]mi-[G]dos;",
-     "Em [C]ti, [C/E]serão [F]ouvidos Os [C]hinos [G][C]celestiais.",
+     "Em [C]ti, [C/E]serão [F]ouvidos Os [C]hinos [G][C]celestiais."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Teus [C]santos [C/E][F]moradores, Um [C][Am]glorioso [Dm]can-[G7]to",
      "[C]Proferem [C/E]ao Deus [F]santo Que [C]já lhes [G][C]perdoou;",
      "Entoam mil [F]lou-[C]vores A Cristo, qual [F]cor-[C]dei-[G]ro,",
@@ -10959,7 +11029,12 @@ window.HARPA = [
      "[A]Eis os [D][A]batalhões de Cristo [E4][E]Prosseguindo [A][A7]avante,",
      "[D]Não os [D#º]vês com [A]que valor [B4]Combatem [B]contra o [E4][E]mal?",
      "[A]Podes [D]tu [A]ficar dormindo, [E4]Mesmo [E][A]vacilante,",
-     "[D]Quando [D#º]atacam [A]outros A [E4]Be-[E]li-[A][D/E]al?...",
+     "[D]Quando [D#º]atacam [A]outros A [E4]Be-[E]li-[A][D/E]al?..."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[A]Dá-te [D]pressa, [A]não vaciles, [E4]Hoje [E]Deus te [A][A7]chama",
      "[D]Para [D#º]vires [A]pelejar Ao [B4]lado [B]do [E4][E]Senhor;",
      "[A]Entra [D]na [A]batalha Onde [E4]mais o [E]fogo [A]inflama,",
@@ -11449,7 +11524,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "[D]Por que [A]demoras [D]ainda, [A]Dar tua vida a [D]Jesus?",
-     "Eis quando [A]tudo aqui [D]finda, [E]Qual há de ser tua [A]luz?...",
+     "Eis quando [A]tudo aqui [D]finda, [E]Qual há de ser tua [A]luz?..."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[D]O mundo [A]quer [D]enganar-te, [A]Para a tua alma [D]perder,",
      "Triste [A]será a tua [D]parte; [E]Além t’espera o [A]sofrer..."
     ]
@@ -11784,7 +11864,12 @@ window.HARPA = [
      "Que grande gozo foi p’ra mim, Oh! [B7]quando me [E]encontraste!",
      "Do coração, abriu enfim A [B7]porta e logo [E]entraste;",
      "Então tu [A]me [E]levaste, Por [B7]tua luz [E]perfeita,",
-     "Que sempre [A]me [E]deleita; [B7]Tua palavra, que amor, [E]sim!",
+     "Que sempre [A]me [E]deleita; [B7]Tua palavra, que amor, [E]sim!"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Tu me livraste, Salvador, De [B7]miserável [E]sorte,",
      "Me guardarás por teu amor [B7]Fiel até à [E]morte;",
      "Desejo [A]que me [E]exortes Por [B7]tua luz [E]perfeita,",
@@ -13415,7 +13500,12 @@ window.HARPA = [
      "[F]Tu que andas [C]vacilante [F]E que o [Bb]mundo [F]se-[C]du-[F]ziu,",
      "Vem e segue, [C]confiante, [F]Quem na cruz [Bb]já [F]te [C]re-[F]miu,",
      "Pois a graça [Bb]não é [F]finda De quem [Bb]expirou na [F]cruz;",
-     "Olha, com [C]amor, ainda, [F]P’ra Jesus, [Bb]sim, [F]p’ra [C]Je-[F]sus!",
+     "Olha, com [C]amor, ainda, [F]P’ra Jesus, [Bb]sim, [F]p’ra [C]Je-[F]sus!"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[F]Lá na cruz [C]Jesus morrendo, [F]Teus [Bb]pecados [F]ex-[C]pi-[F]ou;",
      "Santo Espírito [C]concedendo, [F]A sua [Bb]igreja [F]a-[C]dor-[F]nou,",
      "Todo o mal e [Bb][F]sofrimento, Já pregados [Bb]estão na [F]cruz,",
@@ -13509,7 +13599,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "Se nós [A]aqui não mais [E7]regressarmos,",
-     "Os santos juntos e [A7][D]contemplarmos",
+     "Os santos juntos e [A7][D]contemplarmos"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "suplicamos, ó [A]Salvador,",
      "Que [Cº]nos [A/C#]perdões, por [E7]Teu [A]amor."
     ]
@@ -13668,7 +13763,12 @@ window.HARPA = [
     "linhas": [
      "Nós [G]fomos [C]já [G]eleitos, o [D]céu pra [C/G][G]desfrutar;",
      "Também por [C]Deus [G]aceitos p’ra [A7]nunca mais [D]pecar!",
-     "[Am]Também por [D7]Deus [G]aceitos p’ra [C]nunca [G]mais [D][G]pecar!...",
+     "[Am]Também por [D7]Deus [G]aceitos p’ra [C]nunca [G]mais [D][G]pecar!..."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "A [G][C][G]imortalidade [D]havemos de [C/G][G]gozar,",
      "Pois temos [C][G]liberdade p’ra [A7]nunca mais [D]pecar!",
      "Pois [Am]temos [D7][G]liberdade p’ra [C]nunca [G]mais [D][G]pecar!..."
@@ -16610,10 +16710,20 @@ window.HARPA = [
     "linhas": [
      "Meu [F]Jesus é o [Dm]fiel [Gm]amigo, E me [C7]dá sua força e [F][C]poder;",
      "Torna em [F]gozo a minha [F7]dor,",
-     "Me [Bb]inspira, dá [Bº]valor; Oh! [F]Jesus é o melhor [C][F]amigo!...",
+     "Me [Bb]inspira, dá [Bº]valor; Oh! [F]Jesus é o melhor [C][F]amigo!..."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Quando as [F]ondas se [Dm][Gm]embravecem, E meu [C7]barco querem",
      "[F][C]afundar, Ele [F]dá-me calma e [F7]paz,",
-     "E [Bb]bonança sempre [Bº]traz, Sim, [F]Jesus é o melhor [C]ami-[F]go!...",
+     "E [Bb]bonança sempre [Bº]traz, Sim, [F]Jesus é o melhor [C]ami-[F]go!..."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Ele [F]deu a sua [Dm]própria [Gm]vida P’ra [C7]salvar o ímpio [F]pecador;",
      "[C]Oh! [F]Jamais me quer [F7]deixar,",
      "Nunca [Bb]me [Bº]desamparar! Sim, [F]Jesus é o melhor [C]ami-[F]go!..."
@@ -16860,7 +16970,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "[G]Onipotente [C]p’ra me [G]amar,",
-     "[C][D][Em][C]A-legremen-te [B7]vou [C]cantar;",
+     "[C][D][Em][C]A-legremen-te [B7]vou [C]cantar;"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[G]tomou, Jesus me [B7]deu [Em]a [D]paz;",
      "[C]amou, [G]Jesus é a [D]minha [G]paz!"
     ]
@@ -16915,7 +17030,12 @@ window.HARPA = [
      "Os [C]cristãos foram por [G7]tribunais vis [C]julgados,",
      "Nas [Dm]prisões, [G7]inocentes, à força [C]lançados,",
      "E de [G7]seus bens terrestres despojados,",
-     "Mas alegres seguiram o [C][G]Senhor...",
+     "Mas alegres seguiram o [C][G]Senhor..."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[C]Peregrinos os santos no [G7]mundo [C]andavam,",
      "Nas [Dm]cavernas da [G7]terra se [C]refugiavam,",
      "E [G7]ali, reunidos, celebravam",
@@ -16967,7 +17087,12 @@ window.HARPA = [
      "[D]Ó caro [A7][D]Salvador, [A7]riqueza de amor,",
      "[D]Ve [A]- la [E7]por [A]mim;",
      "[D]Tem-me na [A7]tua [D]mão, ó grande [A7][D]Capitão,",
-     "[G]E [F#m]lutarei, [Bm]então, [Em]contigo [A]as-[D]sim.",
+     "[G]E [F#m]lutarei, [Bm]então, [Em]contigo [A]as-[D]sim."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[D]Ó caro [A7][D]Salvador, [A7]meu vero intercessor,",
      "[D]O-[A]ra [E7]por [A]mim;",
      "[D]Eu posso [A7]então [D]falar, Oh! Deste [A7]amor sem [D]par.",
@@ -17095,7 +17220,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "[C]É o meu [F]lar, o [C]céu, [G]o céu de [C]luz!",
-     "Oh! Que [F]feliz [C]serei quando, com [F]mui",
+     "Oh! Que [F]feliz [C]serei quando, com [F]mui"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Livre da [F]carne, o [C]véu, [G]verei [C]Jesus;",
      "[G]Louvando ao [C]meu Rei, [G]ó [C]Salvador!"
     ]
@@ -19189,7 +19319,12 @@ window.HARPA = [
      "[F]Reunidos [C]em [F]amor, com Jesus, o [Bb/C][C]Salvador,",
      "[F]Vamos sempre [C]nos [F]lembrar Das palavras [C]do [F]Senhor:",
      "“ [C]Orfãos não vos [Bb/C][C]deixarei, Mas ao Pai, Eu [G7][C7]rogarei,",
-     "[F]Dar-vos o [C][F]Consolador, [C][F]Que do [Bb7+]céu [C][F]enviarei”.",
+     "[F]Dar-vos o [C][F]Consolador, [C][F]Que do [Bb7+]céu [C][F]enviarei”."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[F]Aos discípulos [C][F]ordenou, logo após [Bb/C][C]ressuscitar:",
      "“ O [F]Evangelho [C]de [F]amor, ide a todos, [C]sim, [F]pregar,",
      "[C]O que crê se [Bb/C][C]salvará E sinais [G7][C7]receberá",
@@ -20331,7 +20466,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "[A]Para o céu subiu Jesus, ganha a [F#m]vitória [E7]cá.",
-     "Intercede em teu favor, não te [A7]detenhas [D]lá.",
+     "Intercede em teu favor, não te [A7]detenhas [D]lá."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[Bm]Tão indigno pecador, [E7]sem ter do céu a [A]luz,",
      "Meu perdão foi [A][D][A]consumado lá [E7]na [A][E7]cruz."
     ]
@@ -20433,7 +20573,12 @@ window.HARPA = [
      "[D]Pelas portas de fulgor, não [G]pode o [A7]mal [D]entrar;",
      "Ó! Não queres ir [A7]lá? Ó! Não queres ir [D]lá?",
      "Nem a morte, luto ou dor, No [G]céu [A7]terão [D]lugar,",
-     "Ó! Não queres ir [A7]lá? Ó! Não queres ir [D]lá?",
+     "Ó! Não queres ir [A7]lá? Ó! Não queres ir [D]lá?"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[D]Oh! Que divinal mansão [G]Jesus nos [A7][D]preparou!",
      "Ó! Não queres ir [A7]lá? Ó! Não queres ir [D]lá?",
      "Onde todos os irmãos, Vão [G]ver quem [A7]os [D]salvou,",
@@ -20991,7 +21136,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "[G]A [C]quem nos [G]quis salvar [D]vamos [A7]lou-[D]var",
-     "[C]Aceita, pois, [G]Senhor, [D7]nosso veraz [G]louvor!",
+     "[C]Aceita, pois, [G]Senhor, [D7]nosso veraz [G]louvor!"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[G]Com-[C][G]praste-nos, Jesus, [D7]por tua [G]cruz,",
      "[C]Nós somos [G]teus, [C]Fi-[G]lho [D7]de [G]Deus!"
     ]
@@ -21833,7 +21983,12 @@ window.HARPA = [
      "Quando [A]nós nos [D][A]humilhamos Ante o [E7]bom [A]Consolador,",
      "O poder que [D]nós [A]buscamos, Nos [D]concede [E7]com [A]amor.",
      "E se [E7]vedes, [A]glorioso, Em [E7]visão, Jesus passar,",
-     "Eis que [A]busca [D][A]ansioso Uma [D]alma [E7][A]batizar.",
+     "Eis que [A]busca [D][A]ansioso Uma [D]alma [E7][A]batizar."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Quando [A]todos [D]nos [A]achamos Prontos [E7]para [A]escutar,",
      "Pela unção, [D]ouvir nós [A]vamosO bom [D]Deus, a [E7]nós [A]falar.",
      "E no [E7]céu, sim, ao [A]chegarmos, Oh! Que [E7]festa haverá,",
@@ -22218,7 +22373,12 @@ window.HARPA = [
      "[F]A teus pés, ó [C]Jesus [F]Cristo, [C]Acho terna [C7][F]compaixão;",
      "Para todos os [C]meu [F]pesares [C]Meus conflitos, [C7]minha [F][F7]dor.",
      "[Bb]Livra-me, ó Jesus [F]Cristo, [C]De cuidados, de [F][F7]aflição;",
-     "[Bb]E concede-me [F]constante [C]Teu poder [F][C]consolador!",
+     "[Bb]E concede-me [F]constante [C]Teu poder [F][C]consolador!"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[F]A teus pés, ó [C]Jesus [F]Cristo, [C]Eu desfruto [C7]teu [F]amor;",
      "Em teus olhos [C]há [F]doçura [C]Em teu seio [C7][F][F7]proteção.",
      "[Bb]Dá-me, ó Cristo, a tua [F]mente, [C]Dá-me graça [C7]e [F][F7]fervor;",
@@ -22405,7 +22565,12 @@ window.HARPA = [
      "[G]Também Jesus vos [C]disse assim: “Dá [D7]vida, água [G]sou,",
      "E quem tem sede [C]venha a mim, De [D7]graça o dom lhe [G]dou”.",
      "E [C]do seu ventre [G]sairão Em glória ao [Em][D]Salvador,",
-     "[G]Torrentes vivas, [C]que serão: A [D7]paz, a fé, o [G]amor!",
+     "[G]Torrentes vivas, [C]que serão: A [D7]paz, a fé, o [G]amor!"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Ainda [G]assim [C]falou Jesus A [D7]todo [G]pecador:",
      "“Ó vinde a mim, eu [C]sou a luz, Que [D7]brilha com [G]fulgor”.",
      "E [C]tu, que jazes, [G]ó mortal, Nas trevas [Em]de [D]horror,",
@@ -22704,9 +22869,19 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "[G]P’ra [C]redi-[G]mir-te, o Redentor Seu sangue [D]derramou",
-     "Na [G]cruz; sofrendo [C]grande dor, [G]Jesus te [D][G]resgatou!",
+     "Na [G]cruz; sofrendo [C]grande dor, [G]Jesus te [D][G]resgatou!"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[G]Cami-[C]nho [G]certo é Jesus, Achamos nEle [D]paz!",
-     "[G]Caminho santo [C]e de luz, Que [G]sempre [D][G]satisfaz!",
+     "[G]Caminho santo [C]e de luz, Que [G]sempre [D][G]satisfaz!"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[G]Vem [C]hoje, [G]vem te entregar Deixando todo [D]mal,",
      "Deus [G]quer agora [C]te salvar, Ó [G]vem p’ra [D]luz [G]real!"
     ]
@@ -26672,7 +26847,12 @@ window.HARPA = [
      "O [Bb]clarim que [F]chama os [Bb]crentes À batalha já [Bb7]soou:",
      "Cristo à [Eb]frente do seu povo, [Bb]Multidões já [F]conquistou.",
      "O [Bb]inimigo em [F][Bb]retirada, Seu [D7]furor já [Gm]demonstrou:",
-     "[Cm]Vencendo [F4]vem [F]Je-[Bb][F]sus!",
+     "[Cm]Vencendo [F4]vem [F]Je-[Bb][F]sus!"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Eis que em [Bb]glória [F][Bb]refulgente Sobre as nuvens [Bb7]descerá,",
      "E as [Eb]nações e os reis da terra Com [Bb]poder [F]governará.",
      "Sim, em [Bb]paz e [F][Bb]santidade Toda [D7]terra [Gm]regerá:",
@@ -26809,7 +26989,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "Por [D]isso, [A7]ó [D]Deus, O [G]meu [D]amor",
-     "[Bm]Cantar no [A7]céu o [Em]teu [A7]lou-[D]vor",
+     "[Bm]Cantar no [A7]céu o [Em]teu [A7]lou-[D]vor"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[D]porque [G][D]almejo o [A7]céu [D]fru-[A7]ir,",
      "Na [Bm]morte [Em]su-[A7]cum-[D]bir."
     ]
@@ -28256,7 +28441,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "Por mim estás nos [D7]céus, [G]Je-[D7]sus.",
-     "[G][B7]Revele [Em][E7]sempre o [Am]teu [E7]a-[Am]mor!",
+     "[G][B7]Revele [Em][E7]sempre o [Am]teu [E7]a-[Am]mor!"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "Dom que Deus, o [Am]Pai, [A7]me [D]deu.",
      "[D]O gozo [G]do meu [C]co [D4]- [D7]ra-[G]ção."
     ]
@@ -29412,7 +29602,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "A Rocha deste [Bm]coração És [E7]tu,",
-     "Com teu olhar [Bm]guiar-me-ás E em",
+     "Com teu olhar [Bm]guiar-me-ás E em"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "[E7]Senão a ti-[A]somente a ti!",
      "[A]de ti, [E7]somente a [A]ti!"
     ]
@@ -29736,7 +29931,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "Alguém [C7]assim [F][Bb][F]salvarás",
-     "E grande [C7]gozo [F][Bb]terás [F]Em",
+     "E grande [C7]gozo [F][Bb]terás [F]Em"
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "De [C]Cris-[C7]to, de [F]Cristo,",
      "De [C]Cris [C7]- [F]to."
     ]
@@ -30213,7 +30413,12 @@ window.HARPA = [
     "tipo": "estrofe",
     "linhas": [
      "O [F]sangue de [C7]Je-[F]sus [C7]já no-lo [F]assegurou;",
-     "A sua morte [Am]sobre a [Dm]cruz, O [Gm]título [C7]fir-[F]mou.",
+     "A sua morte [Am]sobre a [Dm]cruz, O [Gm]título [C7]fir-[F]mou."
+    ]
+   },
+   {
+    "tipo": "estrofe",
+    "linhas": [
      "E o [F]bom [C7]Consola-[F]dor, [C7]Penhor da [F]redenção,",
      "Pra o [F]céu nos leva com [Am]a-[Dm]mor, Paz [Gm]e [C7][F]satisfação."
     ]
