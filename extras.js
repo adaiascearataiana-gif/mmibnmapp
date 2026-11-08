@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.17.0)
+   MM IBNM — Extras (v1.18.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1047,6 +1047,7 @@ function bkAtualiza(){
   if(!fl){ document.body.insertAdjacentHTML('beforeend','<button id="bkFlut" class="bk-flut" onclick="bkExcluir()"></button>'); fl=document.getElementById('bkFlut'); }
   fl.textContent='🗑 Excluir ('+n+')';
 }
+window.bkTudoTab=function(cb,fora){ const tb= fora? cb.closest('.bk-bar').nextElementSibling : cb.closest('table'); if(!tb) return; tb.querySelectorAll('tbody .bk-cb, tr.bk-row .bk-cb').forEach(x=>x.checked=cb.checked); bkAtualiza(); };
 window.bkTudo=function(cb){ const box=cb.closest('.bk-bar').nextElementSibling; if(!box) return; box.querySelectorAll('.bk-cb').forEach(x=>{ x.checked=cb.checked; const id=x.dataset.id; if(id){ if(cb.checked) _bkSel.add(id); else _bkSel.delete(id); } }); bkAtualiza(); };
 function cbHTML(id){ return '<input type="checkbox" class="bk-cb"'+(id?' data-id="'+e(id)+'"'+(_bkSel.has(id)?' checked':''):'')+' onclick="event.stopPropagation()" onchange="bkMarca(this)" aria-label="Selecionar">'; }
 window.bkMarca=function(cb){ const id=cb.dataset.id; if(id){ if(cb.checked) _bkSel.add(id); else _bkSel.delete(id); } bkAtualiza(); };
@@ -1063,6 +1064,14 @@ function marcaListas(){
   const conts=new Map();
   bts.forEach(b=>{ let el=b; while(el && el.parentElement && el.parentElement.id!=='content'){ const p=el.parentElement; const filhos=[...p.children].filter(ch=>[...ch.querySelectorAll('button')].some(ehBotaoExcluir)); if(filhos.length>=2){ conts.set(p,filhos); break; } el=p; } });
   conts.forEach((filhos,p)=>{ if(p.id==='listaMusicas') return;
+    if(p.tagName==='TBODY' || p.tagName==='TABLE' || (filhos[0]&&filhos[0].tagName==='TR')){
+      /* tabela: a caixa vai numa coluna própria, e o TUDO no cabeçalho */
+      filhos.forEach(r=>{ const c0=r.cells&&r.cells[0]; if(!c0 || c0.querySelector('.bk-cb')) return; c0.insertAdjacentHTML('afterbegin','<span class="bk-in">'+cbHTML('')+'</span>'); r.classList.add('bk-row'); });
+      const tb=p.closest('table'); const hr=tb&&tb.querySelector('thead tr'); const h0=hr&&hr.cells[0];
+      if(h0 && !h0.querySelector('.bk-tudo')) h0.insertAdjacentHTML('afterbegin','<input type="checkbox" class="bk-tudo" title="Marcar todos" onclick="event.stopPropagation()" onchange="bkTudoTab(this)">');
+      else if(!hr && tb && (!tb.previousElementSibling || !tb.previousElementSibling.classList.contains('bk-bar'))) tb.insertAdjacentHTML('beforebegin','<label class="bk-bar"><input type="checkbox" onchange="bkTudoTab(this,true)"> TUDO</label>');
+      return;
+    }
     filhos.forEach(r=>{ if(r.querySelector(':scope > .bk-cb')) return; r.insertAdjacentHTML('afterbegin',cbHTML('')); r.classList.add('bk-row'); });
     if(!p.previousElementSibling || !p.previousElementSibling.classList.contains('bk-bar')) p.insertAdjacentHTML('beforebegin','<label class="bk-bar"><input type="checkbox" onchange="bkTudo(this)"> TUDO</label>');
   });
@@ -1161,6 +1170,7 @@ function limpaExtraido(t){
   return ls.map(l=>l.slice(Math.min(rec,l.match(/^\s*/)[0].length))).join('\n').replace(/\n{3,}/g,'\n\n').trim();
 }
 /* aplica o padrão de botões */
+function dicaNova(){ document.querySelectorAll('.tr-dica span').forEach(sp=>{ if(/Cifras liga\/desliga/.test(sp.textContent)) sp.textContent='💡 Dica: 🎸 Cifra mostra os acordes e 📖 Letra mostra só a letra. A− e A+ no topo mudam o tamanho.'; }); }
 function padronizaHino(forca){
   const pg=document.querySelector('#content .cc-page'); const tools=pg&&pg.querySelector('.cc-tools'); if(!tools) return;
   const song=pg.querySelector('.cc-song'); const editando=song&&song.classList.contains('editing');
@@ -1186,7 +1196,7 @@ function padronizaHino(forca){
   if(!adm){ tools.querySelectorAll('.cc-ga').forEach(g=>g.style.display='none'); }
   if(forca) tools.dataset.pad='';
 }
-let _pz=0; new MutationObserver(()=>{ clearTimeout(_pz); _pz=setTimeout(()=>padronizaHino(false),90); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+let _pz=0; new MutationObserver(()=>{ clearTimeout(_pz); _pz=setTimeout(()=>{ padronizaHino(false); dicaNova(); },90); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
 
 /* ======================= 10) ✕ PARA FECHAR AS JANELAS ======================= */
 function poeX(){ const bg=document.getElementById('modalBg'), box=document.getElementById('modalBox');
@@ -1313,5 +1323,37 @@ button.ac-pcel{border:1px solid #e3ece7;border-radius:10px;padding:6px;width:100
 .am-var span{font-size:13px;font-weight:800;color:#5d7c6e;min-width:56px;text-align:center}
 .am-lista{align-items:flex-start}
 white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;border-radius:10px;padding:12px;color:#234}
+
+.ex-rec{white-space:pre-wrap;background:#f4f8f6;border-radius:12px;padding:12px 14px;font-family:inherit;font-size:15px;line-height:1.5;margin:8px 0 12px}
+/* HCC */
+.hcc-star{margin-left:auto;font-size:22px;color:#c9a200;padding:0 6px;flex:none}
+.hcc-star.on{color:#e0a800}
+.hcc-lista .cc-list a{display:flex;align-items:center}
+.hcc-lista .cc-list a>span:nth-child(2){flex:1;min-width:0}
+/* pré-visualização */
+.prev-box{background:#fbfdfc;border:1px dashed #cfdad4;border-radius:10px;padding:8px 10px;min-height:60px;max-height:45vh;overflow:auto;font-size:14px}
+.ed-prev{margin-top:10px}
+/* selecionar vários */
+.bk-bar{display:flex;align-items:center;gap:8px;font-weight:900;font-size:13px;color:var(--verde-escuro);margin:6px 2px}
+.bk-bar input,.bk-cb{width:20px;height:20px;accent-color:var(--verde-med);flex:none;margin:0}
+.bk-row{position:relative}
+.bk-row>.bk-cb{margin-right:10px;align-self:center}
+.bk-in{display:inline-flex;vertical-align:middle;margin-right:8px}
+.bk-tudo{vertical-align:middle;margin:0 6px 0 0;width:18px;height:18px;accent-color:var(--dourado)}
+.bk-flut{position:fixed;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:900;height:50px;padding:0 20px;border:0;border-radius:25px;background:#c0392b;color:#fff;font-weight:900;font-size:15px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+/* tabela de membros: nada quebra palavra; a tabela rola para o lado */
+.mb-tab td{white-space:nowrap}
+.mb-tab td a{word-break:normal}
+/* SETLIST: anterior/próximo em até 2 linhas, sem cortar */
+.sl-nav button{white-space:normal!important;text-overflow:ellipsis!important;line-height:1.25;display:-webkit-box!important;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mb-tab td{position:relative}
+.mb-tab tr.bk-row td:first-child{padding-left:34px}
+.mb-tab .bk-in{position:absolute;left:8px;top:50%;transform:translateY(-50%);margin:0}
+/* computador: telas mais largas */
+@media (min-width:1100px){
+  .content{max-width:1080px}
+  .content .cc-page{max-width:860px;margin-left:auto;margin-right:auto}
+  #content .song-row,#content .cc-list li{transition:background .15s}
+}
 `; document.head.appendChild(st);
 })();
