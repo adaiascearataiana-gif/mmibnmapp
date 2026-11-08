@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.15.0)
+   MM IBNM — Extras (v1.16.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -347,6 +347,8 @@ function limpaLetra(l){
   return t.replace(/\s{2,}/g,' ').replace(/\s+([,.;:!?])/g,'$1').trim();
 }
 function hinoAtual(){
+  const hp=document.querySelector('#content .hcc-page[data-n]');
+  if(hp){ const n=+hp.dataset.n; return {harpa:'hcc', h:hccHino(n)}; }
   let top=''; try{ const st=window.__navStack? __navStack() : []; top=st[st.length-1]||''; }catch(_){}
   const harpa=/^hr\|/.test(top) || (!/^cc\|/.test(top) && /Harpa/.test((document.querySelector('.cc-hbar')||{}).textContent||''));
   const n=+((top.match(/\|(\d+)/)||[])[1] || ((document.querySelector('.cc-head .n')||{}).textContent||'').replace(/\D/g,''));
@@ -358,9 +360,9 @@ function hinoAtual(){
   return {harpa, h};
 }
 /* edições feitas pelo ADM em "Editar cifras" (o app guarda no aparelho de todos) */
-function edicoesDe(n,harpa){ try{ return (JSON.parse(localStorage.getItem(harpa?'ibnm_hr_ed':'ibnm_cc_ed')||'{}')||{})[n]||null; }catch(_){ return null; } }
+function edicoesDe(n,harpa){ if(harpa==='hcc'){ const r=(HCC_DB||{})[n]; return r&&r.texto? {__texto:r.texto} : null; } try{ return (JSON.parse(localStorage.getItem(harpa?'ibnm_hr_ed':'ibnm_cc_ed')||'{}')||{})[n]||null; }catch(_){ return null; } }
 function letraHTML(h,harpa){
-  let est=0; const fs=harpa?'harpaFs':'cantorFs'; const ed=edicoesDe(h.n,harpa);
+  let est=0; const fs=harpa==='hcc'?'hccFs':harpa?'harpaFs':'cantorFs'; const ed=edicoesDe(h.n,harpa);
   if(ed && ed.__texto){ const blocos=[]; let cur=null;
     ed.__texto.split('\n').forEach(l=>{ const t=l.trim(); if(!t){ cur=null; return; }
       if(/^\[[^\]]+\]$/.test(t)){ cur={coro:/coro|refr/i.test(t),ls:[]}; blocos.push(cur); return; }
@@ -849,7 +851,7 @@ let _tn=0; new MutationObserver(()=>{ clearTimeout(_tn); _tn=setTimeout(()=>{ ca
 /* Os hinos do Cantor e da Harpa aparecem como as músicas: acorde em cima da letra, em linhas
    comuns. O ADM edita o hino inteiro como texto (pode mudar, juntar, acrescentar estrofes).
    O texto editado fica salvo na nuvem (campo "__texto" das edições do hino). */
-function edDoHino(n,harpa){ try{ return (JSON.parse(localStorage.getItem(harpa?'ibnm_hr_ed':'ibnm_cc_ed')||'{}')||{})[n]||null; }catch(_){ return null; } }
+function edDoHino(n,harpa){ if(harpa==='hcc'){ const r=(HCC_DB||{})[n]; return r&&r.texto? {__texto:r.texto} : null; } try{ return (JSON.parse(localStorage.getItem(harpa?'ibnm_hr_ed':'ibnm_cc_ed')||'{}')||{})[n]||null; }catch(_){ return null; } }
 function linhaParaDuas(l){  /* "[A]Deus [E]prometeu" → ["A    E", "Deus prometeu"] */
   let txt='', ac='';
   String(l).replace(/\[([^\]]*)\]|([^\[]+)/g,(m,c,t)=>{ if(c!==undefined){ if(ac.length>txt.length) txt+=' '.repeat(ac.length-txt.length+0); while(ac.length<txt.length) ac+=' '; if(ac.length && !/\s$/.test(ac)) ac+=' '; while(txt.length<ac.length) txt+=' '; ac+=c; } else txt+=t; return ''; });
@@ -862,7 +864,7 @@ function textoOriginal(h,harpa){
     (p.linhas||[]).forEach((l,li)=>{ const k=pi+'-'+li; const lin=Object.prototype.hasOwnProperty.call(ed,k)? ed[k] : l; const [a,t]=linhaParaDuas(lin); if(a.trim()) out.push(a); if(t.trim()||!a.trim()) out.push(t); }); });
   return out.join('\n');
 }
-function textoDoHino(h,harpa){ const ed=edDoHino(h.n,harpa); return (ed&&ed.__texto)? ed.__texto : textoOriginal(h,harpa); }
+function textoDoHino(h,harpa){ const ed=edDoHino(h.n,harpa); return (ed&&ed.__texto)? ed.__texto : (harpa==='hcc'? '' : textoOriginal(h,harpa)); }
 window.__textoDoHino=textoDoHino;
 function semitonsDaTela(h){ const b=document.querySelector('#content .cc-tools .chip .lbl b, #content .cc-meta b'); const cur=b? b.textContent.trim().replace(/m$/,'') : ''; const ori=String(h.tom||'').replace(/m$/,'');
   if(PC[cur]===undefined||PC[ori]===undefined) return 0; let d=(PC[cur]-PC[ori]+12)%12; if(d>6) d-=12; return d; }
@@ -887,14 +889,18 @@ function hinoEmTexto(){
 /* ADM: editar o hino inteiro como texto */
 window.editarHinoTexto=function(){
   const {h,harpa}=hinoAtual(); if(!h) return;
-  abrirModal('<h3>✏️ Editar '+(harpa?'Harpa':'Cantor')+' '+h.n+' — '+e(h.titulo)+'</h3>'+
+  abrirModal('<h3>✏️ Editar '+(harpa==='hcc'?'HCC':harpa?'Harpa':'Cantor')+' '+h.n+' — '+e(h.titulo)+'</h3>'+
+    (harpa==='hcc'?'<input id="hccTit" class="inp" placeholder="Título" value="'+e(h.titulo)+'" style="margin-bottom:6px">':'')+
     '<p class="am-dica">Escreva como nas músicas: a linha de acordes em cima da linha da letra. [1], [2], [Coro] marcam as estrofes. Pode acrescentar estrofes.</p>'+
-    '<textarea id="hxTxt" class="hx-txt" spellcheck="false" enterkeyhint="enter">'+e(textoDoHino(h,harpa))+'</textarea>'+
+    '<textarea id="hxTxt" class="hx-txt" spellcheck="false" enterkeyhint="enter" oninput="prevAoVivo(\'hxTxt\',\'hxPrev\')">'+e(textoDoHino(h,harpa))+'</textarea>'+
+    '<div class="am-dica" style="margin-top:6px">👁 Pré-visualização</div><div id="hxPrev" class="cc-tx prev-box"></div>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarHinoTexto()">💾 Salvar</button></div>'+
-    ((edDoHino(h.n,harpa)||{}).__texto? '<button class="hx-orig" onclick="salvarHinoTexto(true)">↩️ Voltar ao texto original do hinário</button>' : ''));
+    ((harpa!=='hcc' && (edDoHino(h.n,harpa)||{}).__texto)? '<button class="hx-orig" onclick="salvarHinoTexto(true)">↩️ Voltar ao texto original do hinário</button>' : ''));
+  prevAoVivo('hxTxt','hxPrev');
 };
 window.salvarHinoTexto=async function(original){
   const {h,harpa}=hinoAtual(); if(!h) return;
+  if(harpa==='hcc') return hccSalvarTexto(h.n);
   const chave=harpa?'ibnm_hr_ed':'ibnm_cc_ed'; let todos={}; try{ todos=JSON.parse(localStorage.getItem(chave)||'{}')||{}; }catch(_){}
   const ed=Object.assign({},todos[h.n]||{});
   if(original) delete ed.__texto; else { const v=(document.getElementById('hxTxt')||{}).value||''; ed.__texto=v.replace(/\r/g,'').replace(/\s+$/,''); }
@@ -910,7 +916,7 @@ window.salvarHinoTexto=async function(original){
   setTimeout(()=>{ try{ (harpa?harpaAbrir:cantorAbrir)(h.n); }catch(_){} },150);
 };
 function botaoEditarTexto(){
-  const g=document.querySelector('#content .cc-tools .cc-ga'); if(!g || g.querySelector('.hx-bt') || !podeHinos()) return;
+  const g=document.querySelector('#content .cc-tools .cc-ga'); if(!g || g.querySelector('.hx-bt') || !podeHinos() || document.querySelector('#content .hcc-page')) return;
   g.insertAdjacentHTML('beforeend','<button class="tog hx-bt" onclick="editarHinoTexto()">✏️ Editar hino (texto)</button>');
 }
 let _hx=0; new MutationObserver(()=>{ clearTimeout(_hx); _hx=setTimeout(()=>{ hinoEmTexto(); botaoEditarTexto(); },40); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
@@ -932,79 +938,90 @@ window.abrirSiteHino=function(livro,n){
 };
 document.addEventListener('click',ev=>{
   const b=ev.target.closest&&ev.target.closest('#content .cc-tools button'); if(!b || !/PARTITURA/i.test(b.textContent)) return;
-  const {h,harpa}=hinoAtual(); if(!h || harpa) return;
-  ev.preventDefault(); ev.stopImmediatePropagation(); abrirSiteHino('cc',h.n);
+  const {h,harpa}=hinoAtual(); if(!h || harpa===true) return;
+  ev.preventDefault(); ev.stopImmediatePropagation(); abrirSiteHino(harpa==='hcc'?'hcc':'cc',h.n);
 },true);
 
 /* ======================= 19) HINÁRIO PARA O CULTO CRISTÃO (HCC) ======================= */
 /* Seção nova em Músicas. Lista dos hinos com página na Coletânea HCC (cifragem em PDF lá) e,
    no app, a cifra/letra que o ADM escrever — com tom, acordes, letra e tudo como no Cantor. */
-let HCC_DB=null; let _hccSt={};
+let HCC_DB=null; let _hccSt={}; let _hccQ='';
 async function hccCarrega(forca){
   if(HCC_DB && !forca) return HCC_DB;
-  try{ const c=JSON.parse(localStorage.getItem('ibnm_hcc')||'null'); if(c && !forca) HCC_DB=c; }catch(_){}
-  try{ if(typeof sb!=='undefined'){ const {data,error}=await sb.from('hcc_hinos').select('num,titulo,texto,tom'); if(!error){ HCC_DB={}; (data||[]).forEach(r=>HCC_DB[r.num]=r); localStorage.setItem('ibnm_hcc',JSON.stringify(HCC_DB)); } else if(!HCC_DB) HCC_DB={}; } }catch(_){ if(!HCC_DB) HCC_DB={}; }
-  return HCC_DB;
+  try{ const c=JSON.parse(localStorage.getItem('ibnm_hcc')||'null'); if(c && !HCC_DB) HCC_DB=c; }catch(_){}
+  try{ if(typeof sb!=='undefined'){ const {data,error}=await sb.from('hcc_hinos').select('num,titulo,texto,tom'); if(!error){ HCC_DB={}; (data||[]).forEach(r=>HCC_DB[r.num]=r); localStorage.setItem('ibnm_hcc',JSON.stringify(HCC_DB)); } } }catch(_){}
+  if(!HCC_DB) HCC_DB={}; return HCC_DB;
 }
-function hccTodos(){ const m={}; Object.keys(HCC_SITE).forEach(n=>m[n]={n:+n,titulo:HCC_SITE[n][0].t,site:true}); Object.values(HCC_DB||{}).forEach(r=>{ m[r.num]=Object.assign(m[r.num]||{n:r.num,site:false},{titulo:r.titulo||(m[r.num]||{}).titulo||'',texto:r.texto,tom:r.tom}); }); return Object.values(m).sort((a,b)=>a.n-b.n); }
-let _hccBusca='';
-window.hccBusca=function(v){ _hccBusca=v; const el=document.getElementById('hccLista'); if(el) el.innerHTML=hccListaHTML(); };
-function hccListaHTML(){
-  const q=SLUG(_hccBusca);
-  const L=hccTodos().filter(h=>!q || String(h.n).includes(_hccBusca.trim()) || SLUG(h.titulo).includes(q));
-  return L.length? L.map(h=>'<div class="song-row" onclick="go(\'hccver\','+h.n+')"><div class="s-ic"><i>'+String(h.n).padStart(3,'0')+'</i></div><div style="flex:1;min-width:0"><div class="s-nm">'+e(h.titulo)+'</div><div class="s-ar">'+(h.texto?'🎸 cifra no app':'')+(h.site?(h.texto?' · ':'')+'📄 PDF na Coletânea':'')+'</div></div></div>').join('')
-    : '<div class="empty">Nenhum hino encontrado.</div>';
-}
+function hccHino(n){ const r=(HCC_DB||{})[n]||{}, si=HCC_SITE[n]; const tx=r.texto||'';
+  return {n, titulo:r.titulo||(si?si[0].t:'Hino '+n), tom:normTom(r.tom)||(tx?detectarTom(tx):''), partes:[], texto:tx, site:!!si, hcc:true}; }
+function hccTodos(){ const ns=new Set([...Object.keys(HCC_SITE),...Object.keys(HCC_DB||{})].map(Number)); return [...ns].sort((a,b)=>a-b).map(hccHino); }
+const hccFavs=()=>{ try{ return new Set(JSON.parse(localStorage.getItem('ibnm_hcc_fav')||'[]')); }catch(_){ return new Set(); } };
+window.hccFav=function(n,ev){ if(ev) ev.stopPropagation(); const f=hccFavs(); f.has(n)?f.delete(n):f.add(n); localStorage.setItem('ibnm_hcc_fav',JSON.stringify([...f])); const pg=document.querySelector('.hcc-page[data-n]'); if(pg) hccAbrir(n,true); else hccBuscar(_hccQ); };
+const hccFsVal=()=> +(localStorage.getItem('ibnm_hcc_fs')||20);
+window.hccFs=function(d){ localStorage.setItem('ibnm_hcc_fs',Math.min(34,Math.max(14,hccFsVal()+d))); const pg=document.querySelector('.hcc-page[data-n]'); if(pg) hccAbrir(+pg.dataset.n,true); };
+function primeiraLinha(tx){ const l=String(tx||'').split('\n').find(l=>l.trim() && !/^\s*\[[^\]]+\]\s*$/.test(l) && !(window.__ehLinhaDeAcordes&&__ehLinhaDeAcordes(l))); return l? l.trim() : ''; }
+function hccItem(h){ const fv=hccFavs().has(h.n);
+  return '<li><a href="javascript:void(0)" onclick="hccAbrir('+h.n+')"><span class="num">'+h.n+'</span><span><span class="tt">'+e(h.titulo)+'</span><span class="fl">'+e(h.texto? primeiraLinha(h.texto).slice(0,60) : (h.site?'📄 cifragem em PDF na Coletânea':''))+'</span></span><span class="hcc-star'+(fv?' on':'')+'" onclick="hccFav('+h.n+',event)">'+(fv?'★':'☆')+'</span></a></li>'; }
+function hccListaHTML(){ const q=SLUG(_hccQ), qn=_hccQ.trim();
+  const L=hccTodos(), porTit=L.filter(h=>!q || (/^\d+$/.test(qn)? String(h.n).startsWith(qn) : SLUG(h.titulo).includes(q))),
+        porLet=(q && !/^\d+$/.test(qn))? L.filter(h=>h.texto && !porTit.includes(h) && SLUG(h.texto).includes(q)) : [];
+  return (porTit.length?'<ul class="cc-list">'+porTit.map(hccItem).join('')+'</ul>':'')+(porLet.length?'<p class="cc-sec">Encontrado na letra</p><ul class="cc-list">'+porLet.map(hccItem).join('')+'</ul>':'')+(!porTit.length&&!porLet.length?'<div class="empty">Nenhum hino encontrado.</div>':''); }
+window.hccBuscar=function(v){ _hccQ=v; const el=document.getElementById('hccRes'); if(el) el.innerHTML=hccListaHTML(); };
+window.hccNovo=function(){ const n=parseInt(prompt('Número do hino no HCC:')||'',10); if(!(n>0)) return; if(!HCC_SITE[n] && !(HCC_DB||{})[n]){ const t=prompt('Título do hino '+n+':')||''; (HCC_DB=HCC_DB||{})[n]={num:n,titulo:t,texto:'',tom:null}; } hccAbrir(n); setTimeout(()=>{ try{ editarHinoTexto(); }catch(_){} },300); };
 if(typeof ROTAS!=='undefined'){
-  ROTAS.hcc=function(){ hccCarrega().then(()=>{ const el=document.getElementById('hccLista'); if(el) el.innerHTML=hccListaHTML(); });
-    return '<div class="page"><div class="page-ttl">📕 Hinário para o Culto Cristão</div>'+
-      '<div class="card"><input class="inp" placeholder="Buscar por número ou título" oninput="hccBusca(this.value)" value="'+e(_hccBusca)+'">'+
-      (podeHinos()?'<button class="mini-btn" style="margin-top:8px" onclick="hccNovo()">＋ Hino (número)</button>':'')+
-      '<p class="am-dica" style="margin-top:6px">Os PDFs ficam na Coletânea HCC (André Luís Souza). A cifra no app é escrita pelos ADMs.</p></div>'+
-      '<div id="hccLista">'+(HCC_DB?hccListaHTML():'<div class="empty">Carregando…</div>')+'</div></div>'; };
-  ROTAS.hccver=function(n){ n=+n; setTimeout(()=>hccCarrega().then(()=>hccDesenha(n)),0);
-    return '<div class="page"><button class="mini-btn sec" onclick="go(\'hcc\')">‹ HCC</button><div id="hccBox"><div class="empty">Carregando…</div></div></div>'; };
+  ROTAS.hcc=function(){ hccCarrega().then(()=>{ const el=document.getElementById('hccRes'); if(el) el.innerHTML=hccListaHTML(); const c=document.getElementById('hccCont'); if(c) c.textContent=hccTodos().length; });
+    const adm=podeHinos();
+    return '<div class="page cc-page hcc-lista"><div class="page-ttl">📕 Hinário para o Culto Cristão</div>'+
+      '<p style="font-size:13px;color:#789;margin-bottom:12px"><span id="hccCont">'+hccTodos().length+'</span> hinos · use a busca por número, título ou letra'+(adm?' · <b style="color:var(--verde-med)">você é ADM e pode escrever e editar as cifras</b>':'')+'</p>'+
+      '<input class="search-box" placeholder="🔎 Número ou título do hino" value="'+e(_hccQ)+'" oninput="hccBuscar(this.value)">'+
+      (adm?'<button class="mini-btn" style="margin:8px 0" onclick="hccNovo()">＋ Hino que não está na lista</button>':'')+
+      '<div id="hccRes">'+hccListaHTML()+'</div>'+
+      '<p class="cc-foot">HCC · cifragens em PDF da Coletânea HCC (André Luís Souza) · cifras no app escritas pelos ADMs</p></div>'; };
+  ROTAS.hccver=function(n){ setTimeout(()=>hccCarrega().then(()=>hccAbrir(+n,true)),0); return '<div class="page cc-page hcc-page" data-n="'+(+n)+'"><div class="empty">Carregando…</div></div>'; };
 }
-window.hccNovo=function(){ const n=parseInt(prompt('Número do hino no HCC:')||'',10); if(n>0) go('hccver',n); };
-let _hccModo='cifra';
-window.hccModo=function(m){ _hccModo=m; const n=+(document.getElementById('hccBox')||{}).dataset.n; hccDesenha(n); };
-window.hccTom=function(n,d){ _hccSt[n]=((_hccSt[n]||0)+d+12)%12; hccDesenha(n); };
-function hccDesenha(n){
-  const box=document.getElementById('hccBox'); if(!box) return; box.dataset.n=n;
-  const site=HCC_SITE[n], r=(HCC_DB||{})[n]||{}; const titulo=r.titulo||(site?site[0].t:'Hino '+n);
-  let txt=r.texto||''; const st=_hccSt[n]||0; if(st && txt && window.__transpTexto) txt=__transpTexto(txt,st);
-  const tom=r.tom? transpTom(r.tom,st) : (txt? detectarTom(txt):'');
-  let corpo='';
-  if(!txt) corpo='<div class="empty">Ainda não há cifra deste hino no app.'+(site?'<br>Toque em <b>📄 Cifra (PDF)</b> para abrir a cifragem na Coletânea.':'')+'</div>';
-  else if(_hccModo==='letra'){ const blocos=[]; let cur=null; txt.split('\n').forEach(l=>{ const t=l.trim(); if(!t){ cur=null; return; } if(/^\[[^\]]+\]$/.test(t)){ cur={coro:/coro|refr/i.test(t),ls:[]}; blocos.push(cur); return; } if(window.__ehLinhaDeAcordes&&__ehLinhaDeAcordes(l)) return; if(!cur){ cur={coro:false,ls:[]}; blocos.push(cur); } cur.ls.push(t); });
-    let est=0; corpo='<div class="cc-letra">'+blocos.filter(b=>b.ls.length).map(b=>{ if(!b.coro) est++; return '<div class="cl-p'+(b.coro?' coro':'')+'"><span class="cl-r">'+(b.coro?'Coro':est)+'</span>'+b.ls.map(x=>'<div>'+e(x)+'</div>').join('')+'</div>'; }).join('')+'</div>'; }
-  else corpo='<div class="hcc-song" style="--cc-fs:20px"><div class="cc-tx">'+htmlTextoCifra(txt)+'</div></div>';
-  box.innerHTML='<div class="card hcc-cab"><div class="hcc-n">'+n+'</div><div style="flex:1;min-width:0"><div class="s-nm" style="font-size:18px">'+e(titulo)+'</div><div class="s-ar">HCC'+(tom?' · Tom <b>'+e(tom)+'</b>':'')+'</div></div></div>'+
-    '<div class="hcc-tools"><div class="cc-seg"><button class="'+(_hccModo==='cifra'?'on':'')+'" onclick="hccModo(\'cifra\')">🎸 Cifra</button><button class="'+(_hccModo==='letra'?'on':'')+'" onclick="hccModo(\'letra\')">📖 Letra</button></div>'+
-    '<div class="cc-grp">'+(txt?'<span class="chip"><button onclick="hccTom('+n+',-1)">−</button><span class="lbl">Tom <b>'+e(tom||'?')+'</b></span><button onclick="hccTom('+n+',1)">+</button></span>':'')+
-    (site?'<button class="tog" onclick="abrirSiteHino(\'hcc\','+n+')">📄 Cifra (PDF)</button>':'')+
-    (podeHinos()?'<button class="tog" onclick="hccEditar('+n+')">✏️ '+(r.texto?'Editar':'Escrever')+' cifra</button>':'')+'</div></div>'+corpo;
-}
-window.hccEditar=function(n){
-  const site=HCC_SITE[n], r=(HCC_DB||{})[n]||{};
-  abrirModal('<h3>✏️ HCC '+n+'</h3><input id="hccTit" class="inp" placeholder="Título" value="'+e(r.titulo||(site?site[0].t:''))+'">'+
-    '<div style="display:flex;gap:6px;align-items:center;margin:6px 0"><span class="am-dica">Tom</span><input id="hccTomI" class="ed-tom" value="'+e(r.tom||'')+'" placeholder="auto"></div>'+
-    '<textarea id="hxTxt" class="hx-txt" spellcheck="false" placeholder="Acordes em cima da letra, como nas músicas. Use [1], [2], [Coro] para as partes." oninput="prevAoVivo(\'hxTxt\',\'hxPrev\')">'+e(r.texto||'')+'</textarea>'+
-    '<div class="am-dica" style="margin-top:6px">👁 Pré-visualização</div><div id="hxPrev" class="cc-tx prev-box"></div>'+
-    '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="hccSalvar('+n+')">💾 Salvar</button></div>');
-  prevAoVivo('hxTxt','hxPrev');
+let _hccScroll=null;
+window.hccScroll=function(){ if(_hccScroll){ clearInterval(_hccScroll); _hccScroll=null; } else _hccScroll=setInterval(()=>window.scrollBy(0,1),60); const b=document.getElementById('tsc'); if(b){ b.textContent=_hccScroll?'⏸ Pausar rolagem':'▶ Rolagem'; b.setAttribute('aria-pressed',_hccScroll?'true':'false'); } };
+let _hccCifras=true;
+window.hccCifras=function(n){ _hccCifras=!_hccCifras; hccAbrir(n,true); };
+window.hccTransp=function(n,d){ _hccSt[n]=((_hccSt[n]||0)+d+12)%12; hccAbrir(n,true); };
+window.hccAbrir=function(n,manter){
+  const c=document.getElementById('content'); if(!c) return;
+  if(!document.querySelector('.hcc-page[data-n="'+n+'"]') && !manter){ go('hccver',n); return; }
+  const h=hccHino(n); const st=_hccSt[n]||0; const key=h.tom? transpTom(h.tom,st) : '';
+  const L=hccTodos(), i=L.findIndex(x=>x.n===n), prev=L[i-1], next=L[i+1]; const adm=podeHinos(); const fv=hccFavs().has(n);
+  const corpo= h.texto? '' : '<div class="empty">Ainda não há cifra deste hino no app.'+(h.site?'<br>Toque em <b>📜 PARTITURA</b> para abrir a cifragem em PDF na Coletânea.':'')+(adm?'<br>Ou toque em <b>✏️ Editar hino (texto)</b> para escrever.':'')+'</div>';
+  const html='<div class="cc-hbar"><button class="ib" onclick="go(\'hcc\')">‹ Hinos</button>'+
+    '<button class="ib '+(fv?'fav-on':'')+'" onclick="hccFav('+n+')" aria-label="Favoritos">'+(fv?'★':'☆')+'</button><span class="sp"></span>'+
+    '<button class="ib" onclick="hccFs(-2)" aria-label="Diminuir letra">A−</button><button class="ib" onclick="hccFs(2)" aria-label="Aumentar letra">A+</button></div>'+
+    '<main class="cc-main"><div class="cc-head"><div class="n">'+n+'</div><h2>'+e(h.titulo)+'</h2>'+
+      '<div class="cc-meta">'+(key?'<span>Tom <b>'+e(key)+'</b>'+(st?' (original '+e(h.tom)+')':'')+'</span>':'')+'<span>HCC</span></div></div>'+
+    '<div class="cc-tools">'+
+      (h.texto?'<button class="tog" id="tc" aria-pressed="'+_hccCifras+'" onclick="hccCifras('+n+')">Cifras</button>':'')+
+      (h.texto&&key?'<span class="chip"'+(_hccCifras?'':' hidden')+'><button onclick="hccTransp('+n+',-1)" aria-label="Baixar meio tom">−</button><span class="lbl">Tom <b>'+e(key)+'</b></span><button onclick="hccTransp('+n+',1)" aria-label="Subir meio tom">+</button></span>':'')+
+      (h.texto?'<button class="tog" id="tsc" aria-pressed="'+(_hccScroll?'true':'false')+'" onclick="hccScroll()">'+(_hccScroll?'⏸ Pausar rolagem':'▶ Rolagem')+'</button>':'')+
+      (h.site?'<button class="tog cc-part">📜 PARTITURA</button>':'')+
+      (adm?'<button class="tog cc-edit" id="ted" onclick="editarHinoTexto()">Editar cifras</button>':'')+
+    '</div>'+
+    (h.texto? '<div class="cc-song '+(_hccCifras?'':'nochords')+'" style="--cc-fs:'+hccFsVal()+'px"></div>' : corpo)+
+    '<nav class="cc-nav">'+(prev?'<a href="javascript:void(0)" onclick="hccAbrir('+prev.n+')"><small>Anterior</small>'+prev.n+' · '+e(prev.titulo)+'</a>':'<span></span>')+(next?'<a class="r" href="javascript:void(0)" onclick="hccAbrir('+next.n+')"><small>Próximo</small>'+next.n+' · '+e(next.titulo)+'</a>':'<span></span>')+'</nav></main>';
+  c.innerHTML='<div class="page cc-page hcc-page" data-n="'+n+'">'+html+'</div>';
+  if(!manter) window.scrollTo(0,0);
 };
-window.hccSalvar=async function(n){
-  const titulo=(document.getElementById('hccTit')||{}).value||'', texto=((document.getElementById('hxTxt')||{}).value||'').replace(/\r/g,'').replace(/\s+$/,'');
-  const tom=normTom((document.getElementById('hccTomI')||{}).value)||null;
-  const {error}=await sb.from('hcc_hinos').upsert({num:n,titulo,texto,tom,updated_at:new Date().toISOString()});
-  if(error) return toast('Não salvou: '+error.message+(/relation|does not exist/i.test(error.message)?' — rode o SQL do HCC.':''));
-  (HCC_DB=HCC_DB||{})[n]={num:n,titulo,texto,tom}; localStorage.setItem('ibnm_hcc',JSON.stringify(HCC_DB));
-  fecharModal(); toast('Hino salvo.'); hccDesenha(n);
+window.hccSalvarTexto=async function(n){
+  const texto=((document.getElementById('hxTxt')||{}).value||'').replace(/\r/g,'').replace(/\s+$/,'');
+  const ti=document.getElementById('hccTit'); const titulo=(ti&&ti.value.trim())||hccHino(n).titulo;
+  const velho=(HCC_DB||{})[n]||{};
+  const {error}=await sb.from('hcc_hinos').upsert({num:n,titulo,texto,tom:velho.tom||null,updated_at:new Date().toISOString()});
+  if(error) return toast('Não salvou: '+error.message+(/relation|does not exist|schema cache/i.test(error.message)?' — rode o SQL do HCC.':''));
+  (HCC_DB=HCC_DB||{})[n]={num:n,titulo,texto,tom:velho.tom||null}; localStorage.setItem('ibnm_hcc',JSON.stringify(HCC_DB));
+  fecharModal(); toast('Hino salvo.'); hccAbrir(n,true);
 };
-(function menuHcc(){ if(typeof MENU==='undefined'||!Array.isArray(MENU)||MENU.some(m=>m.id==='hcc')) return;
-  const k=MENU.findIndex(m=>m.id==='harpa'||m.id==='cantor'); const pos=k>=0?k+1:MENU.findIndex(m=>m.id==='musicas')+1;
-  MENU.splice(pos>0?pos:MENU.length,0,{id:'hcc',ic:'📕',nm:'Hinário HCC'});
+/* HCC dentro de Músicas, junto do Cantor e da Harpa */
+(function menuHcc(){ if(typeof MENU==='undefined'||!Array.isArray(MENU)) return;
+  for(let i=MENU.length-1;i>=0;i--) if(MENU[i].id==='hcc' && !MENU[i].sub) MENU.splice(i,1);
+  const mus=MENU.find(m=>Array.isArray(m.sub) && m.sub.some(x=>x.id==='harpa'||x.id==='cantor'));
+  if(mus){ if(!mus.sub.some(x=>x.id==='hcc')){ const k=mus.sub.findIndex(x=>x.id==='harpa'); mus.sub.splice(k>=0?k+1:mus.sub.length,0,{id:'hcc',ic:'📕',nm:'Hinário HCC'}); } }
+  else if(!MENU.some(m=>m.id==='hcc')) MENU.push({id:'hcc',ic:'📕',nm:'Hinário HCC'});
   try{ if(typeof _booted!=='undefined'&&_booted) montaMenu(); }catch(_){}
 })();
 
