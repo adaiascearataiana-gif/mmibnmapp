@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.16.0)
+   MM IBNM — Extras (v1.17.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -887,12 +887,12 @@ function hinoEmTexto(){
   song.dataset.tx=sig;
 }
 /* ADM: editar o hino inteiro como texto */
-window.editarHinoTexto=function(){
-  const {h,harpa}=hinoAtual(); if(!h) return;
+window.editarHinoTexto=function(prefill,aviso){
+  const {h,harpa}=hinoAtual(); if(!h) return; if(typeof prefill!=='string') prefill=null;
   abrirModal('<h3>✏️ Editar '+(harpa==='hcc'?'HCC':harpa?'Harpa':'Cantor')+' '+h.n+' — '+e(h.titulo)+'</h3>'+
     (harpa==='hcc'?'<input id="hccTit" class="inp" placeholder="Título" value="'+e(h.titulo)+'" style="margin-bottom:6px">':'')+
-    '<p class="am-dica">Escreva como nas músicas: a linha de acordes em cima da linha da letra. [1], [2], [Coro] marcam as estrofes. Pode acrescentar estrofes.</p>'+
-    '<textarea id="hxTxt" class="hx-txt" spellcheck="false" enterkeyhint="enter" oninput="prevAoVivo(\'hxTxt\',\'hxPrev\')">'+e(textoDoHino(h,harpa))+'</textarea>'+
+    '<p class="am-dica">'+(aviso? '<b>'+e(aviso)+'</b>' : 'Escreva como nas músicas: a linha de acordes em cima da linha da letra. [1], [2], [Coro] marcam as estrofes. Pode acrescentar estrofes.')+'</p>'+
+    '<textarea id="hxTxt" class="hx-txt" spellcheck="false" enterkeyhint="enter" oninput="prevAoVivo(\'hxTxt\',\'hxPrev\')">'+e(prefill!=null? prefill : textoDoHino(h,harpa))+'</textarea>'+
     '<div class="am-dica" style="margin-top:6px">👁 Pré-visualização</div><div id="hxPrev" class="cc-tx prev-box"></div>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarHinoTexto()">💾 Salvar</button></div>'+
     ((harpa!=='hcc' && (edDoHino(h.n,harpa)||{}).__texto)? '<button class="hx-orig" onclick="salvarHinoTexto(true)">↩️ Voltar ao texto original do hinário</button>' : ''));
@@ -937,9 +937,8 @@ window.abrirSiteHino=function(livro,n){
   abrirModal('<h3>📜 Partitura — escolha a música</h3>'+L.map(x=>'<button class="btn btn-primary" style="width:100%;margin:5px 0" onclick="window.open(\''+base+encodeURI(x.slug)+'\',\'_blank\',\'noopener\');fecharModal()">'+e(x.t)+'</button>').join(''));
 };
 document.addEventListener('click',ev=>{
-  const b=ev.target.closest&&ev.target.closest('#content .cc-tools button'); if(!b || !/PARTITURA/i.test(b.textContent)) return;
-  const {h,harpa}=hinoAtual(); if(!h || harpa===true) return;
-  ev.preventDefault(); ev.stopImmediatePropagation(); abrirSiteHino(harpa==='hcc'?'hcc':'cc',h.n);
+  const b=ev.target.closest&&ev.target.closest('#content .cc-tools button'); if(!b || !/PARTITURA/.test(b.textContent) || /Subir|Trocar/i.test(b.textContent)) return;
+  ev.preventDefault(); ev.stopImmediatePropagation(); abrirPartitura();
 },true);
 
 /* ======================= 19) HINÁRIO PARA O CULTO CRISTÃO (HCC) ======================= */
@@ -996,17 +995,18 @@ window.hccAbrir=function(n,manter){
     '<main class="cc-main"><div class="cc-head"><div class="n">'+n+'</div><h2>'+e(h.titulo)+'</h2>'+
       '<div class="cc-meta">'+(key?'<span>Tom <b>'+e(key)+'</b>'+(st?' (original '+e(h.tom)+')':'')+'</span>':'')+'<span>HCC</span></div></div>'+
     '<div class="cc-tools">'+
-      (h.texto?'<button class="tog" id="tc" aria-pressed="'+_hccCifras+'" onclick="hccCifras('+n+')">Cifras</button>':'')+
-      (h.texto&&key?'<span class="chip"'+(_hccCifras?'':' hidden')+'><button onclick="hccTransp('+n+',-1)" aria-label="Baixar meio tom">−</button><span class="lbl">Tom <b>'+e(key)+'</b></span><button onclick="hccTransp('+n+',1)" aria-label="Subir meio tom">+</button></span>':'')+
+
+      (h.texto&&key?'<span class="chip"><button onclick="hccTransp('+n+',-1)" aria-label="Baixar meio tom">−</button><span class="lbl">Tom <b>'+e(key)+'</b></span><button onclick="hccTransp('+n+',1)" aria-label="Subir meio tom">+</button></span>':'')+
       (h.texto?'<button class="tog" id="tsc" aria-pressed="'+(_hccScroll?'true':'false')+'" onclick="hccScroll()">'+(_hccScroll?'⏸ Pausar rolagem':'▶ Rolagem')+'</button>':'')+
-      (h.site?'<button class="tog cc-part">📜 PARTITURA</button>':'')+
-      (adm?'<button class="tog cc-edit" id="ted" onclick="editarHinoTexto()">Editar cifras</button>':'')+
+      '<button class="tog cc-part">📜 PARTITURA</button>'+
+      (adm?'<button class="tog cc-edit" id="ted" onclick="editarHinoTexto()">Editar cifras</button><button class="tog hx-bt" onclick="editarHinoTexto()">✏️ Editar hino (texto)</button>':'')+
     '</div>'+
-    (h.texto? '<div class="cc-song '+(_hccCifras?'':'nochords')+'" style="--cc-fs:'+hccFsVal()+'px"></div>' : corpo)+
+    (h.texto? '<div class="cc-song" style="--cc-fs:'+hccFsVal()+'px"></div>' : corpo)+
     '<nav class="cc-nav">'+(prev?'<a href="javascript:void(0)" onclick="hccAbrir('+prev.n+')"><small>Anterior</small>'+prev.n+' · '+e(prev.titulo)+'</a>':'<span></span>')+(next?'<a class="r" href="javascript:void(0)" onclick="hccAbrir('+next.n+')"><small>Próximo</small>'+next.n+' · '+e(next.titulo)+'</a>':'<span></span>')+'</nav></main>';
   c.innerHTML='<div class="page cc-page hcc-page" data-n="'+n+'">'+html+'</div>';
   if(!manter) window.scrollTo(0,0);
 };
+window.hccDefinir=function(n,o){ (HCC_DB=HCC_DB||{})[n]=Object.assign({num:n},o); };
 window.hccSalvarTexto=async function(n){
   const texto=((document.getElementById('hxTxt')||{}).value||'').replace(/\r/g,'').replace(/\s+$/,'');
   const ti=document.getElementById('hccTit'); const titulo=(ti&&ti.value.trim())||hccHino(n).titulo;
@@ -1088,6 +1088,105 @@ window.bkExcluir=async function(){
   toast(feitos+' excluído(s).'+(parou?' '+parou:''));
 };
 let _bk=0; new MutationObserver(()=>{ clearTimeout(_bk); _bk=setTimeout(()=>{ marcaListas(); prevEditorMusica(); bkAtualiza(); },150); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+
+/* ======================= 22) PADRÃO DOS HINOS (Cantor, Harpa e HCC) ======================= */
+/* Regra para todo hino:
+   ADM ...... Cifra · Letra · Partitura · Tonalidade · Rolagem · Enviar p/ SETLIST · Ao vivo · Editar cifras · Editar hino (texto)
+   Usuário .. Cifra · Letra · Partitura (só se houver) · Rolagem
+   O "Cifra" grande sempre mostra os acordes (o "Cifras" pequeno some). Sem partitura → ADM pode subir. */
+const livroDe = harpa => harpa==='hcc'? 'hcc' : harpa? 'hr' : 'cc';
+let PARTS={}; try{ PARTS=JSON.parse(localStorage.getItem('ibnm_parts')||'{}')||{}; }catch(_){}
+async function carregaPartituras(){ try{ if(typeof sb==='undefined') return; const {data,error}=await sb.from('partituras_hinos').select('livro,num,url,tipo'); if(error) return;
+  const m={}; (data||[]).forEach(r=>m[r.livro+':'+r.num]=r); PARTS=m; localStorage.setItem('ibnm_parts',JSON.stringify(m)); }catch(_){} }
+setTimeout(carregaPartituras,5500);
+function temPartitura(h,harpa){ const L=livroDe(harpa); if(PARTS[L+':'+h.n]) return true;
+  if(L==='hr') return !!(h.partitura); if(L==='cc') return !!CC_SITE[h.n]; return !!HCC_SITE[h.n]; }
+window.abrirPartitura=function(){ const {h,harpa}=hinoAtual(); if(!h) return; const L=livroDe(harpa), up=PARTS[L+':'+h.n];
+  if(up){ if(up.tipo==='pdf') return window.open(up.url,'_blank','noopener'); return abrirModal('<h3>📜 Partitura — '+e(h.titulo)+'</h3><img src="'+e(up.url)+'" style="width:100%;border-radius:8px" alt="Partitura">'); }
+  if(L==='hr' && window.harpaPartitura) return harpaPartitura(h.n);
+  abrirSiteHino(L==='hcc'?'hcc':'cc',h.n); };
+/* subir partitura (imagem ou PDF) e extrair cifra + letra */
+window.subirPartitura=function(){ const i=document.createElement('input'); i.type='file'; i.accept='image/*,application/pdf'; i.onchange=()=>{ if(i.files[0]) enviarPartitura(i.files[0]); }; i.click(); };
+function reduzImagem(file){ return new Promise((ok,no)=>{ const img=new Image(); img.onload=()=>{ const k=Math.min(1,1800/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k); c.getContext('2d').drawImage(img,0,0,c.width,c.height); c.toBlob(b=>b?ok(b):no(new Error('imagem')),'image/jpeg',0.82); }; img.onerror=()=>no(new Error('imagem inválida')); img.src=URL.createObjectURL(file); }); }
+async function enviarPartitura(file){
+  const {h,harpa}=hinoAtual(); if(!h) return; const L=livroDe(harpa);
+  const pdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name);
+  if(pdf && file.size>8*1024*1024) return toast('PDF muito grande (máx. 8 MB).');
+  toast('Enviando partitura…');
+  try{
+    const blob= pdf? file : await reduzImagem(file);
+    const path=L+'/'+h.n+'-'+Date.now()+(pdf?'.pdf':'.jpg');
+    const up=await sb.storage.from('partituras').upload(path,blob,{contentType:pdf?'application/pdf':'image/jpeg',upsert:true}); if(up.error) throw up.error;
+    const url=sb.storage.from('partituras').getPublicUrl(path).data.publicUrl;
+    const r=await sb.from('partituras_hinos').upsert({livro:L,num:h.n,url,tipo:pdf?'pdf':'img',updated_at:new Date().toISOString()}); if(r.error) throw r.error;
+    PARTS[L+':'+h.n]={livro:L,num:h.n,url,tipo:pdf?'pdf':'img'}; localStorage.setItem('ibnm_parts',JSON.stringify(PARTS));
+    toast('Partitura salva. Lendo a cifra e a letra…');
+    const txt= pdf? await textoDoPDF(file) : await textoDaImagem(blob);
+    padronizaHino(true);
+    if(txt && txt.trim()) editarHinoTexto(txt, 'Cifra e letra lidas da partitura. Confira, corrija o que precisar e toque em Salvar — a letra vai para "Letra" e os acordes para "Cifra".');
+    else toast('Partitura salva, mas não consegui ler o texto dela. Use "Editar hino (texto)" para escrever.');
+  }catch(err){ toast('Não consegui salvar a partitura: '+(err.message||err)+(/bucket|not found|relation|schema/i.test(String(err.message||err))?' — rode o SQL das partituras.':'')); }
+}
+function carregaScript(src){ return new Promise((ok,no)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=()=>no(new Error('sem internet')); document.head.appendChild(s); }); }
+/* PDF com texto: monta as linhas respeitando a posição (acordes ficam em cima das sílabas) */
+async function textoDoPDF(file){
+  try{
+    if(!window.pdfjsLib){ await carregaScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'); pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
+    const doc=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise; const out=[];
+    for(let p=1;p<=Math.min(doc.numPages,6);p++){
+      const pg=await doc.getPage(p); const tc=await pg.getTextContent(); const linhas={};
+      tc.items.forEach(it=>{ if(!it.str||!it.str.trim()) return; const y=Math.round(it.transform[5]/3)*3; (linhas[y]=linhas[y]||[]).push({x:it.transform[4],t:it.str,w:it.width||0}); });
+      const ys=Object.keys(linhas).map(Number).sort((a,b)=>b-a);
+      const larg=tc.items.filter(i=>i.str&&i.str.length>3).reduce((a,i)=>{ a.s+=i.width||0; a.n+=i.str.length; return a; },{s:0,n:0}); const cw=larg.n? larg.s/larg.n : 5;
+      ys.forEach(y=>{ let l=''; linhas[y].sort((a,b)=>a.x-b.x).forEach(it=>{ const col=Math.max(0,Math.round(it.x/cw)-8); if(l.length<col) l+=' '.repeat(col-l.length); else if(l && !/\s$/.test(l)) l+=' '; l+=it.t; }); out.push(l.replace(/\s+$/,'')); });
+      out.push('');
+    }
+    return limpaExtraido(out.join('\n'));
+  }catch(_){ return ''; }
+}
+/* imagem (foto/escaneado): leitura de texto em português */
+async function textoDaImagem(blob){
+  try{
+    if(!window.Tesseract) await carregaScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+    toast('Lendo a imagem (pode levar até 1 minuto na 1ª vez)…');
+    const r=await Tesseract.recognize(blob,'por',{preserve_interword_spaces:'1'});
+    return limpaExtraido((r&&r.data&&r.data.text)||'');
+  }catch(_){ return ''; }
+}
+function limpaExtraido(t){
+  const ls=String(t).replace(/\r/g,'').split('\n').map(l=>l.replace(/\s+$/,''))
+    .filter(l=>!/licensed to|www\.|\.com|harmoniza|autor[ia]?:|letra:|m[uú]sica:|tradu[çc][ãa]o:|^\s*\d{1,3}\s*$/i.test(l));
+  /* tira o recuo comum e junta linhas vazias repetidas */
+  const rec=Math.min(...ls.filter(l=>l.trim()).map(l=>l.match(/^\s*/)[0].length).concat([0]).filter(n=>n>=0)) || 0;
+  return ls.map(l=>l.slice(Math.min(rec,l.match(/^\s*/)[0].length))).join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+/* aplica o padrão de botões */
+function padronizaHino(forca){
+  const pg=document.querySelector('#content .cc-page'); const tools=pg&&pg.querySelector('.cc-tools'); if(!tools) return;
+  const song=pg.querySelector('.cc-song'); const editando=song&&song.classList.contains('editing');
+  const {h,harpa}=hinoAtual(); if(!h) return;
+  const adm=!!(window.ehAdmin&&ehAdmin()) && (harpa==='hcc'? podeHinos() : true);
+  /* "Cifra" grande manda: se estiver no modo cifra e os acordes estiverem escondidos, liga */
+  const tc=tools.querySelector('#tc');
+  if(song && !editando && !window.__modoLetra && song.classList.contains('nochords') && tc && !tc.dataset.auto){ tc.dataset.auto='1'; tc.click(); return; }
+  if(tc) tc.style.display='none';
+  /* tira o que não faz parte do padrão */
+  pg.querySelectorAll('.sl-acts, .cc-letbaix, .cc-yt-chip').forEach(x=>x.style.display='none');
+  tools.querySelectorAll('button, a').forEach(b=>{ if(/Tom original|YouTube/i.test(b.textContent)) b.style.display='none'; });
+  const chip=tools.querySelector('.chip'); if(chip){ if(!adm) chip.style.display='none'; else { chip.removeAttribute('hidden'); chip.style.display=''; } }
+  /* partitura: abre a que houver; sem partitura → ADM sobe, usuário não vê nada */
+  const tem=temPartitura(h,harpa);
+  let bp=[...tools.querySelectorAll('button')].find(b=>/PARTITURA/i.test(b.textContent));
+  if(!bp){ (tools.querySelector('.cc-gm')||tools).insertAdjacentHTML('beforeend','<button class="tog cc-part">📜 PARTITURA</button>'); bp=[...tools.querySelectorAll('button')].find(b=>/PARTITURA/i.test(b.textContent)); }
+  const rot=(t)=>{ if(bp.textContent!==t) bp.textContent=t; };
+  if(tem){ bp.style.display=''; rot('📜 PARTITURA'); bp.onclick=ev=>{ ev.preventDefault(); ev.stopImmediatePropagation(); abrirPartitura(); }; }
+  else if(adm){ bp.style.display=''; rot('⬆️ Subir partitura'); bp.onclick=ev=>{ ev.preventDefault(); ev.stopImmediatePropagation(); subirPartitura(); }; }
+  else bp.style.display='none';
+  /* usuário: só Cifra · Letra · Partitura · Rolagem */
+  if(!adm){ tools.querySelectorAll('.cc-ga').forEach(g=>g.style.display='none'); }
+  if(forca) tools.dataset.pad='';
+}
+let _pz=0; new MutationObserver(()=>{ clearTimeout(_pz); _pz=setTimeout(()=>padronizaHino(false),90); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
 
 /* ======================= 10) ✕ PARA FECHAR AS JANELAS ======================= */
 function poeX(){ const bg=document.getElementById('modalBg'), box=document.getElementById('modalBox');
