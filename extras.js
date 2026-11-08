@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.10.0)
+   MM IBNM — Extras (v1.14.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -361,6 +361,13 @@ function hinoAtual(){
 function edicoesDe(n,harpa){ try{ return (JSON.parse(localStorage.getItem(harpa?'ibnm_hr_ed':'ibnm_cc_ed')||'{}')||{})[n]||null; }catch(_){ return null; } }
 function letraHTML(h,harpa){
   let est=0; const fs=harpa?'harpaFs':'cantorFs'; const ed=edicoesDe(h.n,harpa);
+  if(ed && ed.__texto){ const blocos=[]; let cur=null;
+    ed.__texto.split('\n').forEach(l=>{ const t=l.trim(); if(!t){ cur=null; return; }
+      if(/^\[[^\]]+\]$/.test(t)){ cur={coro:/coro|refr/i.test(t),ls:[]}; blocos.push(cur); return; }
+      if(window.__ehLinhaDeAcordes && __ehLinhaDeAcordes(l)) return;
+      if(!cur){ cur={coro:false,ls:[]}; blocos.push(cur); } cur.ls.push(t); });
+    return '<div class="cc-letra"><div class="cl-top"><div class="cl-t">'+e(h.n+' · '+h.titulo)+'</div><div class="cl-z"><button onclick="'+fs+'(-2)">A−</button><button onclick="'+fs+'(2)">A+</button></div></div>'+
+      blocos.filter(b=>b.ls.length).map(b=>{ if(!b.coro) est++; return '<div class="cl-p'+(b.coro?' coro':'')+'"><span class="cl-r">'+(b.coro?'Coro':est)+'</span>'+b.ls.map(x=>'<div>'+e(limpaLetra(x))+'</div>').join('')+'</div>'; }).join('')+'</div>'; }
   return '<div class="cc-letra"><div class="cl-top"><div class="cl-t">'+e(h.n+' · '+h.titulo)+'</div>'+
     '<div class="cl-z"><button onclick="'+fs+'(-2)" aria-label="Diminuir letra">A−</button><button onclick="'+fs+'(2)" aria-label="Aumentar letra">A+</button></div></div>'+(h.partes||[]).map((p,pi)=>{
     const coro=p.tipo==='coro'; if(!coro) est++;
@@ -598,18 +605,45 @@ function tecla(ctx,freq,quando,vol){
   const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.setValueAtTime(Math.min(9000,freq*8),quando); lp.frequency.exponentialRampToValueAtTime(Math.max(600,freq*2),quando+1.5);
   o.connect(lp); lp.connect(g); g.connect(ctx.destination); o.start(quando); o.stop(quando+2.7);
 }
+/* ----- sons GRAVADOS de violão e piano (FluidR3 GM, licença MIT) ----- */
+/* Cada nota é um arquivo curto (~15 KB) baixado só na 1ª vez e guardado no celular.
+   Sem internet, usa o som sintetizado como reserva. */
+const SF='https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/';
+const SF_INST={v:'acoustic_guitar_steel',p:'acoustic_grand_piano'};
+const BEM_SF=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const nomeSF = m => BEM_SF[((m%12)+12)%12]+(Math.floor(m/12)-1);
+const _amostras=new Map();
+function amostra(tipo,midi){
+  const k=tipo+midi; if(_amostras.has(k)) return _amostras.get(k);
+  const ctx=audio(); if(!ctx) return Promise.resolve(null);
+  const pr=fetch(SF+SF_INST[tipo]+'-mp3/'+nomeSF(midi)+'.mp3',{cache:'force-cache'})
+    .then(r=>{ if(!r.ok) throw new Error('http'); return r.arrayBuffer(); })
+    .then(b=>new Promise((ok,no)=>ctx.decodeAudioData(b,ok,no)))
+    .catch(()=>{ _amostras.delete(k); return null; });
+  _amostras.set(k,pr); return pr;
+}
+window.preCarregarSons=function(tipo,notas){ (notas||[]).forEach(m=>amostra(tipo,m)); };
+function tocaAmostra(ctx,buf,quando,vol,dur){
+  const src=ctx.createBufferSource(); src.buffer=buf;
+  const g=ctx.createGain(); g.gain.setValueAtTime(vol,quando); g.gain.setValueAtTime(vol,quando+dur-0.4); g.gain.exponentialRampToValueAtTime(0.001,quando+dur);
+  src.connect(g); g.connect(ctx.destination); src.start(quando); src.stop(quando+dur+0.05);
+}
+/* notas: [{m:midi, d:atraso em s, v:volume}] */
+async function tocarNotas(tipo,notas){
+  const ctx=audio(); if(!ctx) return toast('Este aparelho não consegue tocar som.');
+  const bufs=await Promise.race([Promise.all(notas.map(n=>amostra(tipo,n.m))), new Promise(ok=>setTimeout(()=>ok(null),1800))]);
+  const t0=ctx.currentTime+0.04;
+  notas.forEach((n,i)=>{ const b=bufs&&bufs[i];
+    if(b) tocaAmostra(ctx,b,t0+n.d,n.v*(tipo==='v'?1.6:1.5),tipo==='v'?3.2:3.0);
+    else (tipo==='v'? corda : tecla)(ctx,hz(n.m),t0+n.d,n.v); });
+}
+const notasViolao = f => { const out=[]; let k=0; f.forEach((x,c)=>{ if(x<0) return; out.push({m:AFIN[c]+x,d:k*0.05,v:0.5}); k++; }); return out; };
+const notasPiano = v => { const out=[]; if(v.b!=null) out.push({m:60+v.b-12,d:0,v:0.5}); v.n.forEach(n=>out.push({m:60+n,d:v.b!=null?0.07:0,v:0.38})); return out; };
 window.acTocarViolao=function(i){
-  const ctx=audio(); const p=(AC.formas||[])[i]; if(!ctx||!p) return toast('Este aparelho não consegue tocar som.');
-  const t0=ctx.currentTime+0.03; let k=0;
-  p.f.forEach((f,c)=>{ if(f<0) return; corda(ctx,hz(AFIN[c]+f),t0+k*0.045,0.55); k++; });
-  pulso('acv'+i);
+  const p=(AC.formas||[])[i]; if(!p) return; tocarNotas('v',notasViolao(p.f)); pulso('acv'+i);
 };
 window.acTocarPiano=function(i){
-  const ctx=audio(); const v=(AC.pvars||[])[i]; if(!ctx||!v) return toast('Este aparelho não consegue tocar som.');
-  const t0=ctx.currentTime+0.03;
-  if(v.b!=null) tecla(ctx,hz(60+v.b-12),t0,0.28);
-  v.n.forEach(n=>tecla(ctx,hz(60+n),t0+(v.b!=null?0.06:0),0.2));
-  pulso('acp'+i);
+  const v=(AC.pvars||[])[i]; if(!v) return; tocarNotas('p',notasPiano(v)); pulso('acp'+i);
 };
 function pulso(id){ const el=document.getElementById(id); if(!el) return; el.classList.remove('toca'); void el.offsetWidth; el.classList.add('toca'); }
 window.acInst=function(i){ AC.inst=i; acDesenha(); };
@@ -623,12 +657,12 @@ function acResultado(){
   if(!A||A.erro){ box.innerHTML='<p class="ac-vz">'+e((A&&A.erro)||'Acorde inválido.')+'</p>'; return; }
   let h='<div class="ac-top"><div class="ac-nome">'+e(A.nome)+'</div><div class="ac-desc">'+e(A.desc)+' · notas: <b>'+A.notas.join(' · ')+'</b>'+(A.baixoNome?' · baixo: <b>'+e(A.baixoNome)+'</b>':'')+'</div></div>';
   if(AC.inst==='violao'){
-    const ps=posicoesViolao(A); AC.formas=ps;
+    const ps=posicoesViolao(A); AC.formas=ps; ps.slice(0,3).forEach(p=>preCarregarSons('v',notasViolao(p.f).map(n=>n.m)));
     if(ps.length) h=h.replace('</div></div>','</div><button class="ac-play" onclick="acTocarViolao(0)">▶ Ouvir</button></div>');
     h+= ps.length? '<div class="ac-grid">'+ps.map((p,i)=>'<button class="ac-cel" id="acv'+i+'" onclick="acTocarViolao('+i+')" aria-label="Tocar a '+(i+1)+'ª forma">'+svgViolao(p.f)+'<small>▶ '+(i+1)+'ª forma</small></button>').join('')+'</div>'
       : '<p class="ac-vz">Não achei uma forma confortável no violão para esse acorde. Tente sem o baixo ou outro tipo.</p>';
   } else {
-    const vs=variacoesPiano(A); AC.pvars=vs;
+    const vs=variacoesPiano(A); AC.pvars=vs; vs.forEach(v=>preCarregarSons('p',notasPiano(v).map(n=>n.m)));
     h=h.replace('</div></div>','</div><button class="ac-play" onclick="acTocarPiano(0)">▶ Ouvir</button></div>');
     h+='<div class="ac-pn">'+vs.map((v,i)=>'<button class="ac-pcel" id="acp'+i+'" onclick="acTocarPiano('+i+')"><small>▶ '+e(v.nome)+'</small>'+svgPiano(v.n,v.b,A.nomes)+'</button>').join('')+'</div>';
   }
@@ -658,21 +692,20 @@ window.acPainelAbre=function(){ const v=localStorage.getItem('ibnm_ac_fechado')=
 function desenhoAcorde(nome,inst,idx,grande){
   const A=lerAcorde(nome); if(!A||A.erro) return '<div class="am-cel sem"><b>'+e(nome)+'</b><small>—</small></div>';
   if(inst==='piano'){ const v=variacoesPiano(A)[0]; (window.__amP=window.__amP||{})[idx]=v;
-    return '<button class="am-cel'+(grande?' gr':'')+'" onclick="amTocar(\'p\','+idx+')"><b>'+e(A.nome)+'</b>'+svgPiano(v.n,v.b,A.nomes)+'</button>'; }
+    return '<button class="am-cel'+(grande?' gr':'')+'" onclick="'+(grande?'amTocar(\'p\','+idx+')':'abrirAcorde(\''+e(A.nome)+'\')')+'"><b>'+e(A.nome)+'</b>'+svgPiano(v.n,v.b,A.nomes)+'</button>'; }
   const ps=posicoesViolao(A); if(!ps.length) return '<div class="am-cel sem"><b>'+e(A.nome)+'</b><small>sem forma</small></div>';
   (window.__amV=window.__amV||{})[idx]=ps[0];
-  return '<button class="am-cel'+(grande?' gr':'')+'" onclick="amTocar(\'v\','+idx+')"><b>'+e(A.nome)+'</b>'+svgViolao(ps[0].f)+'</button>';
+  return '<button class="am-cel'+(grande?' gr':'')+'" onclick="'+(grande?'amTocar(\'v\','+idx+')':'abrirAcorde(\''+e(A.nome)+'\')')+'"><b>'+e(A.nome)+'</b>'+svgViolao(ps[0].f)+'</button>';
 }
-window.amTocar=function(t,i){ const ctx=audio(); if(!ctx) return;
-  const t0=ctx.currentTime+0.03;
-  if(t==='v'){ const p=(window.__amV||{})[i]; if(!p) return; let k=0; p.f.forEach((f,c)=>{ if(f<0) return; corda(ctx,hz(AFIN[c]+f),t0+k*0.045,0.55); k++; }); }
-  else { const v=(window.__amP||{})[i]; if(!v) return; if(v.b!=null) tecla(ctx,hz(60+v.b-12),t0,0.28); v.n.forEach(n=>tecla(ctx,hz(60+n),t0+(v.b!=null?0.06:0),0.2)); }
+window.amTocar=function(t,i){
+  if(t==='v'){ const p=(window.__amV||{})[i]; if(p) tocarNotas('v',notasViolao(p.f)); }
+  else { const v=(window.__amP||{})[i]; if(v) tocarNotas('p',notasPiano(v)); }
 };
 function acordesNaTela(){
   const z=document.querySelector('#content #zoomTarget');
   if(z) return {alvo:z, lista:[...z.querySelectorAll('.cf-ac')].map(x=>x.textContent.trim())};
   const song=document.querySelector('#content .cc-song');
-  if(song && song.style.display!=='none') return {alvo:song, lista:[...song.querySelectorAll('.c')].map(x=>x.textContent.trim())};
+  if(song && song.style.display!=='none') return {alvo:song, lista:[...song.querySelectorAll('.c, .cf-ac')].map(x=>x.textContent.trim())};
   return null;
 }
 function acordesDaMusica(forca){
@@ -688,21 +721,41 @@ function acordesDaMusica(forca){
     '<div class="am-seg"><button class="'+(inst==='violao'?'on':'')+'" onclick="acPainelInst(\'violao\')">🎸 Violão</button><button class="'+(inst==='piano'?'on':'')+'" onclick="acPainelInst(\'piano\')">🎹 Piano</button></div>'+
     '<button class="am-x" onclick="acPainelAbre()" aria-label="Mostrar ou esconder">'+(fechado?'▾':'▴')+'</button></div>'+
     (fechado? '<div class="am-chips">'+lista.map(c=>'<span>'+e(c)+'</span>').join('')+'</div>'
-             : '<div class="am-lista'+(inst==='piano'?' pn':'')+'">'+lista.map((c,i)=>desenhoAcorde(c,inst,i)).join('')+'</div><p class="am-dica">Toque no acorde para ouvir. Toque num acorde da cifra para ver o desenho.</p>')+'</div>';
+             : '<div class="am-lista'+(inst==='piano'?' pn':'')+'">'+lista.map((c,i)=>desenhoAcorde(c,inst,i)).join('')+'</div><p class="am-dica">Toque num acorde (aqui ou na cifra) para ouvir e ver outras formas em 🔁 VARIAR.</p>')+'</div>';
   if(velho) velho.outerHTML=html; else info.alvo.insertAdjacentHTML('beforebegin',html);
 }
 /* tocar num acorde da cifra: mostra o desenho (violão ou piano) */
 document.addEventListener('click',ev=>{
-  const c=ev.target.closest && ev.target.closest('#zoomTarget .cf-ac, .cc-song .c'); if(!c) return;
+  const c=ev.target.closest && ev.target.closest('#zoomTarget .cf-ac, .cc-song .c, .cc-song .cf-ac'); if(!c) return;
   const nome=c.textContent.trim(); if(!nome || !/^[A-G]/.test(nome)) return;
   if(c.closest('.cc-song.editing') || document.querySelector('.cc-song.editing, #zoomTarget[contenteditable=true]')) return;   /* editando: não atrapalha */
-  window.__amV={}; window.__amP={};
-  const inst=instPref();
-  abrirModal('<h3>🎼 '+e(nome)+'</h3><div class="am-seg md"><button class="'+(inst==='violao'?'on':'')+'" onclick="localStorage.setItem(\'ibnm_ac_inst\',\'violao\');document.getElementById(\'amPop\').innerHTML=desenhoAc(\''+e(nome)+'\',\'violao\')">🎸 Violão</button><button class="'+(inst==='piano'?'on':'')+'" onclick="localStorage.setItem(\'ibnm_ac_inst\',\'piano\');document.getElementById(\'amPop\').innerHTML=desenhoAc(\''+e(nome)+'\',\'piano\')">🎹 Piano</button></div>'+
-    '<div id="amPop" class="am-pop">'+desenhoAcorde(nome,inst,0,true)+'</div><p class="am-dica">Toque no desenho para ouvir.</p>');
-  setTimeout(()=>amTocar(inst==='piano'?'p':'v',0),120);
+  abrirAcorde(nome);
 },true);
-window.desenhoAc=(n,i)=>{ window.__amV={}; window.__amP={}; document.querySelectorAll('.am-seg.md button').forEach((b,k)=>b.classList.toggle('on',(k===0)===(i==='violao'))); return desenhoAcorde(n,i,0,true); };
+/* janela do acorde com VARIAR: mostra as outras formas no mesmo lugar (como no Cifra Club) */
+let POP=null;
+window.abrirAcorde=function(nome){
+  const A=lerAcorde(nome); if(!A||A.erro) return;
+  POP={nome:A.nome,A,inst:instPref(),i:0}; montaPop(true);
+  abrirModal('<h3>🎼 '+e(A.nome)+'</h3><div id="amPopW"></div>');
+  montaPop(true);
+};
+function listaPop(){ return POP.inst==='piano'? variacoesPiano(POP.A) : posicoesViolao(POP.A); }
+function montaPop(tocar){
+  const w=document.getElementById('amPopW'); if(!w||!POP) return;
+  const L=listaPop(); if(POP.i>=L.length) POP.i=0;
+  const it=L[POP.i];
+  window.__amV={}; window.__amP={};
+  let des='<p class="am-dica">Sem forma para este acorde.</p>';
+  if(it){ if(POP.inst==='piano'){ window.__amP[0]=it; des='<button class="am-cel gr" onclick="amTocar(\'p\',0)"><small>'+e(it.nome)+'</small>'+svgPiano(it.n,it.b,POP.A.nomes)+'</button>'; }
+          else { window.__amV[0]=it; des='<button class="am-cel gr" onclick="amTocar(\'v\',0)">'+svgViolao(it.f)+'</button>'; } }
+  w.innerHTML='<div class="am-seg md"><button class="'+(POP.inst==='violao'?'on':'')+'" onclick="popInst(\'violao\')">🎸 Violão</button><button class="'+(POP.inst==='piano'?'on':'')+'" onclick="popInst(\'piano\')">🎹 Piano</button></div>'+
+    '<div class="am-pop">'+des+'</div>'+
+    (L.length>1? '<div class="am-var"><button onclick="popVar(-1)" aria-label="Forma anterior">‹</button><span>'+(POP.i+1)+' de '+L.length+'</span><button onclick="popVar(1)" aria-label="Próxima forma">›</button><button class="v" onclick="popVar(1)">🔁 VARIAR</button></div>' : '')+
+    '<p class="am-dica">Toque no desenho para ouvir.</p>';
+  if(tocar && it) setTimeout(()=>amTocar(POP.inst==='piano'?'p':'v',0),80);
+}
+window.popVar=function(d){ if(!POP) return; const n=listaPop().length||1; POP.i=((POP.i+d)%n+n)%n; montaPop(true); };
+window.popInst=function(i){ if(!POP) return; POP.inst=i; POP.i=0; localStorage.setItem('ibnm_ac_inst',i); montaPop(true); };
 
 /* espaço a mais entre a introdução e a música */
 function espacoIntro(){
@@ -715,6 +768,152 @@ function espacoIntro(){
   z.dataset.esp=z.innerHTML.length+'';
 }
 let _am=0; new MutationObserver(()=>{ clearTimeout(_am); _am=setTimeout(()=>{ espacoIntro(); acordesDaMusica(false); },120); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true,characterData:true});
+
+/* ======================= 16) TOM DA MÚSICA: detecta sozinho, o ADM pode digitar ======================= */
+const NOMES_TOM=['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+function acordesDoTexto(txt){
+  const out=[]; String(txt||'').split('\n').forEach(l=>{
+    const lin=l.replace(/^\s*intro(du[cç][aã]o)?\s*:?/i,'').trim(); if(!lin) return;
+    const toks=lin.split(/\s+/);
+    const ehLinha= toks.every(t=>/^[\[(]?[A-G][#b]?[^\s]*[\])]?$/.test(t) || /^[-|x0-9()]+$/i.test(t));
+    if(ehLinha) toks.forEach(t=>{ const c=t.replace(/[\[\]()]/g,''); if(/^[A-G]/.test(c)) out.push(c); });
+    (l.match(/\[([A-G][^\]\s]*)\]/g)||[]).forEach(b=>out.push(b.slice(1,-1)));
+  });
+  return out;
+}
+window.detectarTom=function(txt){
+  const brutos=acordesDoTexto(txt);
+  const cs=brutos.map(c=>{ const A=lerAcorde(c.split('/')[0]); return A&&!A.erro? {r:A.r, menor:/^m(?!aj)/.test(A.tipo)||A.tipo==='m7(b5)'} : null; }).filter(Boolean);
+  if(!cs.length) return '';
+  /* acorde com baixo pedal no início (ex.: G/D) conta como o baixo (D) */
+  const b0=(brutos[0]||'').split('/')[1]; if(b0 && PC[b0]!==undefined) cs[0]={r:PC[b0],menor:false};
+  const peso=cs.map((c,i)=>1+(i===0?3:0)+(i===cs.length-1?4:0));
+  let melhor=null;
+  for(let t=0;t<12;t++){
+    const diat={[t]:[false,3],[(t+2)%12]:[true,1.5],[(t+4)%12]:[true,1],[(t+5)%12]:[false,2],[(t+7)%12]:[false,2.5],[(t+9)%12]:[true,1.5],[(t+11)%12]:[true,0.5],[(t+10)%12]:[false,0.6]};   /* bVII (comum no louvor) */
+    let sc=0; cs.forEach((c,i)=>{ const d=diat[c.r]; if(!d){ sc-=1*peso[i]; return; } sc+= (d[0]===c.menor? d[1] : 0.4)*peso[i]; });
+    if(!melhor||sc>melhor.sc) melhor={t,sc};
+  }
+  /* maior ou relativa menor: olha 1º e último acordes e a frequência */
+  const t=melhor.t, rel=(t+9)%12;
+  let fI=0,fvi=0; cs.forEach((c,i)=>{ if(c.r===t&&!c.menor) fI+=peso[i]; if(c.r===rel&&c.menor) fvi+=peso[i]; });
+  if(fvi>fI*1.2) return NOMES_TOM[rel]+'m';
+  return NOMES_TOM[t];
+};
+function normTom(v){ const m=String(v||'').trim().match(/^([A-Ga-g])([#b]?)\s*(m|min|menor)?$/); if(!m) return ''; const r=m[1].toUpperCase()+m[2]; if(PC[r]===undefined) return ''; return r+(m[3]?'m':''); }
+function transpTom(tom,d){ const n=normTom(tom); if(!n) return ''; const menor=/m$/.test(n); const r=n.replace(/m$/,''); return NOMES_TOM[((PC[r]+d)%12+12)%12]+(menor?'m':''); }
+/* tons guardados (musicas.dados.tom) */
+let TONS={}; try{ TONS=JSON.parse(localStorage.getItem('ibnm_tons')||'{}')||{}; }catch(_){}
+async function carregaTons(){ try{ if(typeof sb==='undefined') return; const {data,error}=await sb.from('musicas').select('id,dados'); if(error) return;
+  const n={}; (data||[]).forEach(r=>{ if(r.dados&&r.dados.tom) n[r.id]=r.dados.tom; }); TONS=n; localStorage.setItem('ibnm_tons',JSON.stringify(n)); tomNaTela(); }catch(_){} }
+setTimeout(carregaTons,5000); setInterval(()=>{ if(document.visibilityState==='visible') carregaTons(); },30*60*1000);
+async function salvarTom(id,tom){
+  tom=normTom(tom); if(!id) return;
+  try{ const {data}=await sb.from('musicas').select('dados').eq('id',id).single();
+    const dados=Object.assign({},(data&&data.dados)||{}); if(tom) dados.tom=tom; else delete dados.tom;
+    const r=await sb.from('musicas').update({dados}).eq('id',id); if(r.error) throw r.error;
+    if(tom) TONS[id]=tom; else delete TONS[id]; localStorage.setItem('ibnm_tons',JSON.stringify(TONS));
+  }catch(err){ toast('Não consegui salvar o tom: '+(err.message||err)); }
+}
+/* editor: campo de tom que o ADM pode digitar */
+let _edId=null, _tomManual=false;
+function campoTomEditor(){
+  const lbl=document.getElementById('tomAtual'); if(!lbl || document.getElementById('edTomTxt')) return;
+  const ed=document.getElementById('edCifra'); if(!ed) return;
+  _edId=(typeof musicaAberta!=='undefined'&&musicaAberta)||_edId;
+  const salvo=TONS[_edId]; _tomManual=!!salvo;
+  const span=lbl.closest('.tom')||lbl.parentElement;
+  const fonte=()=>{ const it=document.getElementById('edIntro'); return (it&&it.value? 'Intro: '+it.value+'\n' : '')+ed.innerText; };
+  window.__tomFonte=fonte;
+  span.innerHTML='Tom <input id="edTomTxt" class="ed-tom" maxlength="4" autocomplete="off" autocapitalize="characters" title="Tom da música — detectado sozinho; o ADM pode digitar" value="'+e(salvo||detectarTom(fonte()))+'"><small id="edTomAuto">'+(salvo?'':'auto')+'</small>';
+  const inp=document.getElementById('edTomTxt');
+  inp.addEventListener('input',()=>{ _tomManual=!!inp.value.trim(); document.getElementById('edTomAuto').textContent=_tomManual?'':'auto'; if(!_tomManual) inp.value=detectarTom(fonte()); });
+  let _t=0; ed.addEventListener('input',()=>{ clearTimeout(_t); _t=setTimeout(()=>{ if(!_tomManual){ inp.value=detectarTom(fonte()); } },500); });
+  ed.addEventListener('paste',()=>setTimeout(()=>{ if(!_tomManual){ inp.value=detectarTom(fonte()); toast(inp.value? 'Tom detectado: '+inp.value : 'Não consegui detectar o tom.'); } },400));
+}
+if(typeof window.transpor==='function'){ const _tp=window.transpor; window.transpor=function(x,d){ const r=_tp.apply(this,arguments); const inp=document.getElementById('edTomTxt');
+  if(inp && d){ if(_tomManual) inp.value=transpTom(inp.value,d)||inp.value; else setTimeout(()=>{ if(window.__tomFonte) inp.value=detectarTom(window.__tomFonte()); },60); } return r; }; try{ transpor=window.transpor; }catch(_){} }
+/* ao salvar/publicar a cifra, grava o tom junto */
+document.addEventListener('click',ev=>{ const b=ev.target.closest&&ev.target.closest('button'); const inp=document.getElementById('edTomTxt');
+  if(!b||!inp||!/Salvar|Publicar/i.test(b.textContent)) return; const id=_edId, v=inp.value; setTimeout(()=>salvarTom(id,v),900); },true);
+/* tela da música: mostra o tom guardado (ajustado se a pessoa mudou o tom) */
+function tomNaTela(){
+  const b=document.querySelector('#content .mm-tom > span b'); if(!b) return;
+  const id=(typeof musicaAberta!=='undefined')&&musicaAberta; const salvo=TONS[id]; if(!salvo) return;
+  const sm=b.parentElement.querySelector('small'); const st=sm? parseInt((sm.textContent.match(/[-+]?\d+/)||[0])[0],10)||0 : 0;
+  const v=transpTom(salvo,st); if(v && b.textContent!==v) b.textContent=v;
+}
+let _tn=0; new MutationObserver(()=>{ clearTimeout(_tn); _tn=setTimeout(()=>{ campoTomEditor(); tomNaTela(); },80); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+
+/* ======================= 17) HINOS EM TEXTO LIVRE (igual às músicas) ======================= */
+/* Os hinos do Cantor e da Harpa aparecem como as músicas: acorde em cima da letra, em linhas
+   comuns. O ADM edita o hino inteiro como texto (pode mudar, juntar, acrescentar estrofes).
+   O texto editado fica salvo na nuvem (campo "__texto" das edições do hino). */
+function edDoHino(n,harpa){ try{ return (JSON.parse(localStorage.getItem(harpa?'ibnm_hr_ed':'ibnm_cc_ed')||'{}')||{})[n]||null; }catch(_){ return null; } }
+function linhaParaDuas(l){  /* "[A]Deus [E]prometeu" → ["A    E", "Deus prometeu"] */
+  let txt='', ac='';
+  String(l).replace(/\[([^\]]*)\]|([^\[]+)/g,(m,c,t)=>{ if(c!==undefined){ if(ac.length>txt.length) txt+=' '.repeat(ac.length-txt.length+0); while(ac.length<txt.length) ac+=' '; if(ac.length && !/\s$/.test(ac)) ac+=' '; while(txt.length<ac.length) txt+=' '; ac+=c; } else txt+=t; return ''; });
+  return [ac.replace(/\s+$/,''), txt.replace(/\s+$/,'')];
+}
+function textoOriginal(h,harpa){
+  const ed=edDoHino(h.n,harpa)||{}; const out=[]; let est=0;
+  (h.partes||[]).forEach((p,pi)=>{ if(out.length) out.push('');
+    if(p.tipo==='coro') out.push('[Coro]'); else { est++; out.push('['+est+']'); }
+    (p.linhas||[]).forEach((l,li)=>{ const k=pi+'-'+li; const lin=Object.prototype.hasOwnProperty.call(ed,k)? ed[k] : l; const [a,t]=linhaParaDuas(lin); if(a.trim()) out.push(a); if(t.trim()||!a.trim()) out.push(t); }); });
+  return out.join('\n');
+}
+function textoDoHino(h,harpa){ const ed=edDoHino(h.n,harpa); return (ed&&ed.__texto)? ed.__texto : textoOriginal(h,harpa); }
+window.__textoDoHino=textoDoHino;
+function semitonsDaTela(h){ const b=document.querySelector('#content .cc-tools .chip .lbl b, #content .cc-meta b'); const cur=b? b.textContent.trim().replace(/m$/,'') : ''; const ori=String(h.tom||'').replace(/m$/,'');
+  if(PC[cur]===undefined||PC[ori]===undefined) return 0; let d=(PC[cur]-PC[ori]+12)%12; if(d>6) d-=12; return d; }
+function htmlTextoCifra(txt){
+  return String(txt).split('\n').map(l=>{
+    if(/^\s*\[[^\]]+\]\s*$/.test(l)) return '<span class="cf-sec">'+e(l.trim())+'</span>';
+    if(window.__ehLinhaDeAcordes && __ehLinhaDeAcordes(l)) return '<span class="cf-ch">'+__htmlLinhaAcordes(l)+'</span>';
+    return e(l);
+  }).join('\n');
+}
+function hinoEmTexto(){
+  const song=document.querySelector('#content .cc-song'); if(!song || song.classList.contains('editing') || song.style.display==='none') return;
+  const {h,harpa}=hinoAtual(); if(!h) return;
+  const st=semitonsDaTela(h); const ed=edDoHino(h.n,harpa);
+  const sig=h.n+'|'+st+'|'+(harpa?1:0)+'|'+JSON.stringify(ed||{})+'|'+song.className;
+  if(song.dataset.tx===sig) return;
+  let txt=textoDoHino(h,harpa); if(st && window.__transpTexto) txt=__transpTexto(txt,st);
+  if(song.classList.contains('nochords')) txt=txt.split('\n').filter(l=>!(window.__ehLinhaDeAcordes&&__ehLinhaDeAcordes(l))).join('\n');
+  song.innerHTML='<div class="cc-tx">'+htmlTextoCifra(txt)+'</div>';
+  song.dataset.tx=sig;
+}
+/* ADM: editar o hino inteiro como texto */
+window.editarHinoTexto=function(){
+  const {h,harpa}=hinoAtual(); if(!h) return;
+  abrirModal('<h3>✏️ Editar '+(harpa?'Harpa':'Cantor')+' '+h.n+' — '+e(h.titulo)+'</h3>'+
+    '<p class="am-dica">Escreva como nas músicas: a linha de acordes em cima da linha da letra. [1], [2], [Coro] marcam as estrofes. Pode acrescentar estrofes.</p>'+
+    '<textarea id="hxTxt" class="hx-txt" spellcheck="false" enterkeyhint="enter">'+e(textoDoHino(h,harpa))+'</textarea>'+
+    '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarHinoTexto()">💾 Salvar</button></div>'+
+    ((edDoHino(h.n,harpa)||{}).__texto? '<button class="hx-orig" onclick="salvarHinoTexto(true)">↩️ Voltar ao texto original do hinário</button>' : ''));
+};
+window.salvarHinoTexto=async function(original){
+  const {h,harpa}=hinoAtual(); if(!h) return;
+  const chave=harpa?'ibnm_hr_ed':'ibnm_cc_ed'; let todos={}; try{ todos=JSON.parse(localStorage.getItem(chave)||'{}')||{}; }catch(_){}
+  const ed=Object.assign({},todos[h.n]||{});
+  if(original) delete ed.__texto; else { const v=(document.getElementById('hxTxt')||{}).value||''; ed.__texto=v.replace(/\r/g,'').replace(/\s+$/,''); }
+  if(Object.keys(ed).length) todos[h.n]=ed; else delete todos[h.n];
+  if(harpa){ localStorage.setItem(chave,JSON.stringify(todos)); }   /* a Harpa sobe sozinha para a nuvem */
+  else {
+    try{ _setItem.call(localStorage,chave,JSON.stringify(todos));
+      const r= Object.keys(ed).length? await sb.from('cantor_edits').upsert({num:h.n,linhas:ed,updated_at:new Date().toISOString()}) : await sb.from('cantor_edits').delete().eq('num',h.n);
+      if(r&&r.error) throw r.error;
+    }catch(err){ toast('Salvo neste aparelho. Na nuvem deu erro: '+(err.message||err)); }
+  }
+  fecharModal(); toast(original? 'Voltou ao texto original.' : 'Hino salvo.');
+  setTimeout(()=>{ try{ (harpa?harpaAbrir:cantorAbrir)(h.n); }catch(_){} },150);
+};
+function botaoEditarTexto(){
+  const g=document.querySelector('#content .cc-tools .cc-ga'); if(!g || g.querySelector('.hx-bt') || !podeHinos()) return;
+  g.insertAdjacentHTML('beforeend','<button class="tog hx-bt" onclick="editarHinoTexto()">✏️ Editar hino (texto)</button>');
+}
+let _hx=0; new MutationObserver(()=>{ clearTimeout(_hx); _hx=setTimeout(()=>{ hinoEmTexto(); botaoEditarTexto(); },40); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
 
 /* ======================= 10) ✕ PARA FECHAR AS JANELAS ======================= */
 function poeX(){ const bg=document.getElementById('modalBg'), box=document.getElementById('modalBox');
@@ -820,11 +1019,26 @@ button.ac-pcel{border:1px solid #e3ece7;border-radius:10px;padding:6px;width:100
 .am-cel.sem{justify-content:center;min-height:70px}
 .am-cel.gr{width:100%;border:0}
 .am-cel.gr .ac-svg{max-width:200px}
+.am-cel.gr .ac-svg.pn{max-width:100%;width:100%}
+.am-cel.gr small{font-size:12.5px;font-weight:800;color:#5d7c6e}
 .am-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .am-chips span{font-weight:900;color:var(--cor-acorde,#a8350a);background:#fff8f2;border-radius:8px;padding:2px 8px;font-size:13px}
 .am-dica{font-size:11.5px;color:#7a8f86;margin:2px 0 0}
 .am-pop{display:flex;justify-content:center}
-#zoomTarget .cf-ac,.cc-song .c{cursor:pointer}
-.ex-rec{white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;border-radius:10px;padding:12px;color:#234}
+#zoomTarget .cf-ac,.cc-song .c,.cc-song .cf-ac{cursor:pointer}
+.cc-tx{font-family:'Courier New',ui-monospace,monospace;white-space:pre;overflow-x:auto;font-size:calc(var(--cc-fs,20px) * .8);line-height:1.5;color:#1d2b24}
+.cc-tx .cf-ac{font-weight:800;color:var(--cor-acorde,#a8350a)}
+.cc-tx .cf-sec{display:inline-block;font-family:inherit;font-size:.8em;font-weight:900;color:var(--verde-escuro);background:#e9f5ef;border-radius:8px;padding:0 6px;margin-top:4px}
+.cc-tx .cf-lb{color:#6b7c74}
+.hx-txt{width:100%;min-height:55vh;font-family:'Courier New',ui-monospace,monospace;font-size:14px;line-height:1.5;white-space:pre;overflow:auto;border:1px solid #cfdad4;border-radius:10px;padding:10px;box-sizing:border-box}
+.hx-orig{margin-top:8px;width:100%;height:40px;border:1px dashed #cfdad4;border-radius:10px;background:#fff;color:#7a4a00;font-weight:800}
+.ed-tom{width:52px;height:30px;border:1px solid var(--dourado-esc,#c9a200);border-radius:8px;text-align:center;font-weight:900;font-size:14px;color:#8a6a00;background:#fffbea;margin-left:4px}
+#edTomAuto{font-size:10px;color:#8a9;margin-left:3px}
+.am-var{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px}
+.am-var button{height:38px;min-width:42px;border:1px solid #cfdad4;border-radius:10px;background:#fff;font-weight:900;font-size:18px;color:var(--verde-escuro)}
+.am-var button.v{font-size:13.5px;padding:0 14px;background:var(--verde-med);color:#fff;border-color:var(--verde-med)}
+.am-var span{font-size:13px;font-weight:800;color:#5d7c6e;min-width:56px;text-align:center}
+.am-lista{align-items:flex-start}
+white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;border-radius:10px;padding:12px;color:#234}
 `; document.head.appendChild(st);
 })();

@@ -70,7 +70,7 @@ const SUS=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const BEM=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
 const IDX={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,Fb:4,'E#':5,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11,Cb:11,'B#':0};
 /* acorde: raiz + complemento (m, 7M, 7(9), sus4, add9, º, +, b5…) + baixos/extensões depois da barra (A/C#, A7/9, C9/E) */
-const ACORDE=/^\(?([A-G](?:#|b)?)((?:m|M|maj|min|dim|aug|sus|add|º|°|\+|-|\d|\(|\)|#|b)*)((?:\/(?:[A-G](?:#|b)?|\d+(?:[#b+\-]|\(\d+\))?|\(\d+\)))*)\)?$/;
+const ACORDE=/^\(?([A-G](?:#|b)?)((?:m|M|maj|min|dim|aug|sus|add|º|°|ø|Δ|o(?=\d|$|\/|\()|\+|-|\d|\(|\)|#|b|,)*)((?:\/(?:[A-G](?:#|b)?|\d+(?:[#b+\-]|\(\d+\))?|\(\d+\)))*)\)?$/;
 function nota(n,st,bem){ const i=IDX[n]; return i===undefined? n : (bem?BEM:SUS)[(i+st+120)%12]; }
 function transpAcorde(tok,st,bem){
   const m=tok.match(ACORDE); if(!m) return tok;
@@ -91,7 +91,7 @@ function transporTexto(txt,st,bem){
   return txt.split('\n').map(l=>{
     l=l.replace(/\[([^\]\s]+)\]/g,(m,c)=>'['+transpAcorde(c,st,bem)+']');
     const pi=l.match(/^(\s*intro(?:du[cç][aã]o)?\s*[:\-–]\s*)(.*)$/i);
-    if(pi) return pi[1]+pi[2].replace(/\S+/g,t=>{ const k=t.replace(/[(),]/g,''); return ehAcorde(k)? t.replace(k,transpAcorde(k,st,bem)) : t; });
+    if(pi) return pi[1]+pi[2].replace(/\S+/g,t=>{ if(ehAcorde(t)) return transpAcorde(t,st,bem); const k=t.replace(/[(),]/g,''); return ehAcorde(k)? t.replace(k,transpAcorde(k,st,bem)) : t; });
     const toks=l.trim().split(/\s+/).filter(Boolean);
     if(ehLinhaCifra(l)){
       /* mantém cada acorde na mesma coluna (alinhado com a sílaba de baixo) */
@@ -667,6 +667,7 @@ function tirarIntro(el){
       while(el.firstChild && el.firstChild.nodeType===1 && /^(DIV|P)$/.test(el.firstChild.tagName)){
         const tx=(el.firstChild.textContent||'').replace(/\u00a0/g,' ');
         if(!tx.trim() || !(window.__ehLinhaCifra && window.__ehLinhaCifra(tx)) || !/^\s{4,}/.test(tx)) break;
+        { const nx=el.firstChild.nextSibling; const nt=nx? (nx.textContent||'').replace(/\u00a0/g,' ') : ''; if(nt.trim() && !(window.__ehLinhaCifra && window.__ehLinhaCifra(nt))) break; }   /* acorde em cima de uma frase = é da estrofe */
         intro+='\n'+tx.replace(/^ {0,7}/,'').replace(/\s+$/,''); el.firstChild.remove();
       }
       while(el.firstChild && ((el.firstChild.nodeType===1&&el.firstChild.tagName==='BR') || (!(el.firstChild.textContent||'').trim() && !(el.firstChild.querySelector&&el.firstChild.querySelector('img'))))) el.firstChild.remove();
@@ -759,7 +760,7 @@ const RE_INTRO=/^(\s*intro(?:du[cç][aã]o)?\s*[:\-–]\s*)(.*)$/i;
 function htmlLinhaAcordes(l){
   const pi=l.match(RE_INTRO); let pre='', resto=l;
   if(pi){ pre='<span class="cf-lb">'+escH(pi[1])+'</span>'; resto=pi[2]; }
-  return pre+resto.replace(/(\S+)|(\s+)/g,(m,tok,esp)=>{ if(esp) return esp; const k=tok.replace(/[(),]/g,''); return ehAc(k)? escH(tok).replace(escH(k),'<span class="cf-ac">'+escH(k)+'</span>') : (/^\[[^\]]*\]$/.test(tok)?'<span class="cf-lb">'+escH(tok)+'</span>':escH(tok)); });
+  return pre+resto.replace(/(\S+)|(\s+)/g,(m,tok,esp)=>{ if(esp) return esp; const mm=tok.match(/^([(\[]*)(.*?)([)\],]*)$/); let pe=mm[1], k=mm[2], po=mm[3]; while((k.match(/\(/g)||[]).length>(k.match(/\)/g)||[]).length && po[0]===')'){ k+=')'; po=po.slice(1); } return ehAc(k)? escH(pe)+'<span class="cf-ac">'+escH(k)+'</span>'+escH(po) : (/^\[[^\]]*\]$/.test(tok)?'<span class="cf-lb">'+escH(tok)+'</span>':escH(tok)); });
 }
 function ehLinhaDeAcordes(t){ return ehLinhaC(t) || (RE_INTRO.test(t) && t.replace(RE_INTRO,'$2').trim().split(/\s+/).some(x=>ehAc(x.replace(/[(),]/g,'')))); }
 /* acordes entre colchetes no meio da letra: [G]Senhor */
