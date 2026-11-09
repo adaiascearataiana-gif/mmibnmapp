@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.20.1)
+   MM IBNM — Extras (v1.21.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1098,6 +1098,36 @@ window.bkExcluir=async function(){
 };
 let _bk=0; new MutationObserver(()=>{ clearTimeout(_bk); _bk=setTimeout(()=>{ marcaListas(); prevEditorMusica(); bkAtualiza(); },150); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
 
+/* ======================= 26) VOLTAR (Android e iPhone) ======================= */
+/* 1) Toda tela (menos o Início) ganha a seta ‹ no topo — funciona também no iPhone, que não tem botão voltar.
+   2) O voltar do Android fecha primeiro o que estiver aberto (leitor de PDF, Modo Culto, janelas), depois volta tela a tela.
+   3) No Início: "Deseja sair?" Sim fecha o app, Não continua.
+   4) As "voltas de reserva" são repostas a cada toque (antes era só no clique). */
+['pointerup','touchend','keydown'].forEach(t=>document.addEventListener(t,()=>{ try{ if(window.__encherVoltas) __encherVoltas(); }catch(_){} },true));
+if(typeof window.__voltar==='function'){ const _v=window.__voltar; window.__voltar=function(){
+  if(document.getElementById('pdfLeitor')){ fecharPdf(); return true; }
+  if(document.body.classList.contains('modo-culto') && window.modoCultoSair){ modoCultoSair(); return true; }
+  const bk=document.getElementById('bkFlut'); if(bk && document.querySelectorAll('#content .bk-cb:checked').length){ document.querySelectorAll('#content .bk-cb:checked').forEach(c=>c.checked=false); bkAtualiza(); return true; }
+  return _v.apply(this,arguments); }; }
+const naInicio=()=>{ try{ const st=window.__navStack? __navStack() : []; return !st.length || (st.length===1 && st[0]==='go|inicio|'); }catch(_){ return true; } };
+window.voltarTopo=function(){ try{ if(window.__voltar && __voltar()) return; }catch(_){} try{ go('inicio'); }catch(_){} };
+function setaTopo(){
+  const tb=document.querySelector('.topbar'); if(!tb) return; let b=document.getElementById('btVoltarTopo');
+  if(!b){ const h=tb.querySelector('.hamb'); if(!h) return; h.insertAdjacentHTML('afterend','<button id="btVoltarTopo" class="tb-voltar" onclick="voltarTopo()" aria-label="Voltar">‹</button>'); b=document.getElementById('btVoltarTopo'); }
+  const mostra=!naInicio(); if(b.hidden===mostra) b.hidden=!mostra;
+}
+let _st=0; new MutationObserver(()=>{ clearTimeout(_st); _st=setTimeout(setaTopo,60); }).observe(document.getElementById('content')||document.body,{childList:true});
+setTimeout(setaTopo,1500);
+window.__sairSim=function(){
+  window.__ibnmSaindo=true; window.__saindoAgora=true;
+  try{ fecharModal(); }catch(_){}
+  try{ window.close(); }catch(_){}
+  setTimeout(()=>{ if(document.visibilityState==='hidden') return;
+    try{ const n=history.length-1; if(n>0) history.go(-n); }catch(_){ try{ history.back(); }catch(__){} }
+    setTimeout(()=>{ if(document.visibilityState==='visible'){ window.__ibnmSaindo=true; toast('Toque em voltar mais uma vez para fechar o app.'); } },700);
+  },250);
+};
+
 /* ======================= 25) 📄 CIFRA EM PDF (com leitor dentro do app) ======================= */
 /* Em toda música e hino: botão "📄 Cifra em PDF". Gera o PDF da cifra como está na tela
    (tom escolhido, acordes em negrito na cor escolhida, intro, estrofes) e abre num leitor
@@ -1146,7 +1176,7 @@ async function gerarPdfCifra(info){
   const ps=doc.getPages(); ps.forEach((p,k)=>{ const t='Ministerio de Musica IBNM - '+(k+1)+'/'+ps.length; const w=F.hr.widthOfTextAtSize(t,8); p.drawText(t,{x:(W-w)/2,y:18,size:8,font:F.hr,color:rgb(.6,.63,.61)}); });
   return new Blob([await doc.save()],{type:'application/pdf'});
 }
-let _pdfBlob=null, _pdfNome='cifra.pdf', _pdfZoom=1, _pdfDoc=null;
+let _pdfBlob=null, _pdfNome='cifra.pdf', _pdfZoom=1, _pdfDoc=null, _pdfBase=0;
 window.verCifraPdf=async function(){
   const info=cifraDaTela(); if(!info||!info.texto.trim()) return toast('Não há cifra nesta tela.');
   toast('Gerando o PDF…');
@@ -1155,19 +1185,42 @@ window.verCifraPdf=async function(){
     if(!window.pdfjsLib){ await carregaScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'); pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
     _pdfDoc=await pdfjsLib.getDocument({data:await _pdfBlob.arrayBuffer()}).promise; _pdfZoom=1;
     let bg=document.getElementById('pdfLeitor'); if(bg) bg.remove();
-    document.body.insertAdjacentHTML('beforeend','<div id="pdfLeitor" class="pdf-bg"><div class="pdf-bar"><button onclick="fecharPdf()" aria-label="Fechar">✕</button><b>'+e(info.titulo||'Cifra')+'</b><button onclick="pdfZoom(-1)" aria-label="Diminuir">A−</button><button onclick="pdfZoom(1)" aria-label="Aumentar">A+</button><button onclick="pdfBaixar()" aria-label="Baixar">⬇️</button><button onclick="pdfCompartilhar()" aria-label="Compartilhar">📤</button></div><div id="pdfPags" class="pdf-pags"></div></div>');
+    document.body.insertAdjacentHTML('beforeend','<div id="pdfLeitor" class="pdf-bg"><div class="pdf-bar"><button onclick="fecharPdf()" aria-label="Fechar">✕</button><b>'+e(info.titulo||'Cifra')+'</b><button onclick="pdfBaixar()" aria-label="Baixar">⬇️</button><button onclick="pdfCompartilhar()" aria-label="Compartilhar">📤</button></div><div id="pdfPags" class="pdf-pags"><div id="pdfIn" class="pdf-in"></div></div><div class="pdf-dica">Use dois dedos para aumentar ou diminuir · arraste para mover · toque duas vezes para ampliar</div></div>');
     document.body.style.overflow='hidden';
-    await pdfDesenha();
+    const box=document.getElementById('pdfPags'); _pdfBase=Math.min(box.clientWidth-16,900);
+    await pdfDesenha(); pdfGestos(box); setTimeout(()=>{ const d=document.querySelector('.pdf-dica'); if(d) d.classList.add('some'); },3500);
   }catch(err){ toast('Não consegui gerar o PDF'+(/internet|script/i.test(String(err&&err.message))?' (precisa de internet na 1ª vez)':'')+'.'); }
 };
 async function pdfDesenha(){
-  const box=document.getElementById('pdfPags'); if(!box||!_pdfDoc) return; box.innerHTML='';
-  const larg=Math.min(box.clientWidth-16,900)*_pdfZoom, dpr=Math.min(2.5,window.devicePixelRatio||1);
-  for(let i=1;i<=_pdfDoc.numPages;i++){ const pg=await _pdfDoc.getPage(i); const v1=pg.getViewport({scale:1}); const sc=larg/v1.width; const vp=pg.getViewport({scale:sc*dpr});
-    const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height; c.style.width=(vp.width/dpr)+'px'; c.style.height=(vp.height/dpr)+'px'; box.appendChild(c);
+  const inn=document.getElementById('pdfIn'); if(!inn||!_pdfDoc) return;
+  const larg=_pdfBase*_pdfZoom, dpr=Math.min(2.5,window.devicePixelRatio||1);
+  const novo=document.createElement('div'); novo.className='pdf-in'; novo.id='pdfIn';
+  for(let i=1;i<=_pdfDoc.numPages;i++){ const pg=await _pdfDoc.getPage(i); const v1=pg.getViewport({scale:1}); let sc=larg/v1.width*dpr; if(v1.width*sc>4096) sc=4096/v1.width; const vp=pg.getViewport({scale:sc});
+    const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height; c.style.width=larg+'px'; c.style.height=(larg*v1.height/v1.width)+'px'; novo.appendChild(c);
     await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise; }
+  const velho=document.getElementById('pdfIn'); if(velho) velho.replaceWith(novo);
 }
-window.pdfZoom=function(d){ _pdfZoom=Math.min(3,Math.max(0.6,_pdfZoom+(d>0?0.25:-0.25))); pdfDesenha(); };
+/* gestos: pinça com 2 dedos = zoom livre (no ponto entre os dedos); 1 dedo = rolagem livre; toque duplo = 1x ↔ 2,5x */
+function pdfGestos(box){
+  const pts=new Map(); let ini=null, ultimoToque=0;
+  const dist=()=>{ const [a,b]=[...pts.values()]; return Math.hypot(a.x-b.x,a.y-b.y); };
+  const meio=()=>{ const [a,b]=[...pts.values()]; const r=box.getBoundingClientRect(); return {x:(a.x+b.x)/2-r.left, y:(a.y+b.y)/2-r.top}; };
+  async function aplica(z,foco){ const inn=document.getElementById('pdfIn'); if(inn) inn.style.transform='';
+    const z0=_pdfZoom; z=Math.min(5,Math.max(0.6,z)); if(Math.abs(z-z0)<0.01) return;
+    const cx=(box.scrollLeft+foco.x)/z0, cy=(box.scrollTop+foco.y)/z0; _pdfZoom=z; await pdfDesenha();
+    box.scrollLeft=cx*z-foco.x; box.scrollTop=cy*z-foco.y; }
+  box.addEventListener('pointerdown',ev=>{ pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+    if(pts.size===2){ ini={d:dist(),z:_pdfZoom,m:meio()}; }
+    if(pts.size===1){ const t=Date.now(); if(t-ultimoToque<300){ const r=box.getBoundingClientRect(); aplica(_pdfZoom>1.2?1:2.5,{x:ev.clientX-r.left,y:ev.clientY-r.top}); ultimoToque=0; } else ultimoToque=t; } });
+  box.addEventListener('pointermove',ev=>{ if(!pts.has(ev.pointerId)) return; pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+    if(pts.size===2 && ini){ ev.preventDefault(); const f=Math.min(5/ini.z,Math.max(0.6/ini.z,dist()/ini.d)); const inn=document.getElementById('pdfIn');
+      if(inn){ inn.style.transformOrigin=(box.scrollLeft+ini.m.x)+'px '+(box.scrollTop+ini.m.y)+'px'; inn.style.transform='scale('+f+')'; } } },{passive:false});
+  const fim=ev=>{ if(!pts.has(ev.pointerId)) return; if(pts.size===2 && ini){ const f=dist()/ini.d; const m=ini.m; const z=ini.z*f; ini=null; pts.delete(ev.pointerId); aplica(z,m); return; } pts.delete(ev.pointerId); };
+  box.addEventListener('pointerup',fim); box.addEventListener('pointercancel',fim); box.addEventListener('pointerleave',fim);
+  /* no computador: Ctrl + roda do mouse */
+  box.addEventListener('wheel',ev=>{ if(!ev.ctrlKey) return; ev.preventDefault(); const r=box.getBoundingClientRect(); aplica(_pdfZoom*(ev.deltaY<0?1.15:0.87),{x:ev.clientX-r.left,y:ev.clientY-r.top}); },{passive:false});
+}
+window.pdfZoom=function(d){ const box=document.getElementById('pdfPags'); if(!box) return; _pdfZoom=Math.min(5,Math.max(0.6,_pdfZoom+(d>0?0.25:-0.25))); pdfDesenha(); };
 window.fecharPdf=function(){ const b=document.getElementById('pdfLeitor'); if(b) b.remove(); document.body.style.overflow=''; };
 window.pdfBaixar=function(){ if(!_pdfBlob) return; const a=document.createElement('a'); a.href=URL.createObjectURL(_pdfBlob); a.download=_pdfNome; document.body.appendChild(a); a.click(); a.remove(); toast('PDF salvo na pasta Downloads.'); };
 window.pdfCompartilhar=async function(){ if(!_pdfBlob) return; const f=new File([_pdfBlob],_pdfNome,{type:'application/pdf'});
@@ -1528,7 +1581,13 @@ white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;borde
 .pdf-bar{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-inset-top,0px)) 8px 8px;background:var(--verde-escuro,#0e4a37);color:#fff}
 .pdf-bar b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
 .pdf-bar button{height:38px;min-width:42px;border:0;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;font-weight:900;font-size:15px}
-.pdf-pags{flex:1;overflow:auto;padding:8px;display:flex;flex-direction:column;align-items:center;gap:10px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
-.pdf-pags canvas{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);border-radius:3px;max-width:none}
+.pdf-pags{flex:1;overflow:auto;padding:8px;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.pdf-in{width:max-content;margin:0 auto;display:flex;flex-direction:column;gap:10px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));will-change:transform}
+.pdf-in canvas{display:block;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);border-radius:3px;max-width:none}
+.pdf-dica{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:rgba(0,0,0,.72);color:#fff;font-size:12.5px;padding:8px 12px;border-radius:12px;max-width:88%;text-align:center;transition:opacity .6s;pointer-events:none}
+.pdf-dica.some{opacity:0}
+
+.tb-voltar{width:40px;height:40px;border:0;border-radius:12px;background:rgba(255,255,255,.14);color:#fff;font-size:28px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;flex:none;margin-right:6px;padding-bottom:3px}
+.tb-voltar[hidden]{display:none}
 `; document.head.appendChild(st);
 })();
