@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.19.0)
+   MM IBNM — Extras (v1.20.1)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1098,6 +1098,89 @@ window.bkExcluir=async function(){
 };
 let _bk=0; new MutationObserver(()=>{ clearTimeout(_bk); _bk=setTimeout(()=>{ marcaListas(); prevEditorMusica(); bkAtualiza(); },150); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
 
+/* ======================= 25) 📄 CIFRA EM PDF (com leitor dentro do app) ======================= */
+/* Em toda música e hino: botão "📄 Cifra em PDF". Gera o PDF da cifra como está na tela
+   (tom escolhido, acordes em negrito na cor escolhida, intro, estrofes) e abre num leitor
+   dentro do app, com zoom, baixar e compartilhar. */
+function corAcordeRGB(){ let c=(getComputedStyle(document.documentElement).getPropertyValue('--cor-acorde')||'#a8350a').trim();
+  const t=document.createElement('span'); t.style.color=c; document.body.appendChild(t); const r=getComputedStyle(t).color; t.remove();
+  const m=r.match(/\d+/g)||[168,53,10]; return [+m[0],+m[1],+m[2]]; }
+function cifraDaTela(){
+  const z=document.querySelector('#content #zoomTarget');
+  if(z){ let m=null; try{ m=(DB.musicas||[]).find(x=>x.id===musicaAberta); }catch(_){}
+    const tit=(m&&m.titulo)||((document.querySelector('#content h2')||{}).textContent||''); const art=(m&&m.artista)||'';
+    const tom=(document.querySelector('#content .mm-tom > span b')||{}).textContent||'';
+    return {titulo:tit.replace('★','').trim(), sub:art.trim(), tom, texto:z.innerText}; }
+  const pg=document.querySelector('#content .cc-page'); const song=pg&&pg.querySelector('.cc-song');
+  if(song){ const {h,harpa}=hinoAtual(); const tom=(pg.querySelector('.cc-tools .chip .lbl b, .cc-meta b')||{}).textContent||'';
+    const livro= harpa==='hcc'?'Hinário para o Culto Cristão':harpa?'Harpa Cristã':'Cantor Cristão';
+    return {titulo:(h?h.n+' · '+h.titulo:''), sub:livro, tom, texto:(song.querySelector('.cc-tx')||song).innerText}; }
+  return null;
+}
+async function gerarPdfCifra(info){
+  if(!window.PDFLib) await carregaScript('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js');
+  const {PDFDocument,StandardFonts,rgb}=PDFLib;
+  const doc=await PDFDocument.create();
+  const F={cr:await doc.embedFont(StandardFonts.Courier), cb:await doc.embedFont(StandardFonts.CourierBold), hr:await doc.embedFont(StandardFonts.Helvetica), hb:await doc.embedFont(StandardFonts.HelveticaBold), hi:await doc.embedFont(StandardFonts.HelveticaOblique)};
+  const limpa=t=>String(t||'').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u266F/g,'#').replace(/\u266D/g,'b').replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\u00FF]/g,'');
+  const W=595.28,H=841.89,M=40, c=corAcordeRGB(), COR=rgb(c[0]/255,c[1]/255,c[2]/255);
+  const linhas=limpa(info.texto).replace(/\r/g,'').split('\n').map(l=>l.replace(/\s+$/,''));
+  const maior=Math.max(20,...linhas.map(l=>l.length));
+  const fs=Math.max(7.5,Math.min(13,(W-2*M)/(maior*0.6))); const lh=fs*1.38;
+  let pg=doc.addPage([W,H]), y=H-M;
+  const txt=(t,x,f,sz,cor)=>pg.drawText(t,{x,y,size:sz,font:f,color:cor});
+  y-=18; txt(limpa(info.titulo||'Cifra'),M,F.hb,16,rgb(.08,.24,.18));
+  y-=15; txt(limpa([info.sub, info.tom?'Tom: '+info.tom:''].filter(Boolean).join('   -   ')),M,F.hr,10.5,rgb(.35,.43,.39));
+  y-=8; pg.drawLine({start:{x:M,y},end:{x:W-M,y},thickness:.7,color:rgb(.78,.84,.81)}); y-=6;
+  const ehAc=l=>!!(window.__ehLinhaDeAcordes&&l.trim()&&__ehLinhaDeAcordes(l));
+  const nova=()=>{ pg=doc.addPage([W,H]); y=H-M; y-=10; txt(limpa(info.titulo||''),M,F.hi,9,rgb(.55,.59,.57)); y-=8; };
+  for(let i=0;i<linhas.length;i++){
+    const l=linhas[i]; const par= ehAc(l) && linhas[i+1]!=null && linhas[i+1].trim() && !ehAc(linhas[i+1]);
+    if(y-(par?2:1)*lh < M+14) nova();
+    if(!l.trim()){ y-=lh*0.6; continue; }
+    y-=lh;
+    if(/^\s*\[[^\]]+\]\s*$/.test(l)) txt(l.trim(),M,F.hb,fs*0.9,rgb(.08,.35,.24));
+    else if(ehAc(l)) txt(l,M,F.cb,fs,COR);
+    else txt(l,M,F.cr,fs,rgb(.1,.14,.12));
+  }
+  const ps=doc.getPages(); ps.forEach((p,k)=>{ const t='Ministerio de Musica IBNM - '+(k+1)+'/'+ps.length; const w=F.hr.widthOfTextAtSize(t,8); p.drawText(t,{x:(W-w)/2,y:18,size:8,font:F.hr,color:rgb(.6,.63,.61)}); });
+  return new Blob([await doc.save()],{type:'application/pdf'});
+}
+let _pdfBlob=null, _pdfNome='cifra.pdf', _pdfZoom=1, _pdfDoc=null;
+window.verCifraPdf=async function(){
+  const info=cifraDaTela(); if(!info||!info.texto.trim()) return toast('Não há cifra nesta tela.');
+  toast('Gerando o PDF…');
+  try{
+    _pdfBlob=await gerarPdfCifra(info); _pdfNome=(info.titulo||'cifra').replace(/[^\p{L}\p{N} .-]+/gu,'').trim().slice(0,60)+'.pdf';
+    if(!window.pdfjsLib){ await carregaScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'); pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
+    _pdfDoc=await pdfjsLib.getDocument({data:await _pdfBlob.arrayBuffer()}).promise; _pdfZoom=1;
+    let bg=document.getElementById('pdfLeitor'); if(bg) bg.remove();
+    document.body.insertAdjacentHTML('beforeend','<div id="pdfLeitor" class="pdf-bg"><div class="pdf-bar"><button onclick="fecharPdf()" aria-label="Fechar">✕</button><b>'+e(info.titulo||'Cifra')+'</b><button onclick="pdfZoom(-1)" aria-label="Diminuir">A−</button><button onclick="pdfZoom(1)" aria-label="Aumentar">A+</button><button onclick="pdfBaixar()" aria-label="Baixar">⬇️</button><button onclick="pdfCompartilhar()" aria-label="Compartilhar">📤</button></div><div id="pdfPags" class="pdf-pags"></div></div>');
+    document.body.style.overflow='hidden';
+    await pdfDesenha();
+  }catch(err){ toast('Não consegui gerar o PDF'+(/internet|script/i.test(String(err&&err.message))?' (precisa de internet na 1ª vez)':'')+'.'); }
+};
+async function pdfDesenha(){
+  const box=document.getElementById('pdfPags'); if(!box||!_pdfDoc) return; box.innerHTML='';
+  const larg=Math.min(box.clientWidth-16,900)*_pdfZoom, dpr=Math.min(2.5,window.devicePixelRatio||1);
+  for(let i=1;i<=_pdfDoc.numPages;i++){ const pg=await _pdfDoc.getPage(i); const v1=pg.getViewport({scale:1}); const sc=larg/v1.width; const vp=pg.getViewport({scale:sc*dpr});
+    const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height; c.style.width=(vp.width/dpr)+'px'; c.style.height=(vp.height/dpr)+'px'; box.appendChild(c);
+    await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise; }
+}
+window.pdfZoom=function(d){ _pdfZoom=Math.min(3,Math.max(0.6,_pdfZoom+(d>0?0.25:-0.25))); pdfDesenha(); };
+window.fecharPdf=function(){ const b=document.getElementById('pdfLeitor'); if(b) b.remove(); document.body.style.overflow=''; };
+window.pdfBaixar=function(){ if(!_pdfBlob) return; const a=document.createElement('a'); a.href=URL.createObjectURL(_pdfBlob); a.download=_pdfNome; document.body.appendChild(a); a.click(); a.remove(); toast('PDF salvo na pasta Downloads.'); };
+window.pdfCompartilhar=async function(){ if(!_pdfBlob) return; const f=new File([_pdfBlob],_pdfNome,{type:'application/pdf'});
+  try{ if(navigator.canShare&&navigator.canShare({files:[f]})) return await navigator.share({files:[f],title:_pdfNome}); }catch(_){ return; } pdfBaixar(); };
+/* o botão aparece em toda música e todo hino (para todos) */
+function botaoPdf(){
+  const z=document.querySelector('#content #zoomTarget');
+  if(z){ const rol=document.getElementById('musRolBtn'); if(rol && !document.getElementById('btPdfCifra')) rol.insertAdjacentHTML('afterend','<button type="button" id="btPdfCifra" class="mm-rol pdf-bt" onclick="verCifraPdf()">📄 Cifra em PDF</button>'); return; }
+  const tools=document.querySelector('#content .cc-page .cc-tools'); const song=document.querySelector('#content .cc-page .cc-song');
+  if(tools && song && !tools.querySelector('#btPdfCifra')){ const g=tools.querySelector('.cc-gm')||tools.querySelector('.cc-gv')||tools; g.insertAdjacentHTML('beforeend','<button class="tog" id="btPdfCifra" onclick="verCifraPdf()">📄 Cifra em PDF</button>'); }
+}
+let _pdfo=0; new MutationObserver(()=>{ clearTimeout(_pdfo); _pdfo=setTimeout(botaoPdf,110); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+
 /* ======================= 24) 👑 ADMs E PERMISSÕES (tela própria, só o ADM principal) ======================= */
 const SECS=[['playlist','📅','SETLIST'],['musicas','🎵','Músicas'],['hinos','📖','Cantor, Harpa e HCC'],['importar','📥','Importar músicas'],['escala','📋','Escala'],['avisos','📣','Avisos'],['academia','🎓','Academia'],['ensaios','🎼','Ensaios'],['membros','👥','Membros'],['financeiro','💰','Financeiro'],['inventario','🔧','Inventário']];
 const souPrincipal=()=>{ try{ return !!(window.ehPrincipal&&ehPrincipal()) && !(window.modoUsuario&&modoUsuario()); }catch(_){ return false; } };
@@ -1439,5 +1522,13 @@ white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;borde
 .ad-secs{display:flex;flex-wrap:wrap;gap:6px;width:100%}
 .ad-sec{border:1px solid #cfdad4;background:#f4f8f6;color:#456;font-weight:800;font-size:13px;border-radius:18px;height:36px;padding:0 12px}
 .ad-sec.on{background:var(--verde-med);border-color:var(--verde-med);color:#fff}
+
+.pdf-bt{margin-left:6px}
+.pdf-bg{position:fixed;inset:0;z-index:9500;background:#3b4440;display:flex;flex-direction:column}
+.pdf-bar{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-inset-top,0px)) 8px 8px;background:var(--verde-escuro,#0e4a37);color:#fff}
+.pdf-bar b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.pdf-bar button{height:38px;min-width:42px;border:0;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;font-weight:900;font-size:15px}
+.pdf-pags{flex:1;overflow:auto;padding:8px;display:flex;flex-direction:column;align-items:center;gap:10px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.pdf-pags canvas{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);border-radius:3px;max-width:none}
 `; document.head.appendChild(st);
 })();
