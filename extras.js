@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.18.0)
+   MM IBNM — Extras (v1.18.1)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1097,6 +1097,11 @@ window.bkExcluir=async function(){
   toast(feitos+' excluído(s).'+(parou?' '+parou:''));
 };
 let _bk=0; new MutationObserver(()=>{ clearTimeout(_bk); _bk=setTimeout(()=>{ marcaListas(); prevEditorMusica(); bkAtualiza(); },150); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+
+/* ======================= 23) SETLIST: COMPARTILHAR COMO IMAGEM ======================= */
+/* A função que gera a imagem usa ehSlExtra(), que só existia dentro de outro bloco do culto.js
+   ("ehSlExtra is not defined"). Deixamos ela disponível para o app inteiro. */
+if(typeof window.ehSlExtra!=='function') window.ehSlExtra=function(c){ c=String(c||''); return c.indexOf('slx_')===0||c.indexOf('slq_')===0; };
 
 /* ======================= 22) PADRÃO DOS HINOS (Cantor, Harpa e HCC) ======================= */
 /* Regra para todo hino:
