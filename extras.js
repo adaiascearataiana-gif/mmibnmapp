@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.18.1)
+   MM IBNM — Extras (v1.19.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1098,6 +1098,64 @@ window.bkExcluir=async function(){
 };
 let _bk=0; new MutationObserver(()=>{ clearTimeout(_bk); _bk=setTimeout(()=>{ marcaListas(); prevEditorMusica(); bkAtualiza(); },150); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
 
+/* ======================= 24) 👑 ADMs E PERMISSÕES (tela própria, só o ADM principal) ======================= */
+const SECS=[['playlist','📅','SETLIST'],['musicas','🎵','Músicas'],['hinos','📖','Cantor, Harpa e HCC'],['importar','📥','Importar músicas'],['escala','📋','Escala'],['avisos','📣','Avisos'],['academia','🎓','Academia'],['ensaios','🎼','Ensaios'],['membros','👥','Membros'],['financeiro','💰','Financeiro'],['inventario','🔧','Inventário']];
+const souPrincipal=()=>{ try{ return !!(window.ehPrincipal&&ehPrincipal()) && !(window.modoUsuario&&modoUsuario()); }catch(_){ return false; } };
+let _admPerf=null, _admBusca='';
+async function admPerfis(){ try{ const {data,error}=await sb.from('perfis').select('id,nome,email,admin,foto'); if(!error) _admPerf=data||[]; }catch(_){} if(!_admPerf) _admPerf=(DB.usuarios||[]).map(u=>({id:u.id,nome:u.nome,email:u.email,admin:u.admin,foto:u.foto})); return _admPerf; }
+const permsAtuais=()=>{ try{ const P=((typeof APP_CFG!=='undefined'&&APP_CFG)||{}).adm_permissoes||{}; return typeof P==='string'? JSON.parse(P) : P; }catch(_){ return {}; } };
+const principaisL=()=>{ try{ const v=((typeof APP_CFG!=='undefined'&&APP_CFG)||{}).adm_principais||['adaiasceara@yahoo.com.br']; return (Array.isArray(v)?v:JSON.parse(v)).map(x=>String(x).toLowerCase()); }catch(_){ return ['adaiasceara@yahoo.com.br']; } };
+function admLista(){
+  const L=(_admPerf||[]).slice().sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt'));
+  const prin=principaisL(), P=permsAtuais();
+  const adms=L.filter(u=>u.admin && !prin.includes(String(u.email||'').toLowerCase()));
+  const princ=L.filter(u=>prin.includes(String(u.email||'').toLowerCase()));
+  const q=SLUG(_admBusca); const outros=L.filter(u=>!u.admin && (!q || SLUG(u.nome).includes(q) || SLUG(u.email).includes(q)));
+  const av=u=> u.foto? '<img class="ad-av" src="'+e(u.foto)+'" alt="">' : '<span class="ad-av">'+e(String(u.nome||'?').trim().charAt(0).toUpperCase()||'?')+'</span>';
+  return princ.map(u=>'<div class="ad-card prin">'+av(u)+'<div class="ad-h"><b>'+e(u.nome||'')+'</b><small>ADM principal · acesso total</small></div></div>').join('')+
+    '<h4 class="ad-t">ADMs ('+adms.length+')</h4>'+
+    (adms.length? adms.map(u=>{ const p=P[u.id]||{}; const n=SECS.filter(([k])=>p[k]).length;
+      return '<div class="ad-card">'+av(u)+'<div class="ad-h"><b>'+e(u.nome||'')+'</b><small>'+e(u.email||'')+' · '+(n? n+' seção(ões) liberada(s)' : '⚠️ nenhuma seção liberada')+'</small></div>'+
+        '<button class="ad-tirar" onclick="admTirar(\''+e(u.id)+'\')">Tirar ADM</button>'+
+        '<div class="ad-secs">'+SECS.map(([k,ic,t])=>'<button class="ad-sec'+(p[k]?' on':'')+'" onclick="admSec(\''+e(u.id)+'\',\''+k+'\','+(!p[k])+')">'+ic+' '+t+(p[k]?' ✓':'')+'</button>').join('')+'</div></div>'; }).join('')
+      : '<p class="am-dica">Nenhum ADM ainda. Escolha alguém abaixo em <b>Tornar ADM</b>.</p>')+
+    '<h4 class="ad-t">Tornar alguém ADM</h4><input class="search-box" placeholder="🔎 Buscar membro pelo nome" value="'+e(_admBusca)+'" oninput="admBuscar(this.value)">'+
+    '<div id="adOutros">'+admOutrosHTML(outros,av)+'</div>';
+}
+function admOutrosHTML(outros,av){ return outros.slice(0,40).map(u=>'<div class="ad-card mini">'+av(u)+'<div class="ad-h"><b>'+e(u.nome||'(sem nome)')+'</b><small>'+e(u.email||'')+'</small></div><button class="ad-dar" onclick="admDar(\''+e(u.id)+'\')">Tornar ADM</button></div>').join('') || '<p class="am-dica">Ninguém encontrado.</p>'; }
+function admRedesenha(){ const b=document.getElementById('adBox'); if(b) b.innerHTML=admLista(); }
+window.admBuscar=function(v){ _admBusca=v; const el=document.getElementById('adOutros'); if(!el) return; const q=SLUG(v); const L=(_admPerf||[]).filter(u=>!u.admin && (!q||SLUG(u.nome).includes(q)||SLUG(u.email).includes(q))).sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt'));
+  const av=u=> u.foto? '<img class="ad-av" src="'+e(u.foto)+'" alt="">' : '<span class="ad-av">'+e(String(u.nome||'?').trim().charAt(0).toUpperCase()||'?')+'</span>'; el.innerHTML=admOutrosHTML(L,av); };
+window.admSec=async function(uid,k,v){ if(!souPrincipal()) return; if(window.paPerm){ await paPerm(uid,k,v); } admRedesenha(); };
+async function admMarca(uid,v){
+  const u=(_admPerf||[]).find(x=>x.id===uid); if(!u) return;
+  if(!confirm((v?'Dar acesso de ADM para ':'Tirar o acesso de ADM de ')+(u.nome||u.email)+'?')) return;
+  const {error}=await sb.from('perfis').update({admin:v}).eq('id',uid);
+  if(error) return toast('Não consegui: '+error.message);
+  u.admin=v; const d=(DB.usuarios||[]).find(x=>x.id===uid); if(d) d.admin=v;
+  if(!v && window.paPerm){ const P=permsAtuais(); for(const k of Object.keys(P[uid]||{})) await paPerm(uid,k,false); }
+  toast(v? (u.nome||'')+' agora é ADM. Marque as seções que ele pode usar.' : 'Acesso de ADM retirado.'); admRedesenha();
+}
+window.admDar=uid=>admMarca(uid,true); window.admTirar=uid=>admMarca(uid,false);
+if(typeof ROTAS!=='undefined'){
+  ROTAS.adms=function(){ if(!souPrincipal()) return '<div class="empty">Só o ADM principal mexe nos ADMs.</div>';
+    admPerfis().then(admRedesenha);
+    return '<div class="page"><div class="page-ttl">👑 ADMs e permissões</div><div class="card"><p class="am-dica" style="font-size:13px">Toque numa seção para <b>liberar</b> (fica verde ✓) ou <b>bloquear</b>. Salva na hora. Cada ADM só vê o que estiver liberado.</p><div id="adBox">'+(_admPerf?admLista():'<div class="empty">Carregando…</div>')+'</div></div></div>'; };
+  /* Painel do ADM: cartão grande no topo, com resumo e o botão */
+  if(ROTAS.admin){ const _adm0=ROTAS.admin; ROTAS.admin=function(){ let h=_adm0.apply(this,arguments); if(!souPrincipal()) return h;
+    const card='<div class="card ad-topo" onclick="go(\'adms\')"><div class="ad-topo-ic">👑</div><div style="flex:1;min-width:0"><b>ADMs e permissões</b><small id="adResumo">Quem é ADM e o que cada um pode acessar</small></div><span class="ad-topo-go">Abrir ›</span></div>';
+    h=h.replace(/<div class="card pa-card">[\s\S]*?<button class="mini-btn sec" onclick="go\('membros'\)">[^<]*<\/button><\/div>/,'');
+    setTimeout(()=>admPerfis().then(()=>{ const r=document.getElementById('adResumo'); if(!r) return; const prin=principaisL(), P=permsAtuais();
+      const a=(_admPerf||[]).filter(u=>u.admin && !prin.includes(String(u.email||'').toLowerCase()));
+      r.innerHTML= a.length? a.map(u=>'<b>'+e(String(u.nome||'').split(' ')[0])+'</b>: '+(SECS.filter(([k])=>(P[u.id]||{})[k]).map(x=>x[2]).join(', ')||'nada liberado')).join(' · ') : 'Nenhum ADM além de você'; }),0);
+    return h.replace(/(<div class="page[^"]*">\s*<div class="page-ttl">[\s\S]*?<\/div>)/, '$1'+card); }; }
+}
+/* menu: "ADMs e permissões" logo abaixo do Painel do ADM (só para o principal) */
+if(typeof window.montaMenu==='function'){ const _mm=window.montaMenu; window.montaMenu=function(){ const r=_mm.apply(this,arguments);
+  try{ if(souPrincipal()){ const nav=document.querySelector('.sm-nav'); const pa=nav&&[...nav.querySelectorAll('.sm-item')].find(b=>/Painel do ADM/.test(b.textContent));
+    if(nav && !nav.querySelector('.sm-adms')) (pa||nav.lastElementChild).insertAdjacentHTML('afterend','<button class="sm-item sm-adms" onclick="go(\'adms\')"><span class="ic">👑</span>ADMs e permissões</button>'); } }catch(_){}
+  return r; }; try{ montaMenu=window.montaMenu; }catch(_){} try{ if(typeof _booted!=='undefined'&&_booted) montaMenu(); }catch(_){} }
+
 /* ======================= 23) SETLIST: COMPARTILHAR COMO IMAGEM ======================= */
 /* A função que gera a imagem usa ehSlExtra(), que só existia dentro de outro bloco do culto.js
    ("ehSlExtra is not defined"). Deixamos ela disponível para o app inteiro. */
@@ -1360,5 +1418,26 @@ white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;borde
   .content .cc-page{max-width:860px;margin-left:auto;margin-right:auto}
   #content .song-row,#content .cc-list li{transition:background .15s}
 }
+
+.ad-topo{display:flex;align-items:center;gap:12px;cursor:pointer;background:linear-gradient(135deg,#fff8dc,#fff);border:2px solid var(--dourado)!important}
+.ad-topo-ic{font-size:34px}
+.ad-topo b{display:block;font-size:17px;color:var(--verde-escuro)}
+.ad-topo small{display:block;font-size:12.5px;color:#5d6f66;margin-top:2px;line-height:1.35}
+.ad-topo small b{display:inline;font-size:inherit;color:var(--verde-escuro)}
+.ad-h,.ad-card{text-align:left}
+.ad-topo-go{font-weight:900;color:#fff;background:var(--verde-med);border-radius:18px;padding:8px 14px;flex:none}
+.ad-t{margin:16px 0 8px;font-size:14px;color:var(--verde-escuro)}
+.ad-card{display:flex;flex-wrap:wrap;align-items:center;gap:10px;border:1px solid #e3ece7;border-radius:14px;padding:10px 12px;margin-bottom:10px;background:#fff}
+.ad-card.prin{background:#fffbea;border-color:#f0dc8a}
+.ad-card.mini{padding:8px 10px}
+.ad-av{width:42px;height:42px;border-radius:50%;object-fit:cover;background:var(--verde-med);color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;flex:none}
+.ad-h{flex:1;min-width:0}
+.ad-h b{display:block;font-size:15px;color:#1d2b24}
+.ad-h small{display:block;font-size:12px;color:#6b7c74;overflow:hidden;text-overflow:ellipsis}
+.ad-tirar{border:1px solid #e3b2ab;background:#fff5f4;color:#a33;font-weight:800;border-radius:10px;height:34px;padding:0 10px}
+.ad-dar{border:0;background:var(--verde-med);color:#fff;font-weight:800;border-radius:10px;height:36px;padding:0 12px}
+.ad-secs{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+.ad-sec{border:1px solid #cfdad4;background:#f4f8f6;color:#456;font-weight:800;font-size:13px;border-radius:18px;height:36px;padding:0 12px}
+.ad-sec.on{background:var(--verde-med);border-color:var(--verde-med);color:#fff}
 `; document.head.appendChild(st);
 })();
