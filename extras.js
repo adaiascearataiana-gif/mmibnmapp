@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.21.0)
+   MM IBNM — Extras (v1.22.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1098,6 +1098,28 @@ window.bkExcluir=async function(){
 };
 let _bk=0; new MutationObserver(()=>{ clearTimeout(_bk); _bk=setTimeout(()=>{ marcaListas(); prevEditorMusica(); bkAtualiza(); },150); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
 
+/* ======================= 27) GOOGLE DRIVE: SEM JANELA PRETA ======================= */
+/* A janela do Google (about:blank preta) vinha da conexão do Google Drive (cópia dos comprovantes),
+   que o app tentava abrir sozinho. No app instalado essa janela não consegue voltar e fica preta.
+   Agora: nunca abre sozinha; só abre se o ADM tocar num botão do Drive, e só no navegador
+   (no app instalado avisa). Os comprovantes continuam salvos no app (Supabase). O login do app não muda. */
+const appInstalado=()=>{ try{ return matchMedia('(display-mode: standalone)').matches || navigator.standalone===true; }catch(_){ return false; } };
+let _toqueDrive=0;
+document.addEventListener('click',ev=>{ const b=ev.target.closest&&ev.target.closest('button,a'); if(b && /drive|google/i.test(b.textContent+' '+(b.title||''))) _toqueDrive=Date.now(); },true);
+function protegeGIS(){
+  const o=window.google&&google.accounts&&google.accounts.oauth2; if(!o || o.__protegido) return !!o;
+  const ini=o.initTokenClient.bind(o);
+  o.initTokenClient=function(cfg){ const c=ini(cfg); const req=c.requestAccessToken.bind(c);
+    c.requestAccessToken=function(opts){
+      const pediu=Date.now()-_toqueDrive<15000;
+      if(!pediu){ try{ cfg.error_callback&&cfg.error_callback({type:'popup_failed_to_open'}); }catch(_){} return; }   /* automático: não abre */
+      if(appInstalado()){ toast('Para conectar o Google Drive, abra o app pelo navegador Chrome (no app instalado a janela do Google não volta).'); try{ cfg.error_callback&&cfg.error_callback({type:'popup_failed_to_open'}); }catch(_){} return; }
+      return req(opts); };
+    return c; };
+  o.__protegido=true; return true;
+}
+(function vigia(){ if(!protegeGIS()) setTimeout(vigia,700); })();
+
 /* ======================= 26) VOLTAR (Android e iPhone) ======================= */
 /* 1) Toda tela (menos o Início) ganha a seta ‹ no topo — funciona também no iPhone, que não tem botão voltar.
    2) O voltar do Android fecha primeiro o que estiver aberto (leitor de PDF, Modo Culto, janelas), depois volta tela a tela.
@@ -1180,8 +1202,14 @@ let _pdfBlob=null, _pdfNome='cifra.pdf', _pdfZoom=1, _pdfDoc=null, _pdfBase=0;
 window.verCifraPdf=async function(){
   const info=cifraDaTela(); if(!info||!info.texto.trim()) return toast('Não há cifra nesta tela.');
   toast('Gerando o PDF…');
+  try{ const b=await gerarPdfCifra(info); await abrirLeitorPdf(b,info.titulo||'Cifra'); }
+  catch(err){ toast('Não consegui gerar o PDF'+(/internet|script/i.test(String(err&&err.message))?' (precisa de internet na 1ª vez)':'')+'.'); }
+};
+/* abre qualquer PDF (arquivo gerado, do app, do GitHub ou do Supabase) no leitor do app */
+window.abrirLeitorPdf=async function(fonte,titulo){
   try{
-    _pdfBlob=await gerarPdfCifra(info); _pdfNome=(info.titulo||'cifra').replace(/[^\p{L}\p{N} .-]+/gu,'').trim().slice(0,60)+'.pdf';
+    if(typeof fonte==='string'){ toast('Abrindo o PDF…'); const r=await fetch(fonte); if(!r.ok) throw new Error('arquivo '+r.status); fonte=await r.blob(); }
+    _pdfBlob=fonte; const info={titulo:titulo||'PDF'}; _pdfNome=String(info.titulo).replace(/[^\p{L}\p{N} .-]+/gu,'').trim().slice(0,60)+'.pdf';
     if(!window.pdfjsLib){ await carregaScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'); pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
     _pdfDoc=await pdfjsLib.getDocument({data:await _pdfBlob.arrayBuffer()}).promise; _pdfZoom=1;
     let bg=document.getElementById('pdfLeitor'); if(bg) bg.remove();
@@ -1189,7 +1217,7 @@ window.verCifraPdf=async function(){
     document.body.style.overflow='hidden';
     const box=document.getElementById('pdfPags'); _pdfBase=Math.min(box.clientWidth-16,900);
     await pdfDesenha(); pdfGestos(box); setTimeout(()=>{ const d=document.querySelector('.pdf-dica'); if(d) d.classList.add('some'); },3500);
-  }catch(err){ toast('Não consegui gerar o PDF'+(/internet|script/i.test(String(err&&err.message))?' (precisa de internet na 1ª vez)':'')+'.'); }
+  }catch(err){ toast('Não consegui abrir o PDF'+(/internet|script|fetch/i.test(String(err&&err.message))?' (verifique a internet)':'')+'.'); }
 };
 async function pdfDesenha(){
   const inn=document.getElementById('pdfIn'); if(!inn||!_pdfDoc) return;
@@ -1307,10 +1335,30 @@ let PARTS={}; try{ PARTS=JSON.parse(localStorage.getItem('ibnm_parts')||'{}')||{
 async function carregaPartituras(){ try{ if(typeof sb==='undefined') return; const {data,error}=await sb.from('partituras_hinos').select('livro,num,url,tipo'); if(error) return;
   const m={}; (data||[]).forEach(r=>m[r.livro+':'+r.num]=r); PARTS=m; localStorage.setItem('ibnm_parts',JSON.stringify(m)); }catch(_){} }
 setTimeout(carregaPartituras,5500);
-function temPartitura(h,harpa){ const L=livroDe(harpa); if(PARTS[L+':'+h.n]) return true;
+/* arquivos guardados no próprio app (GitHub): partituras/cc/, partituras/hr/, partituras/hcc/
+   nomes aceitos: 001.pdf, 1.pdf, n001.pdf, cc001.pdf (ou .jpg/.png) — o app acha sozinho */
+let LOCAIS={}; try{ LOCAIS=JSON.parse(localStorage.getItem('ibnm_part_local')||'{}')||{}; }catch(_){}
+const _sondando={};
+function nomesLocais(L,n){ const p3=String(n).padStart(3,'0'), base='partituras/'+L+'/'; const out=[];
+  [p3,String(n),'n'+p3,L+p3,L+'-'+p3,'hino-'+p3].forEach(b=>['.pdf','.jpg','.png','.jpeg'].forEach(x=>out.push(base+b+x))); return out; }
+async function sondaLocal(L,n){
+  const k=L+':'+n, c=LOCAIS[k]; if(c && (c.url || Date.now()-c.t<6*3600e3)) return c.url||null;
+  if(_sondando[k]) return _sondando[k];
+  _sondando[k]=(async()=>{ let url=null;
+    for(const u of nomesLocais(L,n)){ try{ const r=await fetch(u,{method:'HEAD',cache:'no-store'}); if(r.ok && !/text\/html/i.test(r.headers.get('content-type')||'')){ url=u; break; } }catch(_){ break; } }
+    LOCAIS[k]={url,t:Date.now()}; try{ localStorage.setItem('ibnm_part_local',JSON.stringify(LOCAIS)); }catch(_){}
+    delete _sondando[k]; return url; })();
+  return _sondando[k];
+}
+function temPartitura(h,harpa){ const L=livroDe(harpa); if(PARTS[L+':'+h.n]) return true; const lc=LOCAIS[L+':'+h.n]; if(lc&&lc.url) return true;
   if(L==='hr') return !!(h.partitura); if(L==='cc') return !!CC_SITE[h.n]; return !!HCC_SITE[h.n]; }
-window.abrirPartitura=function(){ const {h,harpa}=hinoAtual(); if(!h) return; const L=livroDe(harpa), up=PARTS[L+':'+h.n];
-  if(up){ if(up.tipo==='pdf') return window.open(up.url,'_blank','noopener'); return abrirModal('<h3>📜 Partitura — '+e(h.titulo)+'</h3><img src="'+e(up.url)+'" style="width:100%;border-radius:8px" alt="Partitura">'); }
+const ehPdf=u=>/\.pdf(\?|$)/i.test(String(u||''));
+function mostraPartitura(url,h,tipo){ const tit='Partitura · '+h.n+' · '+h.titulo;
+  if(tipo==='pdf'||ehPdf(url)) return abrirLeitorPdf(url,tit);
+  abrirModal('<h3>📜 '+e(tit)+'</h3><img src="'+e(url)+'" style="width:100%;border-radius:8px" alt="Partitura">'); }
+window.abrirPartitura=async function(){ const {h,harpa}=hinoAtual(); if(!h) return; const L=livroDe(harpa), up=PARTS[L+':'+h.n];
+  if(up) return mostraPartitura(up.url,h,up.tipo);
+  const loc=await sondaLocal(L,h.n); if(loc) return mostraPartitura(loc,h);
   if(L==='hr' && window.harpaPartitura) return harpaPartitura(h.n);
   abrirSiteHino(L==='hcc'?'hcc':'cc',h.n); };
 /* subir partitura (imagem ou PDF) e extrair cifra + letra */
@@ -1384,6 +1432,7 @@ function padronizaHino(forca){
   tools.querySelectorAll('button, a').forEach(b=>{ if(/Tom original|YouTube/i.test(b.textContent)) b.style.display='none'; });
   const chip=tools.querySelector('.chip'); if(chip){ if(!adm) chip.style.display='none'; else { chip.removeAttribute('hidden'); chip.style.display=''; } }
   /* partitura: abre a que houver; sem partitura → ADM sobe, usuário não vê nada */
+  { const L=livroDe(harpa), k=L+':'+h.n; if(!PARTS[k] && !(LOCAIS[k]&&(LOCAIS[k].url||Date.now()-LOCAIS[k].t<6*3600e3))) sondaLocal(L,h.n).then(u=>{ if(u) padronizaHino(true); }); }
   const tem=temPartitura(h,harpa);
   let bp=[...tools.querySelectorAll('button')].find(b=>/PARTITURA/i.test(b.textContent));
   if(!bp){ (tools.querySelector('.cc-gm')||tools).insertAdjacentHTML('beforeend','<button class="tog cc-part">📜 PARTITURA</button>'); bp=[...tools.querySelectorAll('button')].find(b=>/PARTITURA/i.test(b.textContent)); }
