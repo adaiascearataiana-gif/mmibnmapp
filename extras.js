@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.22.0)
+   MM IBNM — Extras (v1.24.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -386,7 +386,7 @@ function organiza(tools){
   const acha=f=>itens.filter(f);
   const g=(cls,lbl,els)=>{ els=els.filter(Boolean); if(!els.length) return null; const d=document.createElement('div'); d.className='cc-grp '+cls; if(lbl) d.insertAdjacentHTML('afterbegin','<span class="cc-gl">'+lbl+'</span>'); els.forEach(x=>d.appendChild(x)); return d; };
   const txt=x=>(x.textContent||'');
-  const adm=acha(x=>/SETLIST|Ao vivo|AO VIVO|Editar cifras|Salvar cifras|Cancelar/i.test(txt(x)) || x.id==='ted' || x.classList.contains('cc-live'));
+  const adm=acha(x=>/SETLIST|Ao vivo|AO VIVO|Editar cifra|Salvar cifras|Cancelar/i.test(txt(x)) || x.id==='ted' || x.classList.contains('cc-live') || x.classList.contains('hx-bt'));
   const midia=acha(x=>/PARTITURA|YouTube|Ouvir|▶ YouTube/i.test(txt(x)) && !adm.includes(x));
   const ver=acha(x=>!adm.includes(x) && !midia.includes(x));
   const seg=document.createElement('div'); seg.className='cc-seg';
@@ -897,6 +897,7 @@ window.editarHinoTexto=function(prefill,aviso){
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarHinoTexto()">💾 Salvar</button></div>'+
     ((harpa!=='hcc' && (edDoHino(h.n,harpa)||{}).__texto)? '<button class="hx-orig" onclick="salvarHinoTexto(true)">↩️ Voltar ao texto original do hinário</button>' : ''));
   prevAoVivo('hxTxt','hxPrev');
+  const mb=document.getElementById('modalBox'); if(mb) mb.classList.add('mx-grande');
 };
 window.salvarHinoTexto=async function(original){
   const {h,harpa}=hinoAtual(); if(!h) return;
@@ -916,8 +917,10 @@ window.salvarHinoTexto=async function(original){
   setTimeout(()=>{ try{ (harpa?harpaAbrir:cantorAbrir)(h.n); }catch(_){} },150);
 };
 function botaoEditarTexto(){
+  document.querySelectorAll('#content .cc-page .cc-tools #ted, #content .cc-page .cc-tools .cc-edit').forEach(b=>{ if(!b.classList.contains('hx-bt')) b.style.display='none'; });
+  document.querySelectorAll('#content .cc-page .cc-tools .hx-bt').forEach(b=>{ if(b.textContent!=='✏️ Editar cifra') b.textContent='✏️ Editar cifra'; });
   const g=document.querySelector('#content .cc-tools .cc-ga'); if(!g || g.querySelector('.hx-bt') || !podeHinos() || document.querySelector('#content .hcc-page')) return;
-  g.insertAdjacentHTML('beforeend','<button class="tog hx-bt" onclick="editarHinoTexto()">✏️ Editar hino (texto)</button>');
+  g.insertAdjacentHTML('beforeend','<button class="tog hx-bt" onclick="editarHinoTexto()">✏️ Editar cifra</button>');
 }
 let _hx=0; new MutationObserver(()=>{ clearTimeout(_hx); _hx=setTimeout(()=>{ hinoEmTexto(); botaoEditarTexto(); },40); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
 
@@ -999,7 +1002,7 @@ window.hccAbrir=function(n,manter){
       (h.texto&&key?'<span class="chip"><button onclick="hccTransp('+n+',-1)" aria-label="Baixar meio tom">−</button><span class="lbl">Tom <b>'+e(key)+'</b></span><button onclick="hccTransp('+n+',1)" aria-label="Subir meio tom">+</button></span>':'')+
       (h.texto?'<button class="tog" id="tsc" aria-pressed="'+(_hccScroll?'true':'false')+'" onclick="hccScroll()">'+(_hccScroll?'⏸ Pausar rolagem':'▶ Rolagem')+'</button>':'')+
       '<button class="tog cc-part">📜 PARTITURA</button>'+
-      (adm?'<button class="tog cc-edit" id="ted" onclick="editarHinoTexto()">Editar cifras</button><button class="tog hx-bt" onclick="editarHinoTexto()">✏️ Editar hino (texto)</button>':'')+
+      (adm?'<button class="tog hx-bt" onclick="editarHinoTexto()">✏️ Editar cifra</button>':'')+
     '</div>'+
     (h.texto? '<div class="cc-song" style="--cc-fs:'+hccFsVal()+'px"></div>' : corpo)+
     '<nav class="cc-nav">'+(prev?'<a href="javascript:void(0)" onclick="hccAbrir('+prev.n+')"><small>Anterior</small>'+prev.n+' · '+e(prev.titulo)+'</a>':'<span></span>')+(next?'<a class="r" href="javascript:void(0)" onclick="hccAbrir('+next.n+')"><small>Próximo</small>'+next.n+' · '+e(next.titulo)+'</a>':'<span></span>')+'</nav></main>';
@@ -1098,6 +1101,83 @@ window.bkExcluir=async function(){
 };
 let _bk=0; new MutationObserver(()=>{ clearTimeout(_bk); _bk=setTimeout(()=>{ marcaListas(); prevEditorMusica(); bkAtualiza(); },150); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
 
+/* ======================= 28) BARRA VERDE: "Olá, Nome!" + data, hora e tempo ======================= */
+const DIAS=['dom','seg','ter','qua','qui','sex','sáb'];
+const TEMPO={0:['☀️','Céu limpo'],1:['🌤️','Poucas nuvens'],2:['⛅','Parcialmente nublado'],3:['☁️','Nublado'],45:['🌫️','Neblina'],48:['🌫️','Neblina'],51:['🌦️','Garoa'],53:['🌦️','Garoa'],55:['🌦️','Garoa forte'],56:['🌧️','Garoa gelada'],57:['🌧️','Garoa gelada'],61:['🌧️','Chuva fraca'],63:['🌧️','Chuva'],65:['🌧️','Chuva forte'],66:['🌧️','Chuva gelada'],67:['🌧️','Chuva gelada'],71:['🌨️','Neve'],73:['🌨️','Neve'],75:['🌨️','Neve'],80:['🌦️','Pancadas de chuva'],81:['🌧️','Pancadas de chuva'],82:['⛈️','Chuva muito forte'],95:['⛈️','Trovoada'],96:['⛈️','Trovoada'],99:['⛈️','Trovoada']};
+let _clima=null; try{ _clima=JSON.parse(localStorage.getItem('ibnm_clima')||'null'); }catch(_){}
+async function buscaClima(){
+  try{ const lat=-3.736, lon=-38.653;   /* Caucaia (CE) */
+    const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current=temperature_2m,weather_code,is_day&timezone=America%2FFortaleza');
+    const j=await r.json(); const c=j&&j.current; if(!c) return;
+    _clima={t:Math.round(c.temperature_2m), c:c.weather_code, dia:c.is_day, em:Date.now()}; localStorage.setItem('ibnm_clima',JSON.stringify(_clima)); barraTopo(true);
+  }catch(_){} }
+function primeiroNome(){ try{ const u=usuarioAtual(); const n=String((u&&u.nome)||'').trim().split(/\s+/)[0]; return n? n.charAt(0).toUpperCase()+n.slice(1) : ''; }catch(_){ return ''; } }
+function barraTopo(forca){
+  const ttl=document.querySelector('.topbar .ttl'); if(!ttl) return;
+  if(!ttl.classList.contains('ola')){ ttl.classList.add('ola'); ttl.innerHTML='<span class="ola-nome"></span><small class="ola-info"></small><small class="ola-info2"></small>'; }
+  const nm=primeiroNome(); const t=ttl.querySelector('.ola-nome'); const txt=nm? 'Olá, '+nm+'!' : 'Olá!'; if(t.textContent!==txt) t.textContent=txt;
+  const d=new Date(), p2=x=>String(x).padStart(2,'0');
+  let info=DIAS[d.getDay()]+', '+p2(d.getDate())+'/'+p2(d.getMonth()+1)+' · '+p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds());
+  let info2='';
+  const curto=innerWidth<560;   /* celular: sem a descrição do tempo, para caber o saldo */
+  if(_clima){ let [ic,ds]=TEMPO[_clima.c]||['🌡️','']; if(!_clima.dia && (_clima.c===0||_clima.c===1)) ic='🌙'; info2=ic+' '+_clima.t+'°'+(ds&&!curto?' '+ds:''); }
+  if(_saldo!=null) info2+=(info2?' · ':'')+'💰 '+(curto? brl(_saldo).replace(/R\$\s?/,'') : 'Saldo '+brl(_saldo));
+  const i1=ttl.querySelector('.ola-info'), i2=ttl.querySelector('.ola-info2');
+  if(i1.textContent!==info) i1.textContent=info; if(i2 && i2.textContent!==info2) i2.textContent=info2;
+}
+let _saldo=null; try{ const v=localStorage.getItem('ibnm_saldo'); if(v!=null) _saldo=+v; }catch(_){}
+async function buscaSaldo(){ try{ if(typeof sb==='undefined' || !(typeof usuarioAtual==='function' && usuarioAtual())) return;
+  const {data:r,error}=await sb.rpc('fin_resumo',{p_mes:new Date().toISOString().slice(0,7)}); if(error||!r) return;
+  _saldo=Number(r.total)||0; localStorage.setItem('ibnm_saldo',String(_saldo)); barraTopo(true); }catch(_){} }
+setTimeout(buscaSaldo,4000); setInterval(()=>{ if(document.visibilityState==='visible') buscaSaldo(); },10*60*1000);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') buscaSaldo(); });
+setInterval(barraTopo,1000); setTimeout(barraTopo,300);
+setTimeout(buscaClima,2500); setInterval(()=>{ if(document.visibilityState==='visible') buscaClima(); },20*60*1000);
+
+/* ======================= 29) VOLTAR: interceptar o botão do celular ======================= */
+/* Chrome novo (Android): o "voltar" é interceptado antes de mexer no histórico e o app faz a volta dele
+   (fecha janela → tela anterior → … → Início → "Deseja sair?"). Celulares mais antigos continuam com
+   as "voltas de reserva", agora 10 (antes 4), repostas a cada toque. */
+const RESERVA_VOLTAS=10;
+window.__encherVoltas=function(forcar){ try{ if(!forcar && navigator.userActivation && !navigator.userActivation.isActive) return;
+  let n=(history.state&&history.state.ibnm)? (history.state.n||0) : 0; while(n<RESERVA_VOLTAS){ n++; history.pushState({ibnm:1,n:n},''); } }catch(_){} };
+function perguntarSair(){
+  const mb=document.getElementById('modalBox'), bg=document.getElementById('modalBg');
+  if(bg && bg.classList.contains('show') && mb && /Deseja sair/.test(mb.textContent)){ __sairNao(); return; }   /* 2º voltar com a pergunta aberta = ficar */
+  abrirModal('<h3>Deseja sair do app?</h3><p style="color:#5d6f66;margin:6px 0 14px">Você está no Início.</p><div class="modal-acts"><button class="btn btn-dark" onclick="__sairNao()">Não, ficar</button><button class="btn btn-primary" onclick="__sairSim()">Sim, sair</button></div>');
+}
+window.__perguntarSair=perguntarSair;
+const _sairNaoAnt=window.__sairNao;
+window.__sairNao=function(){ try{ fecharModal(); }catch(_){} window.__ibnmSaindo=false; window.__saindoAgora=false; try{ __encherVoltas(true); }catch(_){} setTimeout(armaVigia,0); };
+/* CloseWatcher: o jeito oficial do Chrome para o botão voltar. Um vigia sempre armado:
+   cada VOLTAR do celular cai aqui (não mexe no histórico, não fecha o app). */
+let _cw=null;
+function armaVigia(){ if(!('CloseWatcher' in window) || _cw || window.__saindoAgora) return; try{ _cw=new CloseWatcher(); _cw.onclose=()=>{ _cw=null; aoVoltarCelular(); }; }catch(_){ _cw=null; } }
+function aoVoltarCelular(){
+  let tratou=false; try{ tratou=!!(window.__voltar && __voltar()); }catch(_){}
+  if(!tratou) perguntarSair();
+  setTimeout(armaVigia,0);
+}
+window.__vigiaVoltar=()=>!!_cw;
+armaVigia(); ['pointerup','touchend','keydown','click'].forEach(t=>document.addEventListener(t,()=>setTimeout(armaVigia,0),true));
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') armaVigia(); });
+if(window.navigation && navigation.addEventListener){
+  navigation.addEventListener('navigate',ev=>{
+    try{
+      if(ev.navigationType!=='traverse' || !ev.cancelable || window.__saindoAgora) return;
+      const cur=navigation.currentEntry? navigation.currentEntry.index : -1, dst=ev.destination? ev.destination.index : -1;
+      if(dst<0 || cur<0 || dst>=cur) return;   /* só o "voltar" */
+      ev.preventDefault();
+      let tratou=false; try{ tratou=!!(window.__voltar && __voltar()); }catch(_){}
+      if(!tratou) perguntarSair();
+    }catch(_){}
+  });
+}
+
+/* imagens da introdução do Cantor (cc-intro): lidas do repositório de partituras, com reserva no app */
+function introsDoRepo(){ document.querySelectorAll('#content img[src^="cc-intro/"]').forEach(im=>{ if(im.dataset.repo) return; const loc=im.getAttribute('src'); im.dataset.repo='1'; im.dataset.res=loc; im.onerror=function(){ if(!this.dataset.r){ this.dataset.r=1; this.src=this.dataset.res; } }; im.src=PART_BASE+loc; }); }
+let _ir=0; new MutationObserver(()=>{ clearTimeout(_ir); _ir=setTimeout(introsDoRepo,40); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+
 /* ======================= 27) GOOGLE DRIVE: SEM JANELA PRETA ======================= */
 /* A janela do Google (about:blank preta) vinha da conexão do Google Drive (cópia dos comprovantes),
    que o app tentava abrir sozinho. No app instalado essa janela não consegue voltar e fica preta.
@@ -1119,6 +1199,8 @@ function protegeGIS(){
   o.__protegido=true; return true;
 }
 (function vigia(){ if(!protegeGIS()) setTimeout(vigia,700); })();
+/* ao fechar qualquer janela, ela volta ao tamanho normal */
+new MutationObserver(()=>{ const bg=document.getElementById('modalBg'), mb=document.getElementById('modalBox'); if(bg&&mb&&!bg.classList.contains('show')) mb.classList.remove('mx-grande'); }).observe(document.getElementById('modalBg')||document.body,{attributes:true,attributeFilter:['class']});
 
 /* ======================= 26) VOLTAR (Android e iPhone) ======================= */
 /* 1) Toda tela (menos o Início) ganha a seta ‹ no topo — funciona também no iPhone, que não tem botão voltar.
@@ -1142,6 +1224,7 @@ let _st=0; new MutationObserver(()=>{ clearTimeout(_st); _st=setTimeout(setaTopo
 setTimeout(setaTopo,1500);
 window.__sairSim=function(){
   window.__ibnmSaindo=true; window.__saindoAgora=true;
+  try{ if(_cw){ _cw.destroy(); _cw=null; } }catch(_){}
   try{ fecharModal(); }catch(_){}
   try{ window.close(); }catch(_){}
   setTimeout(()=>{ if(document.visibilityState==='hidden') return;
@@ -1211,7 +1294,7 @@ window.abrirLeitorPdf=async function(fonte,titulo){
     if(typeof fonte==='string'){ toast('Abrindo o PDF…'); const r=await fetch(fonte); if(!r.ok) throw new Error('arquivo '+r.status); fonte=await r.blob(); }
     _pdfBlob=fonte; const info={titulo:titulo||'PDF'}; _pdfNome=String(info.titulo).replace(/[^\p{L}\p{N} .-]+/gu,'').trim().slice(0,60)+'.pdf';
     if(!window.pdfjsLib){ await carregaScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'); pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
-    _pdfDoc=await pdfjsLib.getDocument({data:await _pdfBlob.arrayBuffer()}).promise; _pdfZoom=1;
+    _imgs=null; _pdfDoc=await pdfjsLib.getDocument({data:await _pdfBlob.arrayBuffer()}).promise; _pdfZoom=1;
     let bg=document.getElementById('pdfLeitor'); if(bg) bg.remove();
     document.body.insertAdjacentHTML('beforeend','<div id="pdfLeitor" class="pdf-bg"><div class="pdf-bar"><button onclick="fecharPdf()" aria-label="Fechar">✕</button><b>'+e(info.titulo||'Cifra')+'</b><button onclick="pdfBaixar()" aria-label="Baixar">⬇️</button><button onclick="pdfCompartilhar()" aria-label="Compartilhar">📤</button></div><div id="pdfPags" class="pdf-pags"><div id="pdfIn" class="pdf-in"></div></div><div class="pdf-dica">Use dois dedos para aumentar ou diminuir · arraste para mover · toque duas vezes para ampliar</div></div>');
     document.body.style.overflow='hidden';
@@ -1220,7 +1303,11 @@ window.abrirLeitorPdf=async function(fonte,titulo){
   }catch(err){ toast('Não consegui abrir o PDF'+(/internet|script|fetch/i.test(String(err&&err.message))?' (verifique a internet)':'')+'.'); }
 };
 async function pdfDesenha(){
-  const inn=document.getElementById('pdfIn'); if(!inn||!_pdfDoc) return;
+  const inn=document.getElementById('pdfIn'); if(!inn) return;
+  if(_imgs && !_pdfDoc){ const larg=_pdfBase*_pdfZoom;
+    if(!inn.children.length) inn.innerHTML=_imgs.urls.map((u,i)=>'<img src="'+e(u)+'" alt="Partitura" draggable="false"'+(_imgs.reservas[i]?' data-res="'+e(_imgs.reservas[i])+'" onerror="if(this.dataset.res&&!this.dataset.r){this.dataset.r=1;this.src=this.dataset.res}"':'')+'>').join('');
+    inn.querySelectorAll('img').forEach(im=>{ im.style.width=larg+'px'; }); return; }
+  if(!_pdfDoc) return;
   const larg=_pdfBase*_pdfZoom, dpr=Math.min(2.5,window.devicePixelRatio||1);
   const novo=document.createElement('div'); novo.className='pdf-in'; novo.id='pdfIn';
   for(let i=1;i<=_pdfDoc.numPages;i++){ const pg=await _pdfDoc.getPage(i); const v1=pg.getViewport({scale:1}); let sc=larg/v1.width*dpr; if(v1.width*sc>4096) sc=4096/v1.width; const vp=pg.getViewport({scale:sc});
@@ -1253,6 +1340,19 @@ window.fecharPdf=function(){ const b=document.getElementById('pdfLeitor'); if(b)
 window.pdfBaixar=function(){ if(!_pdfBlob) return; const a=document.createElement('a'); a.href=URL.createObjectURL(_pdfBlob); a.download=_pdfNome; document.body.appendChild(a); a.click(); a.remove(); toast('PDF salvo na pasta Downloads.'); };
 window.pdfCompartilhar=async function(){ if(!_pdfBlob) return; const f=new File([_pdfBlob],_pdfNome,{type:'application/pdf'});
   try{ if(navigator.canShare&&navigator.canShare({files:[f]})) return await navigator.share({files:[f],title:_pdfNome}); }catch(_){ return; } pdfBaixar(); };
+/* músicas: partitura em mmibnm-partituras/musicas/<titulo-da-musica>.pdf (ou .jpg/.png) */
+const _musPart={};
+async function partituraMusica(m){
+  if(!m) return null; const k=m.id; if(_musPart[k]!==undefined) return _musPart[k];
+  _musPart[k]=null; const base=PART_BASE+'musicas/'; const nomes=[SLUG(m.titulo), m.id];
+  for(const n of nomes) for(const x of ['.pdf','.jpg','.png']){ try{ const r=await fetch(base+encodeURIComponent(n)+x,{method:'HEAD'}); if(r.ok){ _musPart[k]=base+encodeURIComponent(n)+x; return _musPart[k]; } }catch(_){ return null; } }
+  return null; }
+async function botaoPartituraMusica(){
+  const z=document.querySelector('#content #zoomTarget'); if(!z || document.getElementById('btPartMus')) return;
+  let m=null; try{ m=(DB.musicas||[]).find(x=>x.id===musicaAberta); }catch(_){} if(!m) return;
+  const url=await partituraMusica(m); const ref=document.getElementById('btPdfCifra'); if(!url || !ref || document.getElementById('btPartMus')) return;
+  ref.insertAdjacentHTML('afterend','<button type="button" id="btPartMus" class="mm-rol pdf-bt" onclick="abrirPartitura(\''+url+'\',\''+e(String(m.titulo).replace(/'/g,''))+'\')">📜 Partitura</button>');
+}
 /* o botão aparece em toda música e todo hino (para todos) */
 function botaoPdf(){
   const z=document.querySelector('#content #zoomTarget');
@@ -1260,7 +1360,7 @@ function botaoPdf(){
   const tools=document.querySelector('#content .cc-page .cc-tools'); const song=document.querySelector('#content .cc-page .cc-song');
   if(tools && song && !tools.querySelector('#btPdfCifra')){ const g=tools.querySelector('.cc-gm')||tools.querySelector('.cc-gv')||tools; g.insertAdjacentHTML('beforeend','<button class="tog" id="btPdfCifra" onclick="verCifraPdf()">📄 Cifra em PDF</button>'); }
 }
-let _pdfo=0; new MutationObserver(()=>{ clearTimeout(_pdfo); _pdfo=setTimeout(botaoPdf,110); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+let _pdfo=0; new MutationObserver(()=>{ clearTimeout(_pdfo); _pdfo=setTimeout(()=>{ botaoPdf(); botaoPartituraMusica(); },110); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
 
 /* ======================= 24) 👑 ADMs E PERMISSÕES (tela própria, só o ADM principal) ======================= */
 const SECS=[['playlist','📅','SETLIST'],['musicas','🎵','Músicas'],['hinos','📖','Cantor, Harpa e HCC'],['importar','📥','Importar músicas'],['escala','📋','Escala'],['avisos','📣','Avisos'],['academia','🎓','Academia'],['ensaios','🎼','Ensaios'],['membros','👥','Membros'],['financeiro','💰','Financeiro'],['inventario','🔧','Inventário']];
@@ -1339,13 +1439,20 @@ setTimeout(carregaPartituras,5500);
    nomes aceitos: 001.pdf, 1.pdf, n001.pdf, cc001.pdf (ou .jpg/.png) — o app acha sozinho */
 let LOCAIS={}; try{ LOCAIS=JSON.parse(localStorage.getItem('ibnm_part_local')||'{}')||{}; }catch(_){}
 const _sondando={};
-function nomesLocais(L,n){ const p3=String(n).padStart(3,'0'), base='partituras/'+L+'/'; const out=[];
-  [p3,String(n),'n'+p3,L+p3,L+'-'+p3,'hino-'+p3].forEach(b=>['.pdf','.jpg','.png','.jpeg'].forEach(x=>out.push(base+b+x))); return out; }
+/* PDFs e imagens das partituras ficam no repositório mmibnm-partituras (fora do app, para o app não ficar pesado).
+   O app procura lá primeiro (pelo jsDelivr) e, se não achar, na pasta antiga dentro do app. */
+const PART_BASE='https://cdn.jsdelivr.net/gh/adaiascearataiana-gif/mmibnm-partituras@main/';
+const PASTA_REPO={cc:'cc',hcc:'hcc',hr:'harpa'};
+function nomesLocais(L,n){ const p3=String(n).padStart(3,'0'); const out=[];
+  const nomes=L==='hr'? ['h'+p3,p3,'p'+p3] : [p3,String(n),'n'+p3,L+p3];
+  nomes.forEach(b=>['.pdf','.jpg','.png'].forEach(x=>out.push(PART_BASE+PASTA_REPO[L]+'/'+b+x)));
+  [p3,String(n),'n'+p3,L+p3].forEach(b=>['.pdf','.jpg','.png'].forEach(x=>out.push('partituras/'+L+'/'+b+x)));
+  return out; }
 async function sondaLocal(L,n){
   const k=L+':'+n, c=LOCAIS[k]; if(c && (c.url || Date.now()-c.t<6*3600e3)) return c.url||null;
   if(_sondando[k]) return _sondando[k];
   _sondando[k]=(async()=>{ let url=null;
-    for(const u of nomesLocais(L,n)){ try{ const r=await fetch(u,{method:'HEAD',cache:'no-store'}); if(r.ok && !/text\/html/i.test(r.headers.get('content-type')||'')){ url=u; break; } }catch(_){ break; } }
+    for(const u of nomesLocais(L,n)){ try{ const r=await fetch(u,{method:'HEAD',cache:u.startsWith('http')?'default':'no-store'}); if(r.ok && !/text\/html/i.test(r.headers.get('content-type')||'')){ url=u; break; } }catch(_){ if(!u.startsWith('http')) break; } }
     LOCAIS[k]={url,t:Date.now()}; try{ localStorage.setItem('ibnm_part_local',JSON.stringify(LOCAIS)); }catch(_){}
     delete _sondando[k]; return url; })();
   return _sondando[k];
@@ -1355,11 +1462,23 @@ function temPartitura(h,harpa){ const L=livroDe(harpa); if(PARTS[L+':'+h.n]) ret
 const ehPdf=u=>/\.pdf(\?|$)/i.test(String(u||''));
 function mostraPartitura(url,h,tipo){ const tit='Partitura · '+h.n+' · '+h.titulo;
   if(tipo==='pdf'||ehPdf(url)) return abrirLeitorPdf(url,tit);
-  abrirModal('<h3>📜 '+e(tit)+'</h3><img src="'+e(url)+'" style="width:100%;border-radius:8px" alt="Partitura">'); }
-window.abrirPartitura=async function(){ const {h,harpa}=hinoAtual(); if(!h) return; const L=livroDe(harpa), up=PARTS[L+':'+h.n];
+  leitorImagem([url],tit); }
+function urlHarpa(h){ const loc=(h&&h.partitura)||('partituras_harpa/h'+String(h.n).padStart(3,'0')+'.jpg'); return {cdn:PART_BASE+'harpa/'+loc.split('/').pop(), local:loc}; }
+let _imgs=null;
+function leitorImagem(urls,titulo,reservas){
+  _pdfDoc=null; _pdfBlob=null; _imgs={urls,reservas:reservas||[]}; _pdfZoom=1;
+  let bg=document.getElementById('pdfLeitor'); if(bg) bg.remove();
+  document.body.insertAdjacentHTML('beforeend','<div id="pdfLeitor" class="pdf-bg"><div class="pdf-bar"><button onclick="fecharPdf()" aria-label="Fechar">✕</button><b>📜 '+e(titulo||'Partitura')+'</b></div><div id="pdfPags" class="pdf-pags"><div id="pdfIn" class="pdf-in"></div></div><div class="pdf-dica">Use dois dedos para aumentar ou diminuir · arraste para mover · toque duas vezes para ampliar</div></div>');
+  document.body.style.overflow='hidden';
+  const box=document.getElementById('pdfPags'); _pdfBase=Math.min(box.clientWidth-16,900);
+  pdfDesenha(); pdfGestos(box); setTimeout(()=>{ const d=document.querySelector('.pdf-dica'); if(d) d.classList.add('some'); },3500);
+}
+window.abrirPartitura=async function(url,titulo){
+  if(typeof url==='string' && url){ return ehPdf(url)? abrirLeitorPdf(url,titulo) : leitorImagem([url],titulo); }   /* chamado com endereço (ex.: pela Harpa) */
+  const {h,harpa}=hinoAtual(); if(!h) return; const L=livroDe(harpa), up=PARTS[L+':'+h.n];
   if(up) return mostraPartitura(up.url,h,up.tipo);
   const loc=await sondaLocal(L,h.n); if(loc) return mostraPartitura(loc,h);
-  if(L==='hr' && window.harpaPartitura) return harpaPartitura(h.n);
+  if(L==='hr'){ const u=urlHarpa(h); return leitorImagem([u.cdn],'Partitura · '+h.n+' · '+h.titulo,[u.local]); }
   abrirSiteHino(L==='hcc'?'hcc':'cc',h.n); };
 /* subir partitura (imagem ou PDF) e extrair cifra + letra */
 window.subirPartitura=function(){ const i=document.createElement('input'); i.type='file'; i.accept='image/*,application/pdf'; i.onchange=()=>{ if(i.files[0]) enviarPartitura(i.files[0]); }; i.click(); };
@@ -1561,7 +1680,7 @@ button.ac-pcel{border:1px solid #e3ece7;border-radius:10px;padding:6px;width:100
 .cc-tx .cf-ac{font-weight:800;color:var(--cor-acorde,#a8350a)}
 .cc-tx .cf-sec{display:inline-block;font-family:inherit;font-size:.8em;font-weight:900;color:var(--verde-escuro);background:#e9f5ef;border-radius:8px;padding:0 6px;margin-top:4px}
 .cc-tx .cf-lb{color:#6b7c74}
-.hx-txt{width:100%;min-height:55vh;font-family:'Courier New',ui-monospace,monospace;font-size:14px;line-height:1.5;white-space:pre;overflow:auto;border:1px solid #cfdad4;border-radius:10px;padding:10px;box-sizing:border-box}
+.hx-txt{width:100%;min-height:55vh;resize:both;max-width:100%;font-family:'Courier New',ui-monospace,monospace;font-size:14px;line-height:1.5;white-space:pre;overflow:auto;border:1px solid #cfdad4;border-radius:10px;padding:10px;box-sizing:border-box}
 .hx-orig{margin-top:8px;width:100%;height:40px;border:1px dashed #cfdad4;border-radius:10px;background:#fff;color:#7a4a00;font-weight:800}
 .ed-tom{width:52px;height:30px;border:1px solid var(--dourado-esc,#c9a200);border-radius:8px;text-align:center;font-weight:900;font-size:14px;color:#8a6a00;background:#fffbea;margin-left:4px}
 #edTomAuto{font-size:10px;color:#8a9;margin-left:3px}
@@ -1632,11 +1751,22 @@ white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;borde
 .pdf-bar button{height:38px;min-width:42px;border:0;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;font-weight:900;font-size:15px}
 .pdf-pags{flex:1;overflow:auto;padding:8px;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .pdf-in{width:max-content;margin:0 auto;display:flex;flex-direction:column;gap:10px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));will-change:transform}
+.pdf-in img{display:block;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);border-radius:3px;max-width:none;user-select:none;-webkit-user-drag:none}
 .pdf-in canvas{display:block;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);border-radius:3px;max-width:none}
 .pdf-dica{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:rgba(0,0,0,.72);color:#fff;font-size:12.5px;padding:8px 12px;border-radius:12px;max-width:88%;text-align:center;transition:opacity .6s;pointer-events:none}
 .pdf-dica.some{opacity:0}
 
 .tb-voltar{width:40px;height:40px;border:0;border-radius:12px;background:rgba(255,255,255,.14);color:#fff;font-size:28px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;flex:none;margin-right:6px;padding-bottom:3px}
 .tb-voltar[hidden]{display:none}
+
+#modalBox.mx-grande{width:min(97vw,1150px)!important;max-width:97vw!important;max-height:95vh!important;overflow:auto}
+#modalBox.mx-grande .hx-txt{min-height:58vh;font-size:15px;resize:both;max-width:none;min-width:100%}
+#modalBox.mx-grande .prev-box{max-height:35vh;resize:vertical}
+@media (min-width:900px){ #modalBox.mx-grande .hx-txt{min-height:62vh} }
+
+.topbar .ttl.ola{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.15;letter-spacing:0;text-transform:none}
+.topbar .ttl.ola .ola-nome{font-size:18px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .ttl.ola .ola-info{font-size:11.5px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.1px;font-variant-numeric:tabular-nums}
+.topbar .ttl.ola .ola-info2{font-size:11.5px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.1px;font-variant-numeric:tabular-nums}
 `; document.head.appendChild(st);
 })();
