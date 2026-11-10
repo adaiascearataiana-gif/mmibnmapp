@@ -199,8 +199,11 @@ ROTAS.financeiro=function(){
   if(finAba==='lanc') h+=finHTMLLanc(pode);
   else if(finAba==='doacoes') h+=finHTMLDoacoes();
   else h+=finHTMLMinhas();
-  /* config PIX (só ADM principal/completo) */
-  try{ if(ehAdmin()) h+=finHTMLCfg(); }catch(_){}
+  /* config PIX: qualquer ADM com o setor "financeiro" liberado pode ver/alterar
+     (v80: antes usava ehAdmin(), que exigia ADM completo e travava o ADM
+     secundário mesmo com a função liberada — agora usa podeSetor, igual ao
+     resto da tela) */
+  try{ if(pode) h+=finHTMLCfg(); }catch(_){}
   h+='</div>';
   return h;
 };
@@ -259,30 +262,71 @@ function finHTMLMinhas(){
 
 function finHTMLCfg(){
   const c=cfgFin();
-  return '<div class="card"><h3>⚙️ Configuração da doação (ADM principal)</h3>'+
-    '<p style="font-size:12.5px;color:#789;margin-bottom:8px">Cole no campo abaixo a <b>chave PIX</b> (e-mail, telefone, CPF ou aleatória) <b>ou</b> o código <b>copia e cola</b> inteiro do seu banco — os dois funcionam. O QR sai com o valor doado. O WhatsApp recebe os comprovantes.</p>'+
+  return '<div class="card"><h3>⚙️ Configuração da doação</h3>'+
+    '<p style="font-size:12.5px;color:#789;margin-bottom:8px">Cole no campo abaixo a <b>chave PIX</b> (e-mail, telefone, CPF ou aleatória) <b>ou</b> o código <b>copia e cola</b> inteiro do seu banco. O que você colar fica salvo <b>exatamente como está</b>, sem reduzir e sem mudar a estrutura — o código tem um destino certo. O nome do recebedor é preenchido automaticamente com o seu nome de ADM.</p>'+
     '<div style="display:grid;gap:8px">'+
-    '<input id="cfgPix" placeholder="Chave PIX ou cole o código copia e cola" value="'+e(c.pix||'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
+    '<input id="cfgPix" placeholder="Chave PIX ou cole o código copia e cola" value="'+e(c.pix||'')+'" oninput="finAutoNome()" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
     '<input id="cfgWpp" placeholder="WhatsApp com DDD (receberá comprovantes)" value="'+e(c.wpp||'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
-    '<input id="cfgNome" placeholder="Nome do recebedor (ex.: MINISTERIO DE MUSICA IBNM)" value="'+e(c.nome||'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
+    '<input id="cfgNome" placeholder="Nome do recebedor (preenchido automaticamente)" value="'+e(c.nome||'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
     '<input id="cfgCidade" placeholder="Cidade (ex.: FORTALEZA)" value="'+e(c.cidade||'')+'" style="padding:10px;border:1px solid #cfd8d3;border-radius:8px;font-size:14px">'+
-    (c.pix_copia?'<div style="font-size:12px;color:#1c7a4e;font-weight:700;margin:-2px 0 2px">✓ Copia-e cola salvo — o QR usa o código oficial do seu banco</div>':'')+
-    '<button class="mini-btn" onclick="finCfgSalvar()">Salvar configuração</button></div></div>';
+    (c.pix_copia?'<div style="font-size:12px;color:#1c7a4e;font-weight:700;margin:-2px 0 2px">✓ Código copia-e-cola salvo exatamente como colado</div>':'')+
+    '<button class="mini-btn" onclick="finCfgSalvar()">Salvar configuração</button>'+
+    '</div>'+
+    '<div style="margin-top:14px;padding-top:12px;border-top:1px solid #e3ece7;display:grid;gap:8px">'+
+    '<label style="font-size:12.5px;color:#456;font-weight:700">📷 Foto do QR Code (a mesma imagem é exibida na tela de doação — sem embutir valor)</label>'+
+    (c.qr_img?'<img src="'+e(c.qr_img)+'" style="width:150px;border-radius:10px;border:1px solid #cfd8d3;background:#fff">':'')+
+    '<input id="cfgQrImg" type="file" accept="image/*" style="font-size:13px">'+
+    '<button class="mini-btn sec" onclick="finCfgQrEnviar()">'+(c.qr_img?'🔄 Trocar foto do QR Code':'📤 Enviar foto do QR Code')+'</button>'+
+    '</div></div>';
 }
 
 window.finSetMes=function(m){ finMes=m; go('financeiro'); };
 window.finSetAba=function(a){ finAba=a; go('financeiro'); };
+/* v80: enquanto o ADM digita/cola a chave PIX, o nome do recebedor já vira
+   automaticamente o nome dele (cadastro de ADM) — sem precisar digitar. */
+window.finAutoNome=function(){
+  try{
+    const campo=$('#cfgNome'); if(!campo) return;
+    const u=(typeof usuarioAtual==='function')?usuarioAtual():null;
+    if(u&&u.nome) campo.value=u.nome;
+  }catch(_){}
+};
 window.finCfgSalvar=async function(){
   const bruto=(($('#cfgPix')||{}).value||'').trim();
   const c=cfgFin();
-  const obj={pix:bruto,wpp:($('#cfgWpp')||{}).value||'',nome:($('#cfgNome')||{}).value||'',cidade:($('#cfgCidade')||{}).value||'',pix_copia:''};
-  if(ehCopiaCola(bruto)){ obj.pix=pixChaveDe(bruto)||bruto; obj.pix_copia=bruto; }
-  else{
-    const kAntiga=c.pix_copia?pixChaveDe(c.pix_copia):'';
-    if(kAntiga&&bruto===kAntiga) obj.pix_copia=c.pix_copia;
-  }
+  const u=(typeof usuarioAtual==='function')?usuarioAtual():null;
+  let nome=(($('#cfgNome')||{}).value||'').trim();
+  if(!nome && u && u.nome) nome=u.nome; /* nunca fica sem nome: cai no nome do ADM que salvou */
+  /* v80: o campo pix guarda EXATAMENTE o que foi colado — nunca é reduzido.
+     Se for um copia-e-cola completo, ele também vira a chave de doação (pix_copia),
+     usada tal e qual, sem alterar a estrutura do código. */
+  const obj={
+    pix:bruto,
+    wpp:($('#cfgWpp')||{}).value||'',
+    nome:nome,
+    cidade:($('#cfgCidade')||{}).value||'',
+    pix_copia:ehCopiaCola(bruto)?bruto:'',
+    qr_img:c.qr_img||''
+  };
   await salvarConfig('financeiro_cfg',obj);
-  toast(obj.pix_copia?'Configuração salva ✓ — o QR usa o copia-e cola':'Configuração salva ✓');
+  toast(obj.pix_copia?'Configuração salva ✓ — código copia-e-cola exato, sem alterações':'Configuração salva ✓');
+};
+window.finCfgQrEnviar=async function(){
+  const f=(($('#cfgQrImg')||{}).files||[])[0];
+  if(!f) return toast('Escolha a foto do QR Code primeiro.');
+  try{
+    toast('Enviando foto do QR Code...');
+    /* v80: usa o caminho "pix_qr/" (não "financeiro/") para a foto do QR ficar
+       pública de verdade — o caminho "financeiro/" é redirecionado para o
+       espaço privado de comprovantes (ver extras.js, bloco 8) e não poderia
+       ser exibida direto com <img src>. */
+    const url=await anexoSobe('pix_qr',f);
+    const c=cfgFin();
+    const obj=Object.assign({pix:'',wpp:'',nome:'',cidade:'',pix_copia:''},c,{qr_img:url});
+    await salvarConfig('financeiro_cfg',obj);
+    toast('QR Code atualizado ✓');
+    go('financeiro');
+  }catch(err){ toast('Erro ao enviar QR Code: '+(err.message||err)); }
 };
 
 /* ---------- ver comprovante ---------- */
@@ -368,14 +412,20 @@ window.finPixAuto=function(v){
   const n=parseFloat(v);
   if(!(n>0)){ box.innerHTML=''; return; }
   const c=cfgFin();
-  const code=montaPix(c.pix_copia||c.pix,n,c.nome||'',c.cidade||'');
+  /* v80: o código NÃO é mais remontado com o valor embutido — usa-se exatamente
+     o copia-e-cola (ou chave) salvo pelo ADM, sem mexer na estrutura, pois ele
+     já tem um destino certo. O doador digita/confere o valor no banco dele. */
+  const code=String(c.pix_copia||c.pix||'').trim();
   if(!code){ box.innerHTML='<p style="font-size:13px;color:#b33">Chave PIX inválida — avise o ADM.</p>'; return; }
   copiar(code);
-  box.innerHTML='<div style="text-align:center">'+
+  const imgQr=c.qr_img?
+    '<img src="'+e(c.qr_img)+'" alt="QR Code PIX" style="width:220px;max-width:80%;border-radius:10px;border:1px solid #dde;background:#fff;object-fit:contain" onerror="this.style.display=\'none\'">':
     '<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data='+encodeURIComponent(code)+'" '+
-      'alt="QR Code PIX" style="width:220px;max-width:80%;border-radius:10px;background:#fff" onerror="this.style.display=\'none\'">'+
-    '<div style="font-size:12.5px;color:#1c7a4e;font-weight:800;margin:6px 0">✓ Código com '+brl(n)+' copiado!</div>'+
-    '<div style="font-size:11.5px;color:#789;margin-bottom:6px">Abra o app do seu banco e <b>cole</b> o código (ou aponte a câmera para o QR).</div>'+
+      'alt="QR Code PIX" style="width:220px;max-width:80%;border-radius:10px;background:#fff" onerror="this.style.display=\'none\'">';
+  box.innerHTML='<div style="text-align:center">'+
+    imgQr+
+    '<div style="font-size:12.5px;color:#1c7a4e;font-weight:800;margin:6px 0">✓ Código copiado!</div>'+
+    '<div style="font-size:11.5px;color:#789;margin-bottom:6px">Abra o app do seu banco, <b>cole</b> o código (ou aponte a câmera para o QR) e digite <b>'+brl(n)+'</b> como valor da doação.</div>'+
     '<div style="font-size:11px;word-break:break-all;background:#f2f6f4;border:1px solid #dde;border-radius:8px;padding:8px;text-align:left;font-family:monospace;user-select:all">'+e(code)+'</div>'+
     '</div>'+
     '<div class="modal-acts" style="flex-wrap:wrap">'+
