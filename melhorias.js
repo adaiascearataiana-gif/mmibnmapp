@@ -817,7 +817,9 @@ function linhasDoHtml(el){
 }
 /* caracteres invisíveis, espaços especiais e símbolos de sustenido/bemol do PDF/site */
 function limpaLinha(l){
-  return String(l).normalize('NFKC').replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF\u00AD]/g,'')
+  /* NFC (não NFKC!) — NFKC "compatibilidade" troca º/ª (acorde diminuto, 1ª/2ª parte)
+     por "o"/"a" comuns, estragando a cifra. NFC só junta acentos, sem mexer nisso. */
+  return String(l).normalize('NFC').replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF\u00AD]/g,'')
     .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\t]/g,' ').replace(/\u266F/g,'#').replace(/\u266D/g,'b').replace(/\s+$/,'');
 }
 /* cifra que veio "e s p a ç a d a" (uma letra sim, um espaço não — comum em PDF):
