@@ -138,10 +138,37 @@ function setTrMus(id,v,original){ const t=trMus(); v=((v%12)+12)%12; if(v>6) v-=
   if(original){ if(tc) t[id]=0; else delete t[id]; } else if(v===tc) delete t[id]; else t[id]=v;
   localStorage.setItem(MPREF,JSON.stringify(t)); }
 function nomeTom(id){ const el=document.getElementById('zoomTarget'); if(!el) return '';
+  /* 1) tom salvo pelo ADM (musicas.dados.tom) tem prioridade — é a fonte mais confiável,
+        pois já foi conferido por alguém ouvindo a música (não apenas detectado por acorde) */
+  try{
+    if(typeof TONS!=='undefined' && TONS[id]){
+      const st=(typeof stMus==='function')? stMus(id) : 0;
+      const v=(typeof transpTom==='function')? (transpTom(TONS[id],st)||TONS[id]) : TONS[id];
+      if(v) return v;
+    }
+  }catch(_){}
+  /* 2) detector harmônico (analisa todos os acordes da cifra, não só o primeiro que aparece) */
+  try{ if(window.detectarTom){ const t=detectarTom(el.innerText||''); if(t) return t; } }catch(_){}
+  /* 3) fallback antigo: primeiro acorde encontrado no texto (menos confiável — pode pegar
+        o acorde de uma introdução que comece no quinto grau em vez da tônica) */
   const lin=(el.innerText||'').split('\n').find(l=>{ const t=l.trim().split(/\s+/).filter(Boolean); return t.length&&t.every(ehAcorde); });
   let m=lin? lin.trim().split(/\s+/)[0].match(ACORDE) : null;
   if(!m){ const b=(el.innerText||'').match(/\[([^\]\s]+)\]/); m=b? b[1].match(ACORDE) : null; }
   return m? m[1]+(/^m(?!aj)/.test(m[2])?'m':'') : ''; }
+/* edição manual do tom direto na tela de tocar (ADM) */
+window.editarTomMusica=function(id){
+  if(!(window.ehAdmin&&ehAdmin())) return;
+  const atual=(typeof TONS!=='undefined'&&TONS[id])||'';
+  const novo=prompt('Tom real da música (ex.: D, Bm, Eb, F#):', atual);
+  if(novo===null) return;
+  const norm=(typeof normTom==='function')? normTom(novo) : novo.trim();
+  if(novo.trim() && !norm){ if(typeof toast==='function') toast('Tom inválido. Use algo como D, F#, Bbm.'); return; }
+  if(typeof salvarTom==='function') salvarTom(id,norm);
+  else { try{ if(typeof TONS==='undefined') window.TONS={}; if(norm) TONS[id]=norm; else delete TONS[id]; localStorage.setItem('ibnm_tons',JSON.stringify(TONS)); }catch(_){} }
+  if(typeof setTrMus==='function') setTrMus(id,0,true);
+  if(typeof aplicaTomNaTela==='function') aplicaTomNaTela(id);
+  if(typeof toast==='function') toast(norm? 'Tom atualizado: '+norm : 'Tom removido');
+};
 function aplicaTomNaTela(id){
   const alvo=document.getElementById('zoomTarget');
   if(!alvo || alvo.__orig==null){ const y=scrollY; abrirMusica(id,'cifra'); scrollTo(0,y); return; }
@@ -151,7 +178,7 @@ function aplicaTomNaTela(id){
   try{ if(window.__marcarAcordes) window.__marcarAcordes(alvo); }catch(_){}
   scrollTo(0,y); requestAnimationFrame(()=>{ alvo.style.minHeight=''; scrollTo(0,y); });
   const tom=nomeTom(id); const doCulto=!Object.prototype.hasOwnProperty.call(trMus(),id) && st!==0;
-  const lb=document.querySelector('.mm-tom > span'); if(lb) lb.innerHTML='Tom <b>'+(tom||'—')+'</b>'+(st?' <small>('+(st>0?'+':'')+st+')</small>':'')+(doCulto?'<span class="tom-culto">culto</span>':'');
+  const lb=document.querySelector('.mm-tom > span'); if(lb) lb.innerHTML='Tom <b>'+(tom||'—')+'</b>'+(st?' <small>('+(st>0?'+':'')+st+')</small>':'')+(doCulto?'<span class="tom-culto">culto</span>':'')+((window.ehAdmin&&ehAdmin())?' <button type="button" class="tom-edit" title="Editar o tom real da música" onclick="editarTomMusica(\''+id+'\')">✏️</button>':'');
   const zb=document.querySelector('#content .zoom-bar'); let rs=zb&&zb.querySelector('.rst');
   if(st && !rs && zb){ const mt=zb.querySelector('.mm-tom'); if(mt) mt.insertAdjacentHTML('afterend','<button type="button" class="rst" onclick="musTomOriginal(\''+id+'\')">Tom original</button>'); }
   if(!st && rs) rs.remove();
@@ -207,7 +234,7 @@ function posMusica(){
   let h='';
   if(ehCifra){
     const tom=nomeTom(m.id);
-    h+='<span class="mm-tom"><button type="button" onclick="musTransp(\''+m.id+'\',-1)" aria-label="Baixar meio tom">−</button><span>Tom <b>'+(tom||'—')+'</b>'+(st?' <small>('+(st>0?'+':'')+st+')</small>':'')+(doCulto?'<span class="tom-culto">culto</span>':'')+'</span><button type="button" onclick="musTransp(\''+m.id+'\',1)" aria-label="Subir meio tom">+</button></span>';
+    h+='<span class="mm-tom"><button type="button" onclick="musTransp(\''+m.id+'\',-1)" aria-label="Baixar meio tom">−</button><span>Tom <b>'+(tom||'—')+'</b>'+(st?' <small>('+(st>0?'+':'')+st+')</small>':'')+(doCulto?'<span class="tom-culto">culto</span>':'')+((window.ehAdmin&&ehAdmin())?' <button type="button" class="tom-edit" title="Editar o tom real da música" onclick="editarTomMusica(\''+m.id+'\')">✏️</button>':'')+'</span><button type="button" onclick="musTransp(\''+m.id+'\',1)" aria-label="Subir meio tom">+</button></span>';
     if(st) h+='<button type="button" class="rst" onclick="musTomOriginal(\''+m.id+'\')">Tom original</button>';
   }
   h+='<button type="button" id="musRolBtn" class="mm-rol" onclick="musRolagem()">'+(rolOn?'⏸ Pausar':'▶ Rolagem')+'</button>';

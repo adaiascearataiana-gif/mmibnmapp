@@ -364,6 +364,8 @@ body.ao-vivo #appShell{padding-top:var(--ibnm-vivo,34px)}
 .zoom-bar .mm-tom button{border:0;background:none;min-width:30px;height:30px;font-size:17px}
 .zoom-bar .mm-tom b{color:#8a6a00}
 .zoom-bar .mm-tom small{color:#789}
+.zoom-bar .mm-tom .tom-edit{min-width:22px;height:22px;font-size:12px;opacity:.75;vertical-align:middle}
+.zoom-bar .mm-tom .tom-edit:hover{opacity:1}
 .zoom-bar .mm-rol{background:var(--verde-med)!important;color:#fff!important;border-color:var(--verde-med)!important;font-size:13px!important}
 .cc-scrollbar .pp{width:auto!important;padding:0 14px!important;font-size:14px!important}
 /* foco visível para quem usa teclado */
@@ -2404,7 +2406,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v114';
+window.APP_V='v112';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */

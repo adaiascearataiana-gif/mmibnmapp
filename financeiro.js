@@ -67,10 +67,10 @@ function pixCRC16(s){ let crc=0xFFFF; for(let i=0;i<s.length;i++){ crc^=s.charCo
   for(let j=0;j<8;j++){ crc=(crc&0x8000)?(((crc<<1)^0x1021)&0xFFFF):((crc<<1)&0xFFFF); } }
   return crc.toString(16).toUpperCase().padStart(4,'0'); }
 function pixAscii(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9 .@-]/g,''); }
-function ehCopiaCola(v){ const s=String(v||'').replace(/[\r\n]+/g,'').trim(); return s.length>50&&(/^000201/.test(s)||s.indexOf('br.gov.bcb.pix')>=0); }
+function ehCopiaCola(v){ const s=String(v||'').replace(/\s+/g,''); return s.length>50&&(/^000201/.test(s)||s.indexOf('br.gov.bcb.pix')>=0); }
 function pixChaveDe(p){
   try{
-    const s=String(p||'').replace(/[\r\n]+/g,'').trim(); let i=0;
+    const s=String(p||'').replace(/\s+/g,''); let i=0;
     while(i+4<=s.length){
       const id=s.substr(i,2), L=parseInt(s.substr(i+2,2),10);
       if(!(L>=0)||i+4+L>s.length) return '';
@@ -91,7 +91,7 @@ function pixChaveDe(p){
 function pixComValor(p,v){
   try{
     const amt=Number(v).toFixed(2);
-    const s=String(p||'').replace(/[\r\n]+/g,'').trim().replace(/6304[0-9A-Fa-f]{4}$/,'').replace(/6304$/,'');
+    const s=String(p||'').replace(/\s+/g,'').replace(/6304[0-9A-Fa-f]{4}$/,'').replace(/6304$/,'');
     const campos=[]; let i=0;
     while(i+4<=s.length){
       const id=s.substr(i,2); if(!/^[0-9][0-9]$/.test(id)) return '';
