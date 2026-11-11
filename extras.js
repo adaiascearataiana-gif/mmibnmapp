@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.24.0)
+   MM IBNM — Extras (v1.25.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1101,6 +1101,41 @@ window.bkExcluir=async function(){
 };
 let _bk=0; new MutationObserver(()=>{ clearTimeout(_bk); _bk=setTimeout(()=>{ marcaListas(); prevEditorMusica(); bkAtualiza(); },150); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
 
+/* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
+/* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
+   saem do próprio código e são preenchidos sozinhos. Ao salvar, mostra o erro real se o banco recusar. */
+function emvTags(cod){ const s=String(cod||'').replace(/[\r\n]+/g,'').trim(); const m={}; let i=0;
+  while(i+4<=s.length){ const id=s.substr(i,2), L=parseInt(s.substr(i+2,2),10); if(!/^\d\d$/.test(id)||!(L>=0)||i+4+L>s.length) break; m[id]=s.substr(i+4,L); i+=4+L; } return m; }
+const ehCopiaColaX=v=>{ const s=String(v||'').replace(/[\r\n]+/g,'').trim(); return s.length>50 && (/^000201/.test(s)||s.indexOf('br.gov.bcb.pix')>=0); };
+function chaveDoCopia(cod){ const t=emvTags(cod); const mai=t['26']||t['25']||''; return emvTags(mai)['01']||''; }
+function cfgFinAtual(){ try{ const c=((typeof APP_CFG!=='undefined'&&APP_CFG)||{}).financeiro_cfg; return (typeof c==='string'? JSON.parse(c) : c)||{}; }catch(_){ return {}; } }
+function ajustaCfgPix(){
+  const inp=document.getElementById('cfgPix'); if(!inp || inp.dataset.x) return; inp.dataset.x='1';
+  const c=cfgFinAtual(); if(c.pix_copia) inp.value=c.pix_copia;
+  inp.placeholder='Cole aqui o código PIX copia e cola (o do QR Code do banco)';
+  const card=inp.closest('.card'); if(card){ const h=card.querySelector('h3'); if(h) h.textContent='⚙️ Configuração da doação';
+    const p=card.querySelector('p'); if(p) p.innerHTML='Cole o código <b>PIX copia e cola</b> do banco (o mesmo do QR Code). Ele fica guardado <b>inteiro</b>, e a doação usa esse código com o valor doado. O <b>nome</b> e a <b>cidade</b> são preenchidos sozinhos. O WhatsApp recebe os comprovantes.'; }
+  const preenche=()=>{ const v=inp.value.trim(); if(!ehCopiaColaX(v)) return; const t=emvTags(v);
+    const n=document.getElementById('cfgNome'), ci=document.getElementById('cfgCidade');
+    if(n && t['59']) n.value=t['59']; if(ci && t['60']) ci.value=t['60']; };
+  inp.addEventListener('input',preenche); inp.addEventListener('paste',()=>setTimeout(preenche,50));
+}
+window.finCfgSalvar=async function(){
+  const bruto=((document.getElementById('cfgPix')||{}).value||'').trim();
+  const obj={pix:bruto, pix_copia:'', wpp:((document.getElementById('cfgWpp')||{}).value||'').trim(), nome:((document.getElementById('cfgNome')||{}).value||'').trim(), cidade:((document.getElementById('cfgCidade')||{}).value||'').trim()};
+  if(ehCopiaColaX(bruto)){ obj.pix_copia=bruto.replace(/[\r\n]+/g,'').trim(); obj.pix=chaveDoCopia(bruto)||obj.pix_copia; const t=emvTags(bruto); if(!obj.nome&&t['59']) obj.nome=t['59']; if(!obj.cidade&&t['60']) obj.cidade=t['60']; }
+  try{
+    const {error}=await sb.from('config').upsert({chave:'financeiro_cfg',valor:obj,updated_at:new Date().toISOString()});
+    if(error) throw error;
+    try{ APP_CFG.financeiro_cfg=obj; }catch(_){}
+    toast(obj.pix_copia? 'Configuração salva ✓ — a doação usa o seu copia e cola' : 'Configuração salva ✓');
+  }catch(err){
+    const m=String(err.message||err);
+    toast(/row-level|policy|permission|42501/i.test(m)? '❌ O banco não deixou salvar: sua conta não tem a seção Financeiro liberada no banco. O ADM principal deve conferir em 👑 ADMs e permissões e rodar o SQL-FINANCEIRO-ADM.' : '❌ Não salvou: '+m);
+  }
+};
+let _cfp=0; new MutationObserver(()=>{ clearTimeout(_cfp); _cfp=setTimeout(ajustaCfgPix,80); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+
 /* ======================= 28) BARRA VERDE: "Olá, Nome!" + data, hora e tempo ======================= */
 const DIAS=['dom','seg','ter','qua','qui','sex','sáb'];
 const TEMPO={0:['☀️','Céu limpo'],1:['🌤️','Poucas nuvens'],2:['⛅','Parcialmente nublado'],3:['☁️','Nublado'],45:['🌫️','Neblina'],48:['🌫️','Neblina'],51:['🌦️','Garoa'],53:['🌦️','Garoa'],55:['🌦️','Garoa forte'],56:['🌧️','Garoa gelada'],57:['🌧️','Garoa gelada'],61:['🌧️','Chuva fraca'],63:['🌧️','Chuva'],65:['🌧️','Chuva forte'],66:['🌧️','Chuva gelada'],67:['🌧️','Chuva gelada'],71:['🌨️','Neve'],73:['🌨️','Neve'],75:['🌨️','Neve'],80:['🌦️','Pancadas de chuva'],81:['🌧️','Pancadas de chuva'],82:['⛈️','Chuva muito forte'],95:['⛈️','Trovoada'],96:['⛈️','Trovoada'],99:['⛈️','Trovoada']};
@@ -1306,7 +1341,7 @@ async function pdfDesenha(){
   const inn=document.getElementById('pdfIn'); if(!inn) return;
   if(_imgs && !_pdfDoc){ const larg=_pdfBase*_pdfZoom;
     if(!inn.children.length) inn.innerHTML=_imgs.urls.map((u,i)=>'<img src="'+e(u)+'" alt="Partitura" draggable="false"'+(_imgs.reservas[i]?' data-res="'+e(_imgs.reservas[i])+'" onerror="if(this.dataset.res&&!this.dataset.r){this.dataset.r=1;this.src=this.dataset.res}"':'')+'>').join('');
-    inn.querySelectorAll('img').forEach(im=>{ im.style.width=larg+'px'; }); return; }
+    inn.querySelectorAll('img').forEach(im=>{ im.style.width=larg+'px'; }); return; }   /* (a transformação é retirada em aplica, no mesmo instante) */
   if(!_pdfDoc) return;
   const larg=_pdfBase*_pdfZoom, dpr=Math.min(2.5,window.devicePixelRatio||1);
   const novo=document.createElement('div'); novo.className='pdf-in'; novo.id='pdfIn';
@@ -1317,24 +1352,43 @@ async function pdfDesenha(){
 }
 /* gestos: pinça com 2 dedos = zoom livre (no ponto entre os dedos); 1 dedo = rolagem livre; toque duplo = 1x ↔ 2,5x */
 function pdfGestos(box){
-  const pts=new Map(); let ini=null, ultimoToque=0;
+  const pts=new Map(); let ini=null, ultimoToque=0, fimPinca=0, ocupado=false;
   const dist=()=>{ const [a,b]=[...pts.values()]; return Math.hypot(a.x-b.x,a.y-b.y); };
   const meio=()=>{ const [a,b]=[...pts.values()]; const r=box.getBoundingClientRect(); return {x:(a.x+b.x)/2-r.left, y:(a.y+b.y)/2-r.top}; };
-  async function aplica(z,foco){ const inn=document.getElementById('pdfIn'); if(inn) inn.style.transform='';
-    const z0=_pdfZoom; z=Math.min(5,Math.max(0.6,z)); if(Math.abs(z-z0)<0.01) return;
-    const cx=(box.scrollLeft+foco.x)/z0, cy=(box.scrollTop+foco.y)/z0; _pdfZoom=z; await pdfDesenha();
-    box.scrollLeft=cx*z-foco.x; box.scrollTop=cy*z-foco.y; }
+  /* o zoom fica exatamente onde o dedo deixou: a imagem ampliada continua na tela até a nova
+     (nítida) ficar pronta, e a troca acontece no mesmo instante, sem pulo */
+  async function aplica(z,foco){
+    const z0=_pdfZoom; z=Math.min(8,Math.max(0.3,z));
+    const cx=(box.scrollLeft+foco.x)/z0, cy=(box.scrollTop+foco.y)/z0;
+    if(Math.abs(z-z0)<0.005){ const inn=document.getElementById('pdfIn'); if(inn) inn.style.transform=''; return; }
+    ocupado=true; _pdfZoom=z; await pdfDesenha();
+    const inn=document.getElementById('pdfIn'); if(inn) inn.style.transform='';
+    box.scrollLeft=cx*z-foco.x; box.scrollTop=cy*z-foco.y; ocupado=false; }
   box.addEventListener('pointerdown',ev=>{ pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
     if(pts.size===2){ ini={d:dist(),z:_pdfZoom,m:meio()}; }
-    if(pts.size===1){ const t=Date.now(); if(t-ultimoToque<300){ const r=box.getBoundingClientRect(); aplica(_pdfZoom>1.2?1:2.5,{x:ev.clientX-r.left,y:ev.clientY-r.top}); ultimoToque=0; } else ultimoToque=t; } });
+    if(pts.size===1 && Date.now()-fimPinca>400){ const t=Date.now(); if(t-ultimoToque<300){ const r=box.getBoundingClientRect(); aplica(_pdfZoom>1.2?1:2.5,{x:ev.clientX-r.left,y:ev.clientY-r.top}); ultimoToque=0; } else ultimoToque=t; } });
   box.addEventListener('pointermove',ev=>{ if(!pts.has(ev.pointerId)) return; pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
-    if(pts.size===2 && ini){ ev.preventDefault(); const f=Math.min(5/ini.z,Math.max(0.6/ini.z,dist()/ini.d)); const inn=document.getElementById('pdfIn');
+    if(pts.size===2 && ini && !ocupado){ ev.preventDefault(); const f=Math.min(8/ini.z,Math.max(0.3/ini.z,dist()/ini.d)); const inn=document.getElementById('pdfIn');
       if(inn){ inn.style.transformOrigin=(box.scrollLeft+ini.m.x)+'px '+(box.scrollTop+ini.m.y)+'px'; inn.style.transform='scale('+f+')'; } } },{passive:false});
-  const fim=ev=>{ if(!pts.has(ev.pointerId)) return; if(pts.size===2 && ini){ const f=dist()/ini.d; const m=ini.m; const z=ini.z*f; ini=null; pts.delete(ev.pointerId); aplica(z,m); return; } pts.delete(ev.pointerId); };
+  const fim=ev=>{ if(!pts.has(ev.pointerId)) return; if(pts.size===2 && ini){ const f=dist()/ini.d; const m=ini.m; const z=ini.z*f; ini=null; pts.delete(ev.pointerId); fimPinca=Date.now(); ultimoToque=0; aplica(z,m); return; } pts.delete(ev.pointerId); };
   box.addEventListener('pointerup',fim); box.addEventListener('pointercancel',fim); box.addEventListener('pointerleave',fim);
   /* no computador: Ctrl + roda do mouse */
   box.addEventListener('wheel',ev=>{ if(!ev.ctrlKey) return; ev.preventDefault(); const r=box.getBoundingClientRect(); aplica(_pdfZoom*(ev.deltaY<0?1.15:0.87),{x:ev.clientX-r.left,y:ev.clientY-r.top}); },{passive:false});
 }
+/* rolagem automática no leitor: ▶/⏸ e barra de velocidade (fica salva) */
+let _rolPdf=null, _rolVel=+(localStorage.getItem('ibnm_pdf_vel')||3), _rolAcc=0;
+function rolPdfLoop(t0){ let ant=t0; const passo=t=>{ const box=document.getElementById('pdfPags'); if(!_rolPdf||!box){ _rolPdf=null; return; }
+  const dt=Math.min(0.1,(t-ant)/1000); ant=t; _rolAcc+=_rolVel*12*dt; const n=Math.floor(_rolAcc); if(n>=1){ box.scrollTop+=n; _rolAcc-=n; }
+  if(box.scrollTop+box.clientHeight>=box.scrollHeight-2){ pdfRolar(false); return; }
+  _rolPdf=requestAnimationFrame(passo); }; _rolPdf=requestAnimationFrame(passo); }
+window.pdfRolar=function(liga){ const on= liga===undefined? !_rolPdf : liga; if(_rolPdf){ cancelAnimationFrame(_rolPdf); _rolPdf=null; } if(on) rolPdfLoop(performance.now());
+  const b=document.getElementById('pdfRolBt'); if(b) b.textContent=_rolPdf?'⏸':'▶'; };
+window.pdfVel=function(v){ _rolVel=+v; localStorage.setItem('ibnm_pdf_vel',String(_rolVel)); const l=document.getElementById('pdfVelN'); if(l) l.textContent=_rolVel; };
+function barraRolagemPdf(){ const lt=document.getElementById('pdfLeitor'); if(!lt || lt.querySelector('.pdf-rol')) return;
+  lt.insertAdjacentHTML('beforeend','<div class="pdf-rol"><button id="pdfRolBt" onclick="pdfRolar()" aria-label="Rolagem automática">▶</button><span>🐢</span><input type="range" min="1" max="10" step="1" value="'+_rolVel+'" oninput="pdfVel(this.value)" aria-label="Velocidade da rolagem"><span>🐇</span><b id="pdfVelN">'+_rolVel+'</b></div>');
+  const box=document.getElementById('pdfPags'); if(box) box.addEventListener('pointerdown',()=>{ if(_rolPdf) pdfRolar(false); });
+}
+new MutationObserver(()=>{ if(document.getElementById('pdfLeitor')) barraRolagemPdf(); else if(_rolPdf){ cancelAnimationFrame(_rolPdf); _rolPdf=null; } }).observe(document.body,{childList:true});
 window.pdfZoom=function(d){ const box=document.getElementById('pdfPags'); if(!box) return; _pdfZoom=Math.min(5,Math.max(0.6,_pdfZoom+(d>0?0.25:-0.25))); pdfDesenha(); };
 window.fecharPdf=function(){ const b=document.getElementById('pdfLeitor'); if(b) b.remove(); document.body.style.overflow=''; };
 window.pdfBaixar=function(){ if(!_pdfBlob) return; const a=document.createElement('a'); a.href=URL.createObjectURL(_pdfBlob); a.download=_pdfNome; document.body.appendChild(a); a.click(); a.remove(); toast('PDF salvo na pasta Downloads.'); };
@@ -1768,5 +1822,11 @@ white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;borde
 .topbar .ttl.ola .ola-nome{font-size:18px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .topbar .ttl.ola .ola-info{font-size:11.5px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.1px;font-variant-numeric:tabular-nums}
 .topbar .ttl.ola .ola-info2{font-size:11.5px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.1px;font-variant-numeric:tabular-nums}
+
+.pdf-rol{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;background:rgba(14,74,55,.92);color:#fff;border-radius:24px;padding:6px 12px;box-shadow:0 4px 14px rgba(0,0,0,.35);z-index:3;width:min(92%,420px)}
+.pdf-rol button{width:40px;height:40px;border:0;border-radius:50%;background:#fff;color:var(--verde-escuro,#0e4a37);font-size:18px;font-weight:900;flex:none}
+.pdf-rol input{flex:1;accent-color:#f2c200;height:28px}
+.pdf-rol b{min-width:18px;text-align:center}
+.pdf-dica{bottom:calc(76px + env(safe-area-inset-bottom,0px))!important}
 `; document.head.appendChild(st);
 })();
