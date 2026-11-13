@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.24.0)
+   MM IBNM — Extras (v1.26.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -775,7 +775,7 @@ let _am=0; new MutationObserver(()=>{ clearTimeout(_am); _am=setTimeout(()=>{ es
 const NOMES_TOM=['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
 function acordesDoTexto(txt){
   const out=[]; String(txt||'').split('\n').forEach(l=>{
-    const lin=l.replace(/^\s*\[?\s*intro(du[cç][aã]o)?\s*:?\s*\]?/i,'').trim(); if(!lin) return;
+    const lin=l.replace(/^\s*intro(du[cç][aã]o)?\s*:?/i,'').trim(); if(!lin) return;
     const toks=lin.split(/\s+/);
     const ehLinha= toks.every(t=>/^[\[(]?[A-G][#b]?[^\s]*[\])]?$/.test(t) || /^[-|x0-9()]+$/i.test(t));
     if(ehLinha) toks.forEach(t=>{ const c=t.replace(/[\[\]()]/g,''); if(/^[A-G]/.test(c)) out.push(c); });
@@ -783,37 +783,12 @@ function acordesDoTexto(txt){
   });
   return out;
 }
-/* primeira linha 100% de acordes (ex.: "Intro: A E F#m D" ou "[Intro] A E F#m D") —
-   em cifra brasileira, essa linha quase sempre começa na tônica real da música */
-function primeiroAcordeDaIntro(txt){
-  const linhas=String(txt||'').split('\n');
-  for(const l0 of linhas){
-    const lin=l0.replace(/^\s*\[?\s*intro(du[cç][aã]o)?\s*:?\s*\]?/i,'').trim(); if(!lin) continue;
-    const toks=lin.split(/\s+/);
-    const ehLinha= toks.every(t=>/^[\[(]?[A-G][#b]?[^\s]*[\])]?$/.test(t) || /^[-|x0-9()]+$/i.test(t));
-    if(!ehLinha) continue;
-    for(const t of toks){ const c=t.replace(/[\[\]()]/g,''); if(/^[A-G]/.test(c)) return c; }
-  }
-  return null;
-}
 window.detectarTom=function(txt){
   const brutos=acordesDoTexto(txt);
   const cs=brutos.map(c=>{ const A=lerAcorde(c.split('/')[0]); return A&&!A.erro? {r:A.r, menor:/^m(?!aj)/.test(A.tipo)||A.tipo==='m7(b5)'} : null; }).filter(Boolean);
   if(!cs.length) return '';
   /* acorde com baixo pedal no início (ex.: G/D) conta como o baixo (D) */
   const b0=(brutos[0]||'').split('/')[1]; if(b0 && PC[b0]!==undefined) cs[0]={r:PC[b0],menor:false};
-  /* sinal forte: 1º acorde da linha de intro/instrumental, se ele realmente se repete na música
-     (evita confundir a tônica com o 5º/4º grau quando a harmonia tem muitos acordes emprestados,
-     um problema real medido nesta base: a pontuação diatônica abaixo pode preferir o grau errado) */
-  const introChord=primeiroAcordeDaIntro(txt);
-  if(introChord){
-    const A=lerAcorde(introChord.split('/')[0]);
-    if(A && !A.erro){
-      const menor=/^m(?!aj)/.test(A.tipo)||A.tipo==='m7(b5)';
-      const freq=cs.filter(c=>c.r===A.r&&c.menor===menor).length;
-      if(freq>=Math.max(3,Math.round(cs.length*0.08))) return NOMES_TOM[A.r]+(menor?'m':'');
-    }
-  }
   const peso=cs.map((c,i)=>1+(i===0?3:0)+(i===cs.length-1?4:0));
   let melhor=null;
   for(let t=0;t<12;t++){
@@ -1126,6 +1101,117 @@ window.bkExcluir=async function(){
 };
 let _bk=0; new MutationObserver(()=>{ clearTimeout(_bk); _bk=setTimeout(()=>{ marcaListas(); prevEditorMusica(); bkAtualiza(); },150); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
 
+/* ======================= 31) ✏️ EDITAR ESCALA ======================= */
+/* Ao lado de "Reimportar escala": escolher a semana → editar todos os campos de cada culto
+   (com sugestão dos nomes cadastrados) → Salvar. Vai na hora para todos (tempo real). */
+const COL_FIXAS=/^(data|dia|evento|culto|hor[aá]rio|obs)/i;
+let _ESC=null;   /* {chave, idx:[índices], linhas:[cópias]} */
+function semanasEscala(){
+  const E=DB.escala||{linhas:[]}; const g={};
+  (E.linhas||[]).forEach((l,i)=>{ const k=String(l.periodoInicio||'').slice(0,10)+'|'+String(l.periodoFim||'').slice(0,10); (g[k]=g[k]||[]).push(i); });
+  return Object.keys(g).sort().map(k=>({k, idx:g[k]}));
+}
+const fmtD=iso=>{ const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m? m[3]+'/'+m[2] : '—'; };
+function nomesCadastrados(){ return [...new Set((DB.usuarios||[]).map(u=>String(u.nome||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt')); }
+window.editarEscala=function(){
+  const W=semanasEscala(); const hoje=new Date().toISOString().slice(0,10);
+  if(!W.length) return toast('Ainda não há escala. Importe a planilha primeiro.');
+  const E=DB.escala;
+  abrirModal('<h3>✏️ Editar escala — escolha a semana</h3><div class="esc-sem">'+W.map(w=>{ const [ini,fim]=w.k.split('|'); const atual=ini<=hoje&&hoje<=fim;
+    const ev=w.idx.map(i=>{ const c=E.linhas[i].celulas||{}; return e([c.Data||c.data||'',c.Evento||c.evento||''].filter(Boolean).join(' · ')); }).join('<br>');
+    return '<div class="eed-card'+(atual?' atual':'')+'"><div><b>'+fmtD(ini)+' a '+fmtD(fim)+(atual?' <span>esta semana</span>':'')+'</b><small>'+ev+'</small></div><button class="mini-btn" onclick="escalaEditarSemana(\''+w.k+'\')">✏️ Editar</button></div>'; }).join('')+'</div>'+
+    '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button></div>');
+  const mb=document.getElementById('modalBox'); if(mb) mb.classList.add('mx-grande');
+  setTimeout(()=>{ const a=document.querySelector('.eed-card.atual'); if(a) a.scrollIntoView({block:'center'}); },60);
+};
+window.escalaEditarSemana=function(k){
+  const w=semanasEscala().find(x=>x.k===k); if(!w) return; const E=DB.escala;
+  _ESC={chave:k, idx:w.idx.slice(), linhas:w.idx.map(i=>JSON.parse(JSON.stringify(E.linhas[i])))};
+  desenhaEdEscala();
+};
+function desenhaEdEscala(){
+  const E=DB.escala, cols=E.colunas||[]; const [ini,fim]=_ESC.chave.split('|');
+  const form=_ESC.linhas.map((l,j)=>'<div class="esc-ed"><div class="esc-ed-h"><b>Culto '+(j+1)+'</b><button class="esc-x" onclick="escalaTiraCulto('+j+')" aria-label="Remover este culto">🗑</button></div><div class="esc-campos">'+
+    cols.map(c=>{ const v=(l.celulas||{})[c]||''; const nome=!COL_FIXAS.test(c);
+      return '<label><span>'+e(c)+'</span><input class="inp esc-in'+(nome?' esc-nome':'')+'" data-j="'+j+'" data-c="'+e(c)+'" value="'+e(v)+'" autocomplete="off"'+(nome?' placeholder="Digite um nome…"':'')+'></label>'; }).join('')+'</div></div>').join('');
+  abrirModal('<h3>✏️ Escala — semana de '+fmtD(ini)+' a '+fmtD(fim)+'</h3>'+
+    '<div class="esc-per"><label><span>Início</span><input type="date" class="inp" id="escIni" value="'+ini+'"></label><label><span>Fim</span><input type="date" class="inp" id="escFim" value="'+fim+'"></label></div>'+
+    '<p class="am-dica">Nos campos de função, comece a digitar e toque no nome sugerido (cadastrados no app). Para mais de um nome, separe com vírgula.</p>'+
+    '<div id="escForm">'+form+'</div><button class="mini-btn sec" onclick="escalaNovoCulto()" style="margin:6px 0 10px">＋ Culto nesta semana</button>'+
+    '<div class="modal-acts"><button class="btn btn-dark" onclick="editarEscala()">Cancelar</button><button class="btn btn-primary" onclick="escalaSalvar()">💾 Salvar</button></div>');
+  const mb=document.getElementById('modalBox'); if(mb) mb.classList.add('mx-grande');
+  ligaSugestoes();
+}
+function lerFormEscala(){ document.querySelectorAll('#escForm .esc-in').forEach(inp=>{ const l=_ESC.linhas[+inp.dataset.j]; if(!l) return; l.celulas=l.celulas||{}; l.celulas[inp.dataset.c]=inp.value.trim(); }); }
+window.escalaNovoCulto=function(){ lerFormEscala(); const [ini,fim]=_ESC.chave.split('|'); const cel={}; (DB.escala.colunas||[]).forEach(c=>cel[c]=''); _ESC.linhas.push({periodoInicio:ini+'T00:01:00',periodoFim:fim+'T23:59:00',celulas:cel}); desenhaEdEscala(); };
+window.escalaTiraCulto=function(j){ lerFormEscala(); if(!confirm('Remover este culto da escala?')) return; _ESC.linhas.splice(j,1); desenhaEdEscala(); };
+/* sugestões de nomes enquanto digita */
+function ligaSugestoes(){
+  const nomes=nomesCadastrados();
+  document.querySelectorAll('#escForm .esc-nome').forEach(inp=>{
+    const mostra=()=>{ fechaSug(); const v=inp.value; const ini=Math.max(v.lastIndexOf(','),v.lastIndexOf('/'))+1; const termo=v.slice(ini).trim(); if(termo.length<1) return;
+      const q=SLUG(termo); const L=nomes.filter(n=>SLUG(n).includes(q)).slice(0,8); if(!L.length) return;
+      inp.insertAdjacentHTML('afterend','<div class="esc-sug">'+L.map(n=>'<button type="button" data-n="'+e(n)+'">'+e(n)+'</button>').join('')+'</div>');
+      inp.nextElementSibling.querySelectorAll('button').forEach(b=>b.addEventListener('mousedown',ev=>{ ev.preventDefault(); const antes=v.slice(0,ini); inp.value=(antes? antes.replace(/\s*$/,'')+' ' : '')+b.dataset.n; fechaSug(); inp.focus(); })); };
+    inp.addEventListener('input',mostra); inp.addEventListener('focus',mostra); inp.addEventListener('blur',()=>setTimeout(fechaSug,150));
+  });
+}
+function fechaSug(){ document.querySelectorAll('.esc-sug').forEach(x=>x.remove()); }
+window.escalaSalvar=async function(){
+  lerFormEscala();
+  const ini=(document.getElementById('escIni')||{}).value, fim=(document.getElementById('escFim')||{}).value;
+  if(!ini||!fim||fim<ini) return toast('Confira as datas de início e fim da semana.');
+  _ESC.linhas.forEach(l=>{ l.periodoInicio=ini+'T00:01:00'; l.periodoFim=fim+'T23:59:00'; });
+  const E=DB.escala; const novas=E.linhas.filter((_,i)=>!_ESC.idx.includes(i)); const pos=Math.min(..._ESC.idx.concat([novas.length]));
+  novas.splice(Math.min(pos,novas.length),0,..._ESC.linhas);
+  novas.sort((a,b)=>String(a.periodoInicio).localeCompare(String(b.periodoInicio)));
+  try{
+    const {error}=await sb.from('escala').update({colunas:E.colunas,linhas:novas,updated_at:new Date().toISOString()}).eq('id',1);
+    if(error) throw error;
+    DB.escala={colunas:E.colunas,linhas:novas}; _ESC=null; fecharModal(); toast('Escala salva ✓ — já aparece para todos.'); go('escala');
+  }catch(err){ toast('❌ Não salvou: '+(err.message||err)); }
+};
+function botaoEditarEscala(){
+  const b=[...document.querySelectorAll('#content button')].find(x=>/Reimportar escala/i.test(x.textContent)); if(!b || document.getElementById('btEdEscala')) return;
+  b.insertAdjacentHTML('afterend','<button id="btEdEscala" class="mini-btn" style="margin:0 0 14px 8px" onclick="editarEscala()">✏️ Editar escala</button>');
+}
+let _ee=0; new MutationObserver(()=>{ clearTimeout(_ee); _ee=setTimeout(botaoEditarEscala,90); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+
+/* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
+/* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
+   saem do próprio código e são preenchidos sozinhos. Ao salvar, mostra o erro real se o banco recusar. */
+function emvTags(cod){ const s=String(cod||'').replace(/[\r\n]+/g,'').trim(); const m={}; let i=0;
+  while(i+4<=s.length){ const id=s.substr(i,2), L=parseInt(s.substr(i+2,2),10); if(!/^\d\d$/.test(id)||!(L>=0)||i+4+L>s.length) break; m[id]=s.substr(i+4,L); i+=4+L; } return m; }
+const ehCopiaColaX=v=>{ const s=String(v||'').replace(/[\r\n]+/g,'').trim(); return s.length>50 && (/^000201/.test(s)||s.indexOf('br.gov.bcb.pix')>=0); };
+function chaveDoCopia(cod){ const t=emvTags(cod); const mai=t['26']||t['25']||''; return emvTags(mai)['01']||''; }
+function cfgFinAtual(){ try{ const c=((typeof APP_CFG!=='undefined'&&APP_CFG)||{}).financeiro_cfg; return (typeof c==='string'? JSON.parse(c) : c)||{}; }catch(_){ return {}; } }
+function ajustaCfgPix(){
+  const inp=document.getElementById('cfgPix'); if(!inp || inp.dataset.x) return; inp.dataset.x='1';
+  const c=cfgFinAtual(); if(c.pix_copia) inp.value=c.pix_copia;
+  inp.placeholder='Cole aqui o código PIX copia e cola (o do QR Code do banco)';
+  const card=inp.closest('.card'); if(card){ const h=card.querySelector('h3'); if(h) h.textContent='⚙️ Configuração da doação';
+    const p=card.querySelector('p'); if(p) p.innerHTML='Cole o código <b>PIX copia e cola</b> do banco (o mesmo do QR Code). Ele fica guardado <b>inteiro</b>, e a doação usa esse código com o valor doado. O <b>nome</b> e a <b>cidade</b> são preenchidos sozinhos. O WhatsApp recebe os comprovantes.'; }
+  const preenche=()=>{ const v=inp.value.trim(); if(!ehCopiaColaX(v)) return; const t=emvTags(v);
+    const n=document.getElementById('cfgNome'), ci=document.getElementById('cfgCidade');
+    if(n && t['59']) n.value=t['59']; if(ci && t['60']) ci.value=t['60']; };
+  inp.addEventListener('input',preenche); inp.addEventListener('paste',()=>setTimeout(preenche,50));
+}
+window.finCfgSalvar=async function(){
+  const bruto=((document.getElementById('cfgPix')||{}).value||'').trim();
+  const obj={pix:bruto, pix_copia:'', wpp:((document.getElementById('cfgWpp')||{}).value||'').trim(), nome:((document.getElementById('cfgNome')||{}).value||'').trim(), cidade:((document.getElementById('cfgCidade')||{}).value||'').trim()};
+  if(ehCopiaColaX(bruto)){ obj.pix_copia=bruto.replace(/[\r\n]+/g,'').trim(); obj.pix=chaveDoCopia(bruto)||obj.pix_copia; const t=emvTags(bruto); if(!obj.nome&&t['59']) obj.nome=t['59']; if(!obj.cidade&&t['60']) obj.cidade=t['60']; }
+  try{
+    const {error}=await sb.from('config').upsert({chave:'financeiro_cfg',valor:obj,updated_at:new Date().toISOString()});
+    if(error) throw error;
+    try{ APP_CFG.financeiro_cfg=obj; }catch(_){}
+    toast(obj.pix_copia? 'Configuração salva ✓ — a doação usa o seu copia e cola' : 'Configuração salva ✓');
+  }catch(err){
+    const m=String(err.message||err);
+    toast(/row-level|policy|permission|42501/i.test(m)? '❌ O banco não deixou salvar: sua conta não tem a seção Financeiro liberada no banco. O ADM principal deve conferir em 👑 ADMs e permissões e rodar o SQL-FINANCEIRO-ADM.' : '❌ Não salvou: '+m);
+  }
+};
+let _cfp=0; new MutationObserver(()=>{ clearTimeout(_cfp); _cfp=setTimeout(ajustaCfgPix,80); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+
 /* ======================= 28) BARRA VERDE: "Olá, Nome!" + data, hora e tempo ======================= */
 const DIAS=['dom','seg','ter','qua','qui','sex','sáb'];
 const TEMPO={0:['☀️','Céu limpo'],1:['🌤️','Poucas nuvens'],2:['⛅','Parcialmente nublado'],3:['☁️','Nublado'],45:['🌫️','Neblina'],48:['🌫️','Neblina'],51:['🌦️','Garoa'],53:['🌦️','Garoa'],55:['🌦️','Garoa forte'],56:['🌧️','Garoa gelada'],57:['🌧️','Garoa gelada'],61:['🌧️','Chuva fraca'],63:['🌧️','Chuva'],65:['🌧️','Chuva forte'],66:['🌧️','Chuva gelada'],67:['🌧️','Chuva gelada'],71:['🌨️','Neve'],73:['🌨️','Neve'],75:['🌨️','Neve'],80:['🌦️','Pancadas de chuva'],81:['🌧️','Pancadas de chuva'],82:['⛈️','Chuva muito forte'],95:['⛈️','Trovoada'],96:['⛈️','Trovoada'],99:['⛈️','Trovoada']};
@@ -1331,7 +1417,7 @@ async function pdfDesenha(){
   const inn=document.getElementById('pdfIn'); if(!inn) return;
   if(_imgs && !_pdfDoc){ const larg=_pdfBase*_pdfZoom;
     if(!inn.children.length) inn.innerHTML=_imgs.urls.map((u,i)=>'<img src="'+e(u)+'" alt="Partitura" draggable="false"'+(_imgs.reservas[i]?' data-res="'+e(_imgs.reservas[i])+'" onerror="if(this.dataset.res&&!this.dataset.r){this.dataset.r=1;this.src=this.dataset.res}"':'')+'>').join('');
-    inn.querySelectorAll('img').forEach(im=>{ im.style.width=larg+'px'; }); return; }
+    inn.querySelectorAll('img').forEach(im=>{ im.style.width=larg+'px'; }); return; }   /* (a transformação é retirada em aplica, no mesmo instante) */
   if(!_pdfDoc) return;
   const larg=_pdfBase*_pdfZoom, dpr=Math.min(2.5,window.devicePixelRatio||1);
   const novo=document.createElement('div'); novo.className='pdf-in'; novo.id='pdfIn';
@@ -1342,24 +1428,43 @@ async function pdfDesenha(){
 }
 /* gestos: pinça com 2 dedos = zoom livre (no ponto entre os dedos); 1 dedo = rolagem livre; toque duplo = 1x ↔ 2,5x */
 function pdfGestos(box){
-  const pts=new Map(); let ini=null, ultimoToque=0;
+  const pts=new Map(); let ini=null, ultimoToque=0, fimPinca=0, ocupado=false;
   const dist=()=>{ const [a,b]=[...pts.values()]; return Math.hypot(a.x-b.x,a.y-b.y); };
   const meio=()=>{ const [a,b]=[...pts.values()]; const r=box.getBoundingClientRect(); return {x:(a.x+b.x)/2-r.left, y:(a.y+b.y)/2-r.top}; };
-  async function aplica(z,foco){ const inn=document.getElementById('pdfIn'); if(inn) inn.style.transform='';
-    const z0=_pdfZoom; z=Math.min(5,Math.max(0.6,z)); if(Math.abs(z-z0)<0.01) return;
-    const cx=(box.scrollLeft+foco.x)/z0, cy=(box.scrollTop+foco.y)/z0; _pdfZoom=z; await pdfDesenha();
-    box.scrollLeft=cx*z-foco.x; box.scrollTop=cy*z-foco.y; }
+  /* o zoom fica exatamente onde o dedo deixou: a imagem ampliada continua na tela até a nova
+     (nítida) ficar pronta, e a troca acontece no mesmo instante, sem pulo */
+  async function aplica(z,foco){
+    const z0=_pdfZoom; z=Math.min(8,Math.max(0.3,z));
+    const cx=(box.scrollLeft+foco.x)/z0, cy=(box.scrollTop+foco.y)/z0;
+    if(Math.abs(z-z0)<0.005){ const inn=document.getElementById('pdfIn'); if(inn) inn.style.transform=''; return; }
+    ocupado=true; _pdfZoom=z; await pdfDesenha();
+    const inn=document.getElementById('pdfIn'); if(inn) inn.style.transform='';
+    box.scrollLeft=cx*z-foco.x; box.scrollTop=cy*z-foco.y; ocupado=false; }
   box.addEventListener('pointerdown',ev=>{ pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
     if(pts.size===2){ ini={d:dist(),z:_pdfZoom,m:meio()}; }
-    if(pts.size===1){ const t=Date.now(); if(t-ultimoToque<300){ const r=box.getBoundingClientRect(); aplica(_pdfZoom>1.2?1:2.5,{x:ev.clientX-r.left,y:ev.clientY-r.top}); ultimoToque=0; } else ultimoToque=t; } });
+    if(pts.size===1 && Date.now()-fimPinca>400){ const t=Date.now(); if(t-ultimoToque<300){ const r=box.getBoundingClientRect(); aplica(_pdfZoom>1.2?1:2.5,{x:ev.clientX-r.left,y:ev.clientY-r.top}); ultimoToque=0; } else ultimoToque=t; } });
   box.addEventListener('pointermove',ev=>{ if(!pts.has(ev.pointerId)) return; pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
-    if(pts.size===2 && ini){ ev.preventDefault(); const f=Math.min(5/ini.z,Math.max(0.6/ini.z,dist()/ini.d)); const inn=document.getElementById('pdfIn');
+    if(pts.size===2 && ini && !ocupado){ ev.preventDefault(); const f=Math.min(8/ini.z,Math.max(0.3/ini.z,dist()/ini.d)); const inn=document.getElementById('pdfIn');
       if(inn){ inn.style.transformOrigin=(box.scrollLeft+ini.m.x)+'px '+(box.scrollTop+ini.m.y)+'px'; inn.style.transform='scale('+f+')'; } } },{passive:false});
-  const fim=ev=>{ if(!pts.has(ev.pointerId)) return; if(pts.size===2 && ini){ const f=dist()/ini.d; const m=ini.m; const z=ini.z*f; ini=null; pts.delete(ev.pointerId); aplica(z,m); return; } pts.delete(ev.pointerId); };
+  const fim=ev=>{ if(!pts.has(ev.pointerId)) return; if(pts.size===2 && ini){ const f=dist()/ini.d; const m=ini.m; const z=ini.z*f; ini=null; pts.delete(ev.pointerId); fimPinca=Date.now(); ultimoToque=0; aplica(z,m); return; } pts.delete(ev.pointerId); };
   box.addEventListener('pointerup',fim); box.addEventListener('pointercancel',fim); box.addEventListener('pointerleave',fim);
   /* no computador: Ctrl + roda do mouse */
   box.addEventListener('wheel',ev=>{ if(!ev.ctrlKey) return; ev.preventDefault(); const r=box.getBoundingClientRect(); aplica(_pdfZoom*(ev.deltaY<0?1.15:0.87),{x:ev.clientX-r.left,y:ev.clientY-r.top}); },{passive:false});
 }
+/* rolagem automática no leitor: ▶/⏸ e barra de velocidade (fica salva) */
+let _rolPdf=null, _rolVel=+(localStorage.getItem('ibnm_pdf_vel')||3), _rolAcc=0;
+function rolPdfLoop(t0){ let ant=t0; const passo=t=>{ const box=document.getElementById('pdfPags'); if(!_rolPdf||!box){ _rolPdf=null; return; }
+  const dt=Math.min(0.1,(t-ant)/1000); ant=t; _rolAcc+=_rolVel*12*dt; const n=Math.floor(_rolAcc); if(n>=1){ box.scrollTop+=n; _rolAcc-=n; }
+  if(box.scrollTop+box.clientHeight>=box.scrollHeight-2){ pdfRolar(false); return; }
+  _rolPdf=requestAnimationFrame(passo); }; _rolPdf=requestAnimationFrame(passo); }
+window.pdfRolar=function(liga){ const on= liga===undefined? !_rolPdf : liga; if(_rolPdf){ cancelAnimationFrame(_rolPdf); _rolPdf=null; } if(on) rolPdfLoop(performance.now());
+  const b=document.getElementById('pdfRolBt'); if(b) b.textContent=_rolPdf?'⏸':'▶'; };
+window.pdfVel=function(v){ _rolVel=+v; localStorage.setItem('ibnm_pdf_vel',String(_rolVel)); const l=document.getElementById('pdfVelN'); if(l) l.textContent=_rolVel; };
+function barraRolagemPdf(){ const lt=document.getElementById('pdfLeitor'); if(!lt || lt.querySelector('.pdf-rol')) return;
+  lt.insertAdjacentHTML('beforeend','<div class="pdf-rol"><button id="pdfRolBt" onclick="pdfRolar()" aria-label="Rolagem automática">▶</button><span>🐢</span><input type="range" min="1" max="10" step="1" value="'+_rolVel+'" oninput="pdfVel(this.value)" aria-label="Velocidade da rolagem"><span>🐇</span><b id="pdfVelN">'+_rolVel+'</b></div>');
+  const box=document.getElementById('pdfPags'); if(box) box.addEventListener('pointerdown',()=>{ if(_rolPdf) pdfRolar(false); });
+}
+new MutationObserver(()=>{ if(document.getElementById('pdfLeitor')) barraRolagemPdf(); else if(_rolPdf){ cancelAnimationFrame(_rolPdf); _rolPdf=null; } }).observe(document.body,{childList:true});
 window.pdfZoom=function(d){ const box=document.getElementById('pdfPags'); if(!box) return; _pdfZoom=Math.min(5,Math.max(0.6,_pdfZoom+(d>0?0.25:-0.25))); pdfDesenha(); };
 window.fecharPdf=function(){ const b=document.getElementById('pdfLeitor'); if(b) b.remove(); document.body.style.overflow=''; };
 window.pdfBaixar=function(){ if(!_pdfBlob) return; const a=document.createElement('a'); a.href=URL.createObjectURL(_pdfBlob); a.download=_pdfNome; document.body.appendChild(a); a.click(); a.remove(); toast('PDF salvo na pasta Downloads.'); };
@@ -1793,5 +1898,30 @@ white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;borde
 .topbar .ttl.ola .ola-nome{font-size:18px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .topbar .ttl.ola .ola-info{font-size:11.5px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.1px;font-variant-numeric:tabular-nums}
 .topbar .ttl.ola .ola-info2{font-size:11.5px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.1px;font-variant-numeric:tabular-nums}
+
+.pdf-rol{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;background:rgba(14,74,55,.92);color:#fff;border-radius:24px;padding:6px 12px;box-shadow:0 4px 14px rgba(0,0,0,.35);z-index:3;width:min(92%,420px)}
+.pdf-rol button{width:40px;height:40px;border:0;border-radius:50%;background:#fff;color:var(--verde-escuro,#0e4a37);font-size:18px;font-weight:900;flex:none}
+.pdf-rol input{flex:1;accent-color:#f2c200;height:28px}
+.pdf-rol b{min-width:18px;text-align:center}
+.pdf-dica{bottom:calc(76px + env(safe-area-inset-bottom,0px))!important}
+
+.esc-sem{display:flex;flex-direction:column;gap:8px;max-height:65vh;overflow:auto}
+.eed-card{display:flex;align-items:center;gap:10px;border:1px solid #e3ece7;border-radius:12px;padding:10px 12px;text-align:left}
+.eed-card>div{flex:1;min-width:0}
+.eed-card b{display:block;font-size:15px;color:var(--verde-escuro)}
+.eed-card b span{font-size:11px;background:var(--dourado);color:#3a2f00;border-radius:8px;padding:1px 7px;margin-left:4px}
+.eed-card small{display:block;font-size:12px;color:#6b7c74;margin-top:2px;line-height:1.35}
+.eed-card.atual{border:2px solid var(--dourado);background:#fffbea}
+.esc-per{display:flex;gap:10px;margin-bottom:6px}
+.esc-per label,.esc-campos label{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;position:relative}
+.esc-per span,.esc-campos span{font-size:11.5px;font-weight:800;color:#5d7c6e}
+.esc-ed{border:1px solid #e3ece7;border-radius:12px;padding:10px 12px;margin-bottom:10px;text-align:left;background:#fbfdfc}
+.esc-ed-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.esc-ed-h b{color:var(--verde-escuro)}
+.esc-x{border:0;background:#fff5f4;border-radius:8px;height:32px;width:36px}
+.esc-campos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.esc-sug{position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1px solid #cfdad4;border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.15);display:flex;flex-direction:column;max-height:220px;overflow:auto}
+.esc-sug button{border:0;background:#fff;text-align:left;padding:9px 10px;font-size:14px;border-bottom:1px solid #eef3f0}
+.esc-sug button:hover{background:#e9f5ef}
 `; document.head.appendChild(st);
 })();
