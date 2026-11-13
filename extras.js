@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.31.0)
+   MM IBNM — Extras (v1.31.1)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1455,11 +1455,27 @@ try{ window.ensureDriveToken=_drvEnsure; ensureDriveToken=_drvEnsure; }catch(_){
 /* ======================= 36) ETIQUETAS EM TODAS AS MÚSICAS E HINOS ======================= */
 /* cifra · letra · áudio · youtube — calculadas na hora, em toda lista (Músicas, Favoritos, SETLIST, Início).
    áudio = só com áudio gravado/enviado; youtube = quando há link. Vale para músicas, Cantor, Harpa e HCC. */
+/* links do YouTube dos hinos lidos direto da nuvem (não dependem de o Cantor/Harpa já ter sido aberto) */
+let LINKS_HINOS={cc:{},hr:{}}; try{ const c=JSON.parse(localStorage.getItem('ibnm_links_hinos')||'null'); if(c) LINKS_HINOS=c; }catch(_){}
+async function carregaLinksHinos(){
+  try{ if(typeof sb==='undefined') return; const novo={cc:{},hr:{}};
+    const [a,b]=await Promise.all([sb.from('cantor_links').select('num,url'), sb.from('harpa_links').select('num,url')]);
+    (a.data||[]).forEach(r=>{ if(r.url) novo.cc[r.num]=r.url; }); (b.data||[]).forEach(r=>{ if(r.url) novo.hr[r.num]=r.url; });
+    if(a.error && b.error) return;
+    LINKS_HINOS=novo; localStorage.setItem('ibnm_links_hinos',JSON.stringify(novo)); atualizaEtiquetas(); }catch(_){}
+}
+setTimeout(carregaLinksHinos,3000); setInterval(()=>{ if(document.visibilityState==='visible') carregaLinksHinos(); },5*60*1000);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') carregaLinksHinos(); });
+setTimeout(()=>{ try{ if(typeof sb==='undefined'||!sb.channel) return; sb.channel('ibnm-links-hinos')
+  .on('postgres_changes',{event:'*',schema:'public',table:'cantor_links'},()=>carregaLinksHinos())
+  .on('postgres_changes',{event:'*',schema:'public',table:'harpa_links'},()=>carregaLinksHinos()).subscribe(); }catch(_){} },5500);
+/* o ADM salvou/apagou um link agora mesmo: atualiza na hora (sem esperar a nuvem) */
+document.addEventListener('click',ev=>{ const b=ev.target.closest&&ev.target.closest('.cc-sheet button'); if(b && /Salvar|Remover/i.test(b.textContent)) setTimeout(carregaLinksHinos,900); },true);
 const ytCache=k=>{ try{ return JSON.parse(localStorage.getItem(k)||'{}')||{}; }catch(_){ return {}; } };
 function etiquetasDe(id){
   id=String(id||''); const t=[];
-  if(id.startsWith('cc:')){ const n=+id.slice(3); t.push('letra','cifra'); if(ytCache('ibnm_cc_yt')[n]) t.push('youtube'); return t; }
-  if(id.startsWith('hr:')){ const n=+id.slice(3); t.push('cifra','partitura'); const y=ytCache('ibnm_hr_yt'); if(y[n]) t.push('youtube'); return t; }
+  if(id.startsWith('cc:')){ const n=+id.slice(3); t.push('letra','cifra'); if(LINKS_HINOS.cc[n]) t.push('youtube'); return t; }
+  if(id.startsWith('hr:')){ const n=+id.slice(3); t.push('cifra','partitura'); if(LINKS_HINOS.hr[n]) t.push('youtube'); return t; }
   if(id.startsWith('hcc:')){ const r=(HCC_DB||{})[+id.slice(4)]||{}; if(r.texto) t.push('cifra','letra'); if(r.youtube) t.push('youtube'); return t; }
   const m=(DB.musicas||[]).find(x=>x.id===id); if(!m) return t;
   if(String(m.cifra||'').replace(/<[^>]+>/g,'').trim()) t.push('cifra');
@@ -2190,5 +2206,8 @@ white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;borde
 .eed-chips span{background:#e3f2ea;color:#14513b;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:800;text-transform:none;letter-spacing:0}
 .eed-f.fx.larga{grid-column:span 2}
 @media (max-width:420px){ .eed-f.fx.larga{grid-column:1 / -1} }
+
+.cc-sheet-bg{align-items:center!important;padding:16px!important;box-sizing:border-box}
+.cc-sheet{border-radius:18px!important;max-height:86vh!important;padding-bottom:20px!important}
 `; document.head.appendChild(st);
 })();

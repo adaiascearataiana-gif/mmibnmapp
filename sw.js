@@ -1,5 +1,5 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v126';
+const CACHE = 'mmibnm-v127';
 const CORE = [
   './',
   './index.html',
