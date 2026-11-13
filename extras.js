@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.30.1)
+   MM IBNM — Extras (v1.31.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1451,6 +1451,37 @@ window.addEventListener('focus',()=>voltaDoGoogle());
 /* quem pedir a permissão do Drive passa a usar a janela do próprio app */
 const _drvEnsure=async function(){ const t=drvToken(); if(t) return t; conectarDriveRedirect(); return new Promise(()=>{}); };
 try{ window.ensureDriveToken=_drvEnsure; ensureDriveToken=_drvEnsure; }catch(_){ window.ensureDriveToken=_drvEnsure; }
+
+/* ======================= 36) ETIQUETAS EM TODAS AS MÚSICAS E HINOS ======================= */
+/* cifra · letra · áudio · youtube — calculadas na hora, em toda lista (Músicas, Favoritos, SETLIST, Início).
+   áudio = só com áudio gravado/enviado; youtube = quando há link. Vale para músicas, Cantor, Harpa e HCC. */
+const ytCache=k=>{ try{ return JSON.parse(localStorage.getItem(k)||'{}')||{}; }catch(_){ return {}; } };
+function etiquetasDe(id){
+  id=String(id||''); const t=[];
+  if(id.startsWith('cc:')){ const n=+id.slice(3); t.push('letra','cifra'); if(ytCache('ibnm_cc_yt')[n]) t.push('youtube'); return t; }
+  if(id.startsWith('hr:')){ const n=+id.slice(3); t.push('cifra','partitura'); const y=ytCache('ibnm_hr_yt'); if(y[n]) t.push('youtube'); return t; }
+  if(id.startsWith('hcc:')){ const r=(HCC_DB||{})[+id.slice(4)]||{}; if(r.texto) t.push('cifra','letra'); if(r.youtube) t.push('youtube'); return t; }
+  const m=(DB.musicas||[]).find(x=>x.id===id); if(!m) return t;
+  if(String(m.cifra||'').replace(/<[^>]+>/g,'').trim()) t.push('cifra');
+  if(String(m.letra||'').trim()) t.push('letra');
+  if(Array.isArray(m.audios) && m.audios.length) t.push('áudio');
+  if(String(m.youtube||'').trim()) t.push('youtube');
+  return t;
+}
+function poeEtiqueta(row,id){
+  const tags=etiquetasDe(id); const txt=tags.join(' · '); const ar=row.querySelector('.s-ar'); if(!ar) return;
+  let sp=ar.querySelector('.sl-ok'); if(!txt){ if(sp) sp.remove(); return; }
+  if(!sp){ ar.insertAdjacentHTML('beforeend',' <span class="sl-ok"></span>'); sp=ar.querySelector('.sl-ok'); }
+  if(sp.textContent!==txt) sp.textContent=txt;
+}
+function atualizaEtiquetas(){
+  document.querySelectorAll('#content .song-row').forEach(row=>{
+    const oc=row.getAttribute('onclick')||''; let m=oc.match(/abrirItem\('([^']+)'/)||oc.match(/abrirMusica\('([^']+)'/); if(m) poeEtiqueta(row,m[1]);
+  });
+}
+aoMudar(atualizaEtiquetas);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') setTimeout(atualizaEtiquetas,1500); });
+setInterval(()=>{ if(document.visibilityState==='visible') atualizaEtiquetas(); },20000);
 
 /* ======================= 35) BOTÃO DO DRIVE NO PAINEL (Conectividade) ======================= */
 /* O "Conectar ao Drive" sai da tela de áudios e fica no Painel do ADM, ao lado de "Verificar de novo".
