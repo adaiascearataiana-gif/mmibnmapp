@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.28.2)
+   MM IBNM — Extras (v1.28.3)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1233,13 +1233,25 @@ window.escalaNovoCulto=function(){ lerFormEscala(); const ini=(document.getEleme
 window.escalaTiraCulto=function(j){ lerFormEscala(); if(!confirm('Remover este culto da escala?')) return; _ESC.linhas.splice(j,1); desenhaEdEscala(); };
 /* sugestões de nomes enquanto digita */
 function ligaSugestoes(){
-  const nomes=nomesCadastrados();
+  const pessoas=(DB.usuarios||[]).filter(u=>String(u.nome||'').trim()).map(u=>({nome:String(u.nome).trim(), instr:(Array.isArray(u.instr)?u.instr:String(u.instr||'').split(/[,;\/]/)).map(x=>String(x).trim()).filter(Boolean), vocal:(Array.isArray(u.vocal)?u.vocal:[]).filter(Boolean)}))
+    .sort((x,y)=>x.nome.localeCompare(y.nome,'pt'));
+  const SEP=/[,\/|;]/;
   document.querySelectorAll('#escForm .eed-nome').forEach(inp=>{
-    const mostra=()=>{ fechaSug(); const v=inp.value; const ini=Math.max(v.lastIndexOf(','),v.lastIndexOf('/'))+1; const termo=v.slice(ini).trim(); if(termo.length<1) return;
-      const q=SLUG(termo); const L=nomes.filter(n=>SLUG(n).includes(q)).slice(0,8); if(!L.length) return;
-      inp.insertAdjacentHTML('afterend','<div class="eed-sug">'+L.map(n=>'<button type="button" data-n="'+e(n)+'">'+e(n)+'</button>').join('')+'</div>');
-      inp.nextElementSibling.querySelectorAll('button').forEach(b=>b.addEventListener('mousedown',ev=>{ ev.preventDefault(); const antes=v.slice(0,ini); inp.value=(antes? antes.replace(/\s*$/,'')+' ' : '')+b.dataset.n; fechaSug(); inp.focus(); })); };
-    inp.addEventListener('input',mostra); inp.addEventListener('focus',mostra); inp.addEventListener('blur',()=>setTimeout(fechaSug,150));
+    const ehInstr=/instrument|piano|teclad|viol|guitar|baix|bateri|music/i.test(inp.dataset.c||'');
+    const atualiza=()=>inp.dispatchEvent(new Event('input',{bubbles:true}));
+    const escreve=(txt,ini)=>{ const v=inp.value; const antes=v.slice(0,ini); inp.value=(antes? antes.replace(/\s*$/,'')+' ' : '')+txt; };
+    const escolheInstr=(p)=>{ fechaSug();
+      if(!ehInstr || !p.instr.length) return;
+      if(p.instr.length===1){ inp.value=inp.value.replace(/\s*$/,'')+' ('+p.instr[0]+')'; atualiza(); return; }
+      inp.insertAdjacentHTML('afterend','<div class="eed-sug eed-sug2"><div class="eed-sug-t">🎹 Qual instrumento '+e(p.nome.split(' ')[0])+' vai tocar?</div>'+p.instr.map(i=>'<button type="button" data-i="'+e(i)+'">'+e(i)+'</button>').join('')+'<button type="button" data-i="" class="sem">Sem indicar</button></div>');
+      inp.nextElementSibling.querySelectorAll('button').forEach(bt=>bt.addEventListener('mousedown',ev=>{ ev.preventDefault(); if(bt.dataset.i) inp.value=inp.value.replace(/\s*$/,'')+' ('+bt.dataset.i+')'; fechaSug(); atualiza(); inp.focus(); }));
+    };
+    const mostra=()=>{ if(document.querySelector('.eed-sug2')) return; fechaSug(); const v=inp.value; let ini=-1; for(let k=v.length-1;k>=0;k--){ if(SEP.test(v[k])){ ini=k; break; } } ini++;
+      const termo=v.slice(ini).trim(); if(termo.length<1 || /\)$/.test(termo)) return;
+      const q=SLUG(termo); const L=pessoas.filter(p=>SLUG(p.nome).includes(q)).slice(0,8); if(!L.length) return;
+      inp.insertAdjacentHTML('afterend','<div class="eed-sug">'+L.map((p,k)=>'<button type="button" data-k="'+k+'"><b>'+e(p.nome)+'</b>'+((ehInstr?p.instr:p.vocal).length?'<small>'+e((ehInstr?p.instr:p.vocal).join(' · '))+'</small>':'')+'</button>').join('')+'</div>');
+      inp.nextElementSibling.querySelectorAll('button').forEach(bt=>bt.addEventListener('mousedown',ev=>{ ev.preventDefault(); const p=L[+bt.dataset.k]; escreve(p.nome,ini); atualiza(); inp.focus(); escolheInstr(p); })); };
+    inp.addEventListener('input',mostra); inp.addEventListener('focus',mostra); inp.addEventListener('blur',()=>setTimeout(fechaSug,180));
   });
 }
 function fechaSug(){ document.querySelectorAll('.eed-sug').forEach(x=>x.remove()); }
@@ -2025,7 +2037,9 @@ white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;borde
 .eed-per span,.eed-f span{font-size:11px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:#4d6b5e}
 .eed-dica{font-size:12px;color:#5d6f66;margin:8px 0 0}
 .eed-lista{display:flex;flex-direction:column;gap:12px}
-.eed-culto{background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(10,60,40,.08),0 4px 14px rgba(10,60,40,.05);overflow:hidden;text-align:left;border:1px solid #e1ebe6}
+.eed-culto{background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(10,60,40,.08),0 4px 14px rgba(10,60,40,.05);overflow:visible;text-align:left;border:1px solid #e1ebe6;position:relative}
+.eed-culto:focus-within{z-index:20}
+.eed-cab{border-radius:13px 13px 0 0}
 .eed-cab{display:flex;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(135deg,var(--verde-escuro,#0e4a37),var(--verde-med,#1f7a55));color:#fff}
 .eed-n{width:30px;height:30px;border-radius:50%;background:var(--dourado);color:#3a2f00;font-weight:900;display:flex;align-items:center;justify-content:center;flex:none}
 .eed-tt{flex:1;min-width:0}
@@ -2047,6 +2061,11 @@ white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;borde
 .eed-sug{position:absolute;left:0;right:0;top:100%;z-index:30;margin-top:4px;background:#fff;border:1px solid #cfdad4;border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.18);display:flex;flex-direction:column;max-height:230px;overflow:auto}
 .eed-sug button{border:0;background:#fff;text-align:left;padding:10px 12px;font-size:14px;font-weight:700;color:#1d2b24;border-bottom:1px solid #eef3f0}
 .eed-sug button:hover,.eed-sug button:focus{background:#e9f5ef}
+.eed-sug button b{display:block;font-weight:800}
+.eed-sug button small{display:block;font-size:11.5px;font-weight:600;color:#5d7c6e;margin-top:1px}
+.eed-sug-t{font-size:12px;font-weight:900;color:var(--verde-escuro);padding:8px 12px;background:#fffbea;border-bottom:1px solid #f0dc8a}
+.eed-sug .sem{color:#7a8f86;font-weight:600}
+.eed-sug{z-index:60!important}
 
 .toast{z-index:10050!important}   /* avisos aparecem por cima das janelas (antes ficavam escondidos atrás) */
 
