@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.29.2)
+   MM IBNM — Extras (v1.29.3)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1438,6 +1438,27 @@ window.addEventListener('focus',()=>voltaDoGoogle());
 /* quem pedir a permissão do Drive passa a usar a janela do próprio app */
 const _drvEnsure=async function(){ const t=drvToken(); if(t) return t; conectarDriveRedirect(); return new Promise(()=>{}); };
 try{ window.ensureDriveToken=_drvEnsure; ensureDriveToken=_drvEnsure; }catch(_){ window.ensureDriveToken=_drvEnsure; }
+
+/* ======================= 35) BOTÃO DO DRIVE NO PAINEL (Conectividade) ======================= */
+/* O "Conectar ao Drive" sai da tela de áudios e fica no Painel do ADM, ao lado de "Verificar de novo".
+   Nos áudios só aparece um aviso quando ESTE aparelho estiver desconectado. */
+function drvConectadoAqui(){ try{ return !!(window.__drive&&window.__drive.conectado&&window.__drive.conectado()) || !!drvToken(); }catch(_){ return false; } }
+function botaoDrivePainel(){
+  const bv=[...document.querySelectorAll('#content button')].find(b=>/Verificar de novo/.test(b.textContent) && b.closest('.card') && /Conectividade/.test(b.closest('.card').textContent));
+  if(!bv) return;
+  const con=drvConectadoAqui(); const txt=con? '🔄 Reconectar Google Drive' : '🔗 Conectar Google Drive';
+  let b=document.getElementById('btDrvPainel');
+  if(!b){ bv.insertAdjacentHTML('afterend','<button id="btDrvPainel" class="mini-btn" style="margin:8px 0 0 8px" onclick="conectarDriveRedirect()"></button>'); b=document.getElementById('btDrvPainel'); }
+  if(b.textContent!==txt) b.textContent=txt; b.classList.toggle('sec',con);
+}
+function avisoDriveAudios(){
+  const box=document.getElementById('auDrive'); if(!box || box.dataset.x==='1'+drvConectadoAqui()) return;
+  const con=drvConectadoAqui(); box.dataset.x='1'+con;
+  if(con || box.classList.contains('no')){ box.style.display= con? 'none' : ''; return; }
+  box.innerHTML='<span>⚠️ Google Drive desconectado neste aparelho. Para gravar ou enviar áudios, conecte no <b>Painel do ADM → Conectividade</b>.</span>'+(window.ehAdmin&&ehAdmin()?'<button onclick="go(\'admin\')">Ir ao Painel</button>':'');
+  box.style.display='';
+}
+aoMudar(botaoDrivePainel); aoMudar(avisoDriveAudios);
 
 /* ======================= 27) GOOGLE DRIVE: SEM JANELA PRETA ======================= */
 /* A janela do Google (about:blank preta) vinha da conexão do Google Drive (cópia dos comprovantes),
