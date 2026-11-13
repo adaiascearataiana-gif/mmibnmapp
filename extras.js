@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.29.1)
+   MM IBNM — Extras (v1.29.2)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1412,21 +1412,29 @@ window.conectarDriveRedirect=function(){
   const cid=drvClientId(); if(!cid){ toast('Falta o Client ID do Google no Painel do ADM.'); return; }
   const st=Math.random().toString(36).slice(2)+Date.now().toString(36);
   let rota=''; try{ const pilha=window.__navStack? __navStack() : []; rota=pilha[pilha.length-1]||''; }catch(_){}
-  sessionStorage.setItem('ibnm_drv_state',JSON.stringify({st,rota}));
+  const est=JSON.stringify({st,rota,t:Date.now()}); try{ localStorage.setItem('ibnm_drv_state',est); sessionStorage.setItem('ibnm_drv_state',est); }catch(_){}
   let email=''; try{ email=(usuarioAtual()||{}).email||''; }catch(_){}
   const volta=location.origin+location.pathname.replace(/[^\/]*$/,'')+'drive.html';   /* página própria de retorno (o login do app não é afetado) */
   const q=new URLSearchParams({client_id:cid, redirect_uri:volta, response_type:'token', scope:'https://www.googleapis.com/auth/drive.file', include_granted_scopes:'true', state:st, prompt:localStorage.getItem('ibnm_drive_ok')?'':'consent'});
   if(email) q.set('login_hint',email); if(!q.get('prompt')) q.delete('prompt');
   location.href='https://accounts.google.com/o/oauth2/v2/auth?'+q.toString();
 };
-/* volta do Google: a página drive.html guarda a permissão e volta para o app */
-(function voltaDoGoogle(){
+/* volta do Google: a página drive.html guarda a permissão (no aparelho) e volta para o app.
+   No celular, o Google pode voltar numa janela separada: quando você retorna ao app, ele lê a
+   permissão guardada e já fica conectado. */
+function voltaDoGoogle(){
+  drvToken();   /* sincroniza a permissão guardada com a memória do app */
   let r=null; try{ r=JSON.parse(localStorage.getItem('ibnm_drive_retorno')||'null'); }catch(_){} if(!r) return;
   localStorage.removeItem('ibnm_drive_retorno');
   if(r.ok){ const t=drvToken();
-    setTimeout(()=>{ toast(t? '✅ Google Drive conectado.' : 'Google Drive: permissão não recebida.'); try{ if(r.rota){ const [k,id,arg]=r.rota.split('|'); if(k==='go'&&id) go(id,arg||undefined); } }catch(_){} },1800); }
-  else setTimeout(()=>toast('Google Drive não foi conectado ('+(r.erro||'cancelado')+').'),1800);
-})();
+    setTimeout(()=>{ toast(t? '✅ Google Drive conectado.' : 'Google Drive: permissão não recebida.'); try{ if(r.rota && document.visibilityState==='visible'){ const [k,id,arg]=r.rota.split('|'); if(k==='go'&&id) go(id,arg||undefined); } }catch(_){}
+      try{ document.querySelectorAll('button').forEach(b=>{ if(/Verificar de novo/.test(b.textContent) && b.closest('.card') && /Conectividade/.test(b.closest('.card').textContent)) b.click(); }); }catch(_){} },1200); }
+  else setTimeout(()=>toast('Google Drive não foi conectado ('+(r.erro||'cancelado')+').'),1200);
+}
+voltaDoGoogle();
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') voltaDoGoogle(); });
+window.addEventListener('storage',ev=>{ if(ev.key==='ibnm_drive_tok'||ev.key==='ibnm_drive_retorno') voltaDoGoogle(); });
+window.addEventListener('focus',()=>voltaDoGoogle());
 /* quem pedir a permissão do Drive passa a usar a janela do próprio app */
 const _drvEnsure=async function(){ const t=drvToken(); if(t) return t; conectarDriveRedirect(); return new Promise(()=>{}); };
 try{ window.ensureDriveToken=_drvEnsure; ensureDriveToken=_drvEnsure; }catch(_){ window.ensureDriveToken=_drvEnsure; }

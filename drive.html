@@ -7,15 +7,16 @@
 /* Retorno do login do Google Drive: guarda a permissão e volta para o app (sem tela preta). */
 (function(){
   var p=new URLSearchParams((location.hash||'').slice(1)), salvo={};
-  try{ salvo=JSON.parse(sessionStorage.getItem('ibnm_drv_state')||'{}'); }catch(e){}
+  try{ salvo=JSON.parse(sessionStorage.getItem('ibnm_drv_state')||localStorage.getItem('ibnm_drv_state')||'{}'); }catch(e){}
+  if(salvo.t && Date.now()-salvo.t>15*60*1000) salvo={};   /* pedido com mais de 15 min: inválido */
   var r={ok:false,rota:salvo.rota||''};
   if(p.get('access_token') && salvo.st && p.get('state')===salvo.st){
     var exp=Date.now()+(+(p.get('expires_in')||3600))*1000;
     try{ localStorage.setItem('ibnm_drive_tok',JSON.stringify({tok:p.get('access_token'),exp:exp})); localStorage.setItem('ibnm_drive_ok','1'); }catch(e){}
     r.ok=true;
   } else { r.erro=p.get('error')||(salvo.st?'resposta inválida':'sessão expirada'); }
-  try{ sessionStorage.removeItem('ibnm_drv_state'); localStorage.setItem('ibnm_drive_retorno',JSON.stringify(r)); }catch(e){}
-  document.getElementById('m').textContent=r.ok?'✅ Google Drive conectado. Voltando para o app…':'Não foi possível conectar. Voltando para o app…';
-  location.replace('./');
+  try{ sessionStorage.removeItem('ibnm_drv_state'); localStorage.removeItem('ibnm_drv_state'); localStorage.setItem('ibnm_drive_retorno',JSON.stringify(r)); }catch(e){}
+  document.getElementById('m').innerHTML=r.ok?'✅ Google Drive conectado.<br><small>Voltando para o app… (se continuar aqui, feche esta tela e volte ao app)</small>':'Não foi possível conectar.<br><small>Feche esta tela e tente de novo no app.</small>';
+  setTimeout(function(){ try{ window.close(); }catch(e){} location.replace('./'); },900);
 })();
 </script></body></html>
