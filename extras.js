@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.26.0)
+   MM IBNM — Extras (v1.26.3)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1106,20 +1106,46 @@ let _bk=0; new MutationObserver(()=>{ clearTimeout(_bk); _bk=setTimeout(()=>{ ma
    (com sugestão dos nomes cadastrados) → Salvar. Vai na hora para todos (tempo real). */
 const COL_FIXAS=/^(data|dia|evento|culto|hor[aá]rio|obs)/i;
 let _ESC=null;   /* {chave, idx:[índices], linhas:[cópias]} */
+/* acha a data de cada culto pela coluna "Data" (07/06, 07/06/2026, 7-Jun, 7 de junho...) e agrupa por semana (seg→dom) */
+const MES3={jan:0,fev:1,feb:1,mar:2,abr:3,apr:3,mai:4,may:4,jun:5,jul:6,ago:7,aug:7,set:8,sep:8,out:9,oct:9,nov:10,dez:11,dec:11};
+function lerDataBR(txt){
+  const t=String(txt||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); if(!t) return null;
+  let m=t.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  let d,mo,a=null;
+  m=t.match(/(\d{1,2})\s*(?:de\s+|[-\/. ])\s*([a-z]{3})[a-z]*\.?(?:\s*(?:de\s+|[-\/. ])\s*(\d{2,4}))?/);
+  if(m && m[2] in MES3){ d=+m[1]; mo=MES3[m[2]]; a=m[3]? (+m[3]<100?2000+ +m[3]:+m[3]) : null; }
+  else { m=t.match(/(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?/); if(!m) return null; d=+m[1]; mo=+m[2]-1; a=m[3]? (+m[3]<100?2000+ +m[3]:+m[3]) : null; }
+  if(!(mo>=0&&mo<12&&d>=1&&d<=31)) return null;
+  if(a==null){ const h=new Date(); a=h.getFullYear(); const dt=new Date(a,mo,d); if(dt-h>183*864e5) a--; else if(h-dt>183*864e5) a++; }
+  return new Date(a,mo,d);
+}
+const isoD=dt=>dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+function colunaEscala(cols,re){ return cols.find(c=>re.test(String(c).normalize('NFD').replace(/[\u0300-\u036f]/g,'')))||null; }
+function semanaDaLinha(l,cols){
+  const cData=colunaEscala(cols,/data/i); const dt=cData? lerDataBR((l.celulas||{})[cData]) : null;
+  if(dt){ const seg=new Date(dt); seg.setDate(dt.getDate()-((dt.getDay()+6)%7)); const dom=new Date(seg); dom.setDate(seg.getDate()+6); return isoD(seg)+'|'+isoD(dom); }
+  const pi=String(l.periodoInicio||''), pf=String(l.periodoFim||'');
+  if(/^\d{4}-\d{2}-\d{2}/.test(pi)) return pi.slice(0,10)+'|'+(/^\d{4}-\d{2}-\d{2}/.test(pf)? pf.slice(0,10) : pi.slice(0,10));
+  return 'sem|'+Math.random().toString(36).slice(2);
+}
 function semanasEscala(){
-  const E=DB.escala||{linhas:[]}; const g={};
-  (E.linhas||[]).forEach((l,i)=>{ const k=String(l.periodoInicio||'').slice(0,10)+'|'+String(l.periodoFim||'').slice(0,10); (g[k]=g[k]||[]).push(i); });
+  const E=DB.escala||{linhas:[]}; const cols=E.colunas||[]; const g={};
+  (E.linhas||[]).forEach((l,i)=>{ const k=semanaDaLinha(l,cols); (g[k]=g[k]||[]).push(i); });
   return Object.keys(g).sort().map(k=>({k, idx:g[k]}));
 }
+function resumoCulto(l,cols){ const c=l.celulas||{}; const cd=colunaEscala(cols,/data/i), cdia=colunaEscala(cols,/^dia/i), cev=colunaEscala(cols,/evento|culto|programa/i);
+  const partes=[cd&&c[cd], cdia&&c[cdia], cev&&c[cev]].filter(x=>x&&String(x).trim());
+  if(partes.length) return partes.join(' · ');
+  return cols.map(x=>c[x]).filter(x=>x&&String(x).trim()).slice(0,3).join(' · ') || '(culto sem informações)'; }
 const fmtD=iso=>{ const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m? m[3]+'/'+m[2] : '—'; };
 function nomesCadastrados(){ return [...new Set((DB.usuarios||[]).map(u=>String(u.nome||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt')); }
 window.editarEscala=function(){
   const W=semanasEscala(); const hoje=new Date().toISOString().slice(0,10);
   if(!W.length) return toast('Ainda não há escala. Importe a planilha primeiro.');
   const E=DB.escala;
-  abrirModal('<h3>✏️ Editar escala — escolha a semana</h3><div class="esc-sem">'+W.map(w=>{ const [ini,fim]=w.k.split('|'); const atual=ini<=hoje&&hoje<=fim;
-    const ev=w.idx.map(i=>{ const c=E.linhas[i].celulas||{}; return e([c.Data||c.data||'',c.Evento||c.evento||''].filter(Boolean).join(' · ')); }).join('<br>');
-    return '<div class="eed-card'+(atual?' atual':'')+'"><div><b>'+fmtD(ini)+' a '+fmtD(fim)+(atual?' <span>esta semana</span>':'')+'</b><small>'+ev+'</small></div><button class="mini-btn" onclick="escalaEditarSemana(\''+w.k+'\')">✏️ Editar</button></div>'; }).join('')+'</div>'+
+  abrirModal('<h3>✏️ Editar escala — escolha a semana</h3><div class="eed-sem">'+W.map(w=>{ const [ini,fim]=w.k.split('|'); const sd=ini==='sem'; const atual=!sd&&ini<=hoje&&hoje<=fim;
+    const ev=w.idx.map(i=>e(resumoCulto(E.linhas[i],E.colunas||[]))).join('<br>');
+    return '<div class="eed-card'+(atual?' atual':'')+'"><div><b>'+(sd?'Sem data':fmtD(ini)+' a '+fmtD(fim))+(atual?' <span>esta semana</span>':'')+'</b><small>'+ev+'</small></div><button class="mini-btn" onclick="escalaEditarSemana(\''+w.k+'\')">✏️ Editar</button></div>'; }).join('')+'</div>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button></div>');
   const mb=document.getElementById('modalBox'); if(mb) mb.classList.add('mx-grande');
   setTimeout(()=>{ const a=document.querySelector('.eed-card.atual'); if(a) a.scrollIntoView({block:'center'}); },60);
@@ -1130,46 +1156,60 @@ window.escalaEditarSemana=function(k){
   desenhaEdEscala();
 };
 function desenhaEdEscala(){
-  const E=DB.escala, cols=E.colunas||[]; const [ini,fim]=_ESC.chave.split('|');
-  const form=_ESC.linhas.map((l,j)=>'<div class="esc-ed"><div class="esc-ed-h"><b>Culto '+(j+1)+'</b><button class="esc-x" onclick="escalaTiraCulto('+j+')" aria-label="Remover este culto">🗑</button></div><div class="esc-campos">'+
-    cols.map(c=>{ const v=(l.celulas||{})[c]||''; const nome=!COL_FIXAS.test(c);
-      return '<label><span>'+e(c)+'</span><input class="inp esc-in'+(nome?' esc-nome':'')+'" data-j="'+j+'" data-c="'+e(c)+'" value="'+e(v)+'" autocomplete="off"'+(nome?' placeholder="Digite um nome…"':'')+'></label>'; }).join('')+'</div></div>').join('');
-  abrirModal('<h3>✏️ Escala — semana de '+fmtD(ini)+' a '+fmtD(fim)+'</h3>'+
-    '<div class="esc-per"><label><span>Início</span><input type="date" class="inp" id="escIni" value="'+ini+'"></label><label><span>Fim</span><input type="date" class="inp" id="escFim" value="'+fim+'"></label></div>'+
-    '<p class="am-dica">Nos campos de função, comece a digitar e toque no nome sugerido (cadastrados no app). Para mais de um nome, separe com vírgula.</p>'+
-    '<div id="escForm">'+form+'</div><button class="mini-btn sec" onclick="escalaNovoCulto()" style="margin:6px 0 10px">＋ Culto nesta semana</button>'+
-    '<div class="modal-acts"><button class="btn btn-dark" onclick="editarEscala()">Cancelar</button><button class="btn btn-primary" onclick="escalaSalvar()">💾 Salvar</button></div>');
-  const mb=document.getElementById('modalBox'); if(mb) mb.classList.add('mx-grande');
+  const E=DB.escala, cols=E.colunas||[]; let [ini,fim]=_ESC.chave.split('|'); if(ini==='sem'){ const h=new Date(); const seg=new Date(h); seg.setDate(h.getDate()-((h.getDay()+6)%7)); const dom=new Date(seg); dom.setDate(seg.getDate()+6); ini=isoD(seg); fim=isoD(dom); }
+  const cd=colunaEscala(cols,/data/i), cdia=colunaEscala(cols,/^dia/i), cev=colunaEscala(cols,/evento|culto|programa/i);
+  const fixas=cols.filter(c=>COL_FIXAS.test(c)), funcoes=cols.filter(c=>!COL_FIXAS.test(c));
+  const ico=c=>/vocal|cant|voz/i.test(c)?'🎤':/instrument|piano|teclad|viol|guitar|baix|bateri/i.test(c)?'🎹':/dire/i.test(c)?'🎙️':/devoc/i.test(c)?'📖':/som|audio|mesa/i.test(c)?'🎚️':/projet|data ?show|midia|mídia/i.test(c)?'📽️':'👤';
+  const campo=(l,j,c,tipo)=>{ const v=(l.celulas||{})[c]||''; return '<label class="eed-f '+tipo+'"><span>'+(tipo==='fn'?ico(c)+' ':'')+e(c)+'</span><input class="eed-in'+(tipo==='fn'?' eed-nome':'')+'" data-j="'+j+'" data-c="'+e(c)+'" value="'+e(v)+'" autocomplete="off"'+(tipo==='fn'?' placeholder="Digite um nome…"':'')+'></label>'; };
+  const form=_ESC.linhas.map((l,j)=>{ const c=l.celulas||{};
+    const tit=[cd&&c[cd], cdia&&c[cdia]].filter(Boolean).join(' · ')||('Culto '+(j+1));
+    return '<div class="eed-culto"><div class="eed-cab"><span class="eed-n">'+(j+1)+'</span><div class="eed-tt"><b>'+e(tit)+'</b><small>'+e((cev&&c[cev])||'')+'</small></div><button class="eed-x" onclick="escalaTiraCulto('+j+')" aria-label="Remover este culto" title="Remover este culto">🗑</button></div>'+
+      '<div class="eed-grid eed-fixas">'+fixas.map(x=>campo(l,j,x,'fx')).join('')+'</div>'+
+      '<div class="eed-sub">Equipe</div><div class="eed-grid">'+funcoes.map(x=>campo(l,j,x,'fn')).join('')+'</div></div>'; }).join('');
+  abrirModal('<div class="eed-topo"><h3>✏️ Escala da semana</h3><div class="eed-per"><label><span>📅 Início</span><input type="date" class="eed-in" id="escIni" value="'+ini+'"></label><label><span>📅 Fim</span><input type="date" class="eed-in" id="escFim" value="'+fim+'"></label></div>'+
+    '<p class="eed-dica">💡 Nos campos da equipe, comece a digitar e toque no nome sugerido. Para mais de um nome, separe com vírgula ou barra.</p></div>'+
+    '<div id="escForm" class="eed-lista">'+form+'</div><button class="eed-novo" onclick="escalaNovoCulto()">＋ Adicionar culto nesta semana</button>'+
+    '<div class="modal-acts eed-acoes"><button class="btn btn-dark" onclick="editarEscala()">Cancelar</button><button class="btn btn-primary" onclick="escalaSalvar()">💾 Salvar</button></div>');
+  const mb=document.getElementById('modalBox'); if(mb) mb.classList.add('mx-grande','eed-modal');
   ligaSugestoes();
 }
-function lerFormEscala(){ document.querySelectorAll('#escForm .esc-in').forEach(inp=>{ const l=_ESC.linhas[+inp.dataset.j]; if(!l) return; l.celulas=l.celulas||{}; l.celulas[inp.dataset.c]=inp.value.trim(); }); }
-window.escalaNovoCulto=function(){ lerFormEscala(); const [ini,fim]=_ESC.chave.split('|'); const cel={}; (DB.escala.colunas||[]).forEach(c=>cel[c]=''); _ESC.linhas.push({periodoInicio:ini+'T00:01:00',periodoFim:fim+'T23:59:00',celulas:cel}); desenhaEdEscala(); };
+function lerFormEscala(){ document.querySelectorAll('#escForm .eed-in').forEach(inp=>{ const l=_ESC.linhas[+inp.dataset.j]; if(!l) return; l.celulas=l.celulas||{}; l.celulas[inp.dataset.c]=inp.value.trim(); }); }
+window.escalaNovoCulto=function(){ lerFormEscala(); const ini=(document.getElementById('escIni')||{}).value||'', fim=(document.getElementById('escFim')||{}).value||''; const cel={}; (DB.escala.colunas||[]).forEach(c=>cel[c]=''); _ESC.linhas.push({periodoInicio:ini+'T00:01:00',periodoFim:fim+'T23:59:00',celulas:cel}); desenhaEdEscala(); };
 window.escalaTiraCulto=function(j){ lerFormEscala(); if(!confirm('Remover este culto da escala?')) return; _ESC.linhas.splice(j,1); desenhaEdEscala(); };
 /* sugestões de nomes enquanto digita */
 function ligaSugestoes(){
   const nomes=nomesCadastrados();
-  document.querySelectorAll('#escForm .esc-nome').forEach(inp=>{
+  document.querySelectorAll('#escForm .eed-nome').forEach(inp=>{
     const mostra=()=>{ fechaSug(); const v=inp.value; const ini=Math.max(v.lastIndexOf(','),v.lastIndexOf('/'))+1; const termo=v.slice(ini).trim(); if(termo.length<1) return;
       const q=SLUG(termo); const L=nomes.filter(n=>SLUG(n).includes(q)).slice(0,8); if(!L.length) return;
-      inp.insertAdjacentHTML('afterend','<div class="esc-sug">'+L.map(n=>'<button type="button" data-n="'+e(n)+'">'+e(n)+'</button>').join('')+'</div>');
+      inp.insertAdjacentHTML('afterend','<div class="eed-sug">'+L.map(n=>'<button type="button" data-n="'+e(n)+'">'+e(n)+'</button>').join('')+'</div>');
       inp.nextElementSibling.querySelectorAll('button').forEach(b=>b.addEventListener('mousedown',ev=>{ ev.preventDefault(); const antes=v.slice(0,ini); inp.value=(antes? antes.replace(/\s*$/,'')+' ' : '')+b.dataset.n; fechaSug(); inp.focus(); })); };
     inp.addEventListener('input',mostra); inp.addEventListener('focus',mostra); inp.addEventListener('blur',()=>setTimeout(fechaSug,150));
   });
 }
-function fechaSug(){ document.querySelectorAll('.esc-sug').forEach(x=>x.remove()); }
+function fechaSug(){ document.querySelectorAll('.eed-sug').forEach(x=>x.remove()); }
 window.escalaSalvar=async function(){
   lerFormEscala();
   const ini=(document.getElementById('escIni')||{}).value, fim=(document.getElementById('escFim')||{}).value;
-  if(!ini||!fim||fim<ini) return toast('Confira as datas de início e fim da semana.');
-  _ESC.linhas.forEach(l=>{ l.periodoInicio=ini+'T00:01:00'; l.periodoFim=fim+'T23:59:00'; });
-  const E=DB.escala; const novas=E.linhas.filter((_,i)=>!_ESC.idx.includes(i)); const pos=Math.min(..._ESC.idx.concat([novas.length]));
-  novas.splice(Math.min(pos,novas.length),0,..._ESC.linhas);
-  novas.sort((a,b)=>String(a.periodoInicio).localeCompare(String(b.periodoInicio)));
+  if(!ini||!fim||fim<ini){ ['escIni','escFim'].forEach(id=>{ const x=document.getElementById(id); if(x) x.style.borderColor='#c0392b'; }); return toast('Confira as datas de início e fim da semana.'); }
+  const E=DB.escala, cols=E.colunas||[];
+  /* cada culto fica na semana da sua própria Data; sem data legível, usa as datas acima */
+  _ESC.linhas.forEach(l=>{ const k=semanaDaLinha({celulas:l.celulas},cols); if(!k.startsWith('sem|')){ const [a,b]=k.split('|'); l.periodoInicio=a+'T00:01:00'; l.periodoFim=b+'T23:59:00'; } else { l.periodoInicio=ini+'T00:01:00'; l.periodoFim=fim+'T23:59:00'; } });
+  /* troca só os cultos desta semana, no mesmo lugar da lista (a ordem das outras semanas não muda) */
+  const pos=Math.min(..._ESC.idx); const novas=[];
+  E.linhas.forEach((l,i)=>{ if(i===pos) novas.push(..._ESC.linhas); if(!_ESC.idx.includes(i)) novas.push(l); });
+  if(!_ESC.idx.length) novas.push(..._ESC.linhas);
+  const bt=[...document.querySelectorAll('#modalBox button')].find(x=>/Salvar/.test(x.textContent)); if(bt){ bt.disabled=true; bt.textContent='Salvando…'; }
   try{
-    const {error}=await sb.from('escala').update({colunas:E.colunas,linhas:novas,updated_at:new Date().toISOString()}).eq('id',1);
+    const {error}=await sb.from('escala').update({colunas:cols,linhas:novas,updated_at:new Date().toISOString()}).eq('id',1);
     if(error) throw error;
-    DB.escala={colunas:E.colunas,linhas:novas}; _ESC=null; fecharModal(); toast('Escala salva ✓ — já aparece para todos.'); go('escala');
-  }catch(err){ toast('❌ Não salvou: '+(err.message||err)); }
+    DB.escala={colunas:cols,linhas:novas}; try{ if(typeof saveDB==='function') saveDB(); }catch(_){}
+    _ESC=null; fecharModal(); toast('✅ Escala salva — já aparece para todos.'); go('escala');
+  }catch(err){
+    if(bt){ bt.disabled=false; bt.textContent='💾 Salvar'; }
+    const m=String(err.message||err);
+    toast(/row-level|policy|permission|42501/i.test(m)? '❌ O banco não deixou salvar: sua conta precisa da seção Escala liberada (👑 ADMs e permissões).' : '❌ Não salvou: '+m);
+  }
 };
 function botaoEditarEscala(){
   const b=[...document.querySelectorAll('#content button')].find(x=>/Reimportar escala/i.test(x.textContent)); if(!b || document.getElementById('btEdEscala')) return;
@@ -1905,23 +1945,44 @@ white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;borde
 .pdf-rol b{min-width:18px;text-align:center}
 .pdf-dica{bottom:calc(76px + env(safe-area-inset-bottom,0px))!important}
 
-.esc-sem{display:flex;flex-direction:column;gap:8px;max-height:65vh;overflow:auto}
-.eed-card{display:flex;align-items:center;gap:10px;border:1px solid #e3ece7;border-radius:12px;padding:10px 12px;text-align:left}
+.eed-sem{display:flex;flex-direction:column;gap:8px;max-height:65vh;overflow:auto;padding:2px}
+.eed-card{display:flex;align-items:center;gap:10px;border:1px solid #e3ece7;border-left:5px solid var(--verde-med);border-radius:12px;padding:10px 12px;text-align:left;background:#fff}
 .eed-card>div{flex:1;min-width:0}
 .eed-card b{display:block;font-size:15px;color:var(--verde-escuro)}
 .eed-card b span{font-size:11px;background:var(--dourado);color:#3a2f00;border-radius:8px;padding:1px 7px;margin-left:4px}
-.eed-card small{display:block;font-size:12px;color:#6b7c74;margin-top:2px;line-height:1.35}
-.eed-card.atual{border:2px solid var(--dourado);background:#fffbea}
-.esc-per{display:flex;gap:10px;margin-bottom:6px}
-.esc-per label,.esc-campos label{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;position:relative}
-.esc-per span,.esc-campos span{font-size:11.5px;font-weight:800;color:#5d7c6e}
-.esc-ed{border:1px solid #e3ece7;border-radius:12px;padding:10px 12px;margin-bottom:10px;text-align:left;background:#fbfdfc}
-.esc-ed-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.esc-ed-h b{color:var(--verde-escuro)}
-.esc-x{border:0;background:#fff5f4;border-radius:8px;height:32px;width:36px}
-.esc-campos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
-.esc-sug{position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1px solid #cfdad4;border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.15);display:flex;flex-direction:column;max-height:220px;overflow:auto}
-.esc-sug button{border:0;background:#fff;text-align:left;padding:9px 10px;font-size:14px;border-bottom:1px solid #eef3f0}
-.esc-sug button:hover{background:#e9f5ef}
+.eed-card small{display:block;font-size:12px;color:#5d6f66;margin-top:3px;line-height:1.45}
+.eed-card.atual{border-color:var(--dourado);border-left-color:var(--dourado);background:#fffbea}
+#modalBox.eed-modal{background:#f3f7f5}
+.eed-topo{position:sticky;top:-18px;z-index:5;background:#f3f7f5;padding:4px 0 8px;margin-bottom:6px;border-bottom:1px solid #dfe9e4}
+.eed-topo h3{margin-bottom:8px}
+.eed-per{display:flex;gap:10px;flex-wrap:wrap}
+.eed-per label{flex:1;min-width:140px;display:flex;flex-direction:column;gap:4px}
+.eed-per span,.eed-f span{font-size:11px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:#4d6b5e}
+.eed-dica{font-size:12px;color:#5d6f66;margin:8px 0 0}
+.eed-lista{display:flex;flex-direction:column;gap:12px}
+.eed-culto{background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(10,60,40,.08),0 4px 14px rgba(10,60,40,.05);overflow:hidden;text-align:left;border:1px solid #e1ebe6}
+.eed-cab{display:flex;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(135deg,var(--verde-escuro,#0e4a37),var(--verde-med,#1f7a55));color:#fff}
+.eed-n{width:30px;height:30px;border-radius:50%;background:var(--dourado);color:#3a2f00;font-weight:900;display:flex;align-items:center;justify-content:center;flex:none}
+.eed-tt{flex:1;min-width:0}
+.eed-tt b{display:block;font-size:15px;letter-spacing:.02em}
+.eed-tt small{display:block;font-size:12px;opacity:.85;text-transform:uppercase;letter-spacing:.04em}
+.eed-x{border:0;background:rgba(255,255,255,.16);color:#fff;border-radius:10px;height:34px;width:38px;font-size:15px}
+.eed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;padding:10px 12px}
+.eed-fixas{background:#f7faf8;border-bottom:1px solid #eef3f0;grid-template-columns:repeat(auto-fill,minmax(105px,1fr))}
+#modalBox.eed-modal .mx-x{z-index:12}
+.eed-topo{padding-right:44px!important}
+.eed-sub{font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--verde-med);padding:8px 12px 0}
+.eed-f{display:flex;flex-direction:column;gap:4px;min-width:0;position:relative}
+.eed-in{width:100%;box-sizing:border-box;height:40px;border:1px solid #cfdad4;border-radius:10px;padding:0 11px;font-size:14.5px;font-weight:600;color:#1d2b24;background:#fff;transition:border-color .15s,box-shadow .15s}
+.eed-in:focus{outline:none;border-color:var(--verde-med);box-shadow:0 0 0 3px rgba(31,122,85,.18)}
+.eed-f.fn .eed-in{background:#f2faf6;border-color:#bfe0cf}
+.eed-f.fn .eed-in:focus{background:#fff}
+.eed-novo{width:100%;height:44px;margin:12px 0 4px;border:2px dashed #b9d6c7;border-radius:12px;background:#fff;color:var(--verde-med);font-weight:900;font-size:14px}
+.eed-acoes{position:sticky;bottom:-18px;background:#f3f7f5;padding:10px 0 4px;margin-top:6px;border-top:1px solid #dfe9e4;z-index:5}
+.eed-sug{position:absolute;left:0;right:0;top:100%;z-index:30;margin-top:4px;background:#fff;border:1px solid #cfdad4;border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.18);display:flex;flex-direction:column;max-height:230px;overflow:auto}
+.eed-sug button{border:0;background:#fff;text-align:left;padding:10px 12px;font-size:14px;font-weight:700;color:#1d2b24;border-bottom:1px solid #eef3f0}
+.eed-sug button:hover,.eed-sug button:focus{background:#e9f5ef}
+
+.toast{z-index:10050!important}   /* avisos aparecem por cima das janelas (antes ficavam escondidos atrás) */
 `; document.head.appendChild(st);
 })();
