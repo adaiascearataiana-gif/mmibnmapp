@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Google Drive — MM IBNM</title>
+<style>body{margin:0;font-family:system-ui,sans-serif;background:#0e4a37;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center}p{font-size:17px}</style>
+</head><body><p id="m">Conectando o Google Drive…</p>
+<script>
+/* Retorno do login do Google Drive: guarda a permissão e volta para o app (sem tela preta). */
+(function(){
+  var p=new URLSearchParams((location.hash||'').slice(1)), salvo={};
+  try{ salvo=JSON.parse(sessionStorage.getItem('ibnm_drv_state')||'{}'); }catch(e){}
+  var r={ok:false,rota:salvo.rota||''};
+  if(p.get('access_token') && salvo.st && p.get('state')===salvo.st){
+    var exp=Date.now()+(+(p.get('expires_in')||3600))*1000;
+    try{ localStorage.setItem('ibnm_drive_tok',JSON.stringify({tok:p.get('access_token'),exp:exp})); localStorage.setItem('ibnm_drive_ok','1'); }catch(e){}
+    r.ok=true;
+  } else { r.erro=p.get('error')||(salvo.st?'resposta inválida':'sessão expirada'); }
+  try{ sessionStorage.removeItem('ibnm_drv_state'); localStorage.setItem('ibnm_drive_retorno',JSON.stringify(r)); }catch(e){}
+  document.getElementById('m').textContent=r.ok?'✅ Google Drive conectado. Voltando para o app…':'Não foi possível conectar. Voltando para o app…';
+  location.replace('./');
+})();
+</script></body></html>

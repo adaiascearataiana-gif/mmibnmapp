@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.28.3)
+   MM IBNM — Extras (v1.29.1)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1399,6 +1399,38 @@ function introsDoRepo(){ document.querySelectorAll('#content img[src^="cc-intro/
   else { im.onerror=function(){ if(!this.dataset.r){ this.dataset.r=1; this.src=PART_BASE+'cc-intro/'+nome; } }; } }); }
 aoMudar(introsDoRepo);
 
+/* ======================= 34) GOOGLE DRIVE PELA MESMA JANELA (sem about:blank) ======================= */
+/* A janela separada do Google (popup) não consegue devolver a permissão ao app — fica preta (about:blank).
+   Agora o login do Drive acontece NA PRÓPRIA janela do app: vai ao Google, autoriza e o Google
+   devolve para o app, que guarda a permissão (vale ~1 hora; depois pede de novo, já sem a tela preta). */
+const DRV_K='ibnm_drive_tok';
+function drvClientId(){ try{ return (typeof driveClientId==='function' && driveClientId()) || ''; }catch(_){ return ''; } }
+function drvGuarda(tok,exp){ try{ _gisTok=tok; _gisExp=exp; }catch(_){} try{ localStorage.setItem(DRV_K,JSON.stringify({tok,exp})); localStorage.setItem('ibnm_drive_ok','1'); }catch(_){} }
+function drvToken(){ try{ if(typeof _gisTok!=='undefined' && _gisTok && Date.now()<_gisExp-60000) return _gisTok; }catch(_){}
+  try{ const t=JSON.parse(localStorage.getItem(DRV_K)||'null'); if(t && t.exp>Date.now()+60000){ drvGuarda(t.tok,t.exp); return t.tok; } }catch(_){} return null; }
+window.conectarDriveRedirect=function(){
+  const cid=drvClientId(); if(!cid){ toast('Falta o Client ID do Google no Painel do ADM.'); return; }
+  const st=Math.random().toString(36).slice(2)+Date.now().toString(36);
+  let rota=''; try{ const pilha=window.__navStack? __navStack() : []; rota=pilha[pilha.length-1]||''; }catch(_){}
+  sessionStorage.setItem('ibnm_drv_state',JSON.stringify({st,rota}));
+  let email=''; try{ email=(usuarioAtual()||{}).email||''; }catch(_){}
+  const volta=location.origin+location.pathname.replace(/[^\/]*$/,'')+'drive.html';   /* página própria de retorno (o login do app não é afetado) */
+  const q=new URLSearchParams({client_id:cid, redirect_uri:volta, response_type:'token', scope:'https://www.googleapis.com/auth/drive.file', include_granted_scopes:'true', state:st, prompt:localStorage.getItem('ibnm_drive_ok')?'':'consent'});
+  if(email) q.set('login_hint',email); if(!q.get('prompt')) q.delete('prompt');
+  location.href='https://accounts.google.com/o/oauth2/v2/auth?'+q.toString();
+};
+/* volta do Google: a página drive.html guarda a permissão e volta para o app */
+(function voltaDoGoogle(){
+  let r=null; try{ r=JSON.parse(localStorage.getItem('ibnm_drive_retorno')||'null'); }catch(_){} if(!r) return;
+  localStorage.removeItem('ibnm_drive_retorno');
+  if(r.ok){ const t=drvToken();
+    setTimeout(()=>{ toast(t? '✅ Google Drive conectado.' : 'Google Drive: permissão não recebida.'); try{ if(r.rota){ const [k,id,arg]=r.rota.split('|'); if(k==='go'&&id) go(id,arg||undefined); } }catch(_){} },1800); }
+  else setTimeout(()=>toast('Google Drive não foi conectado ('+(r.erro||'cancelado')+').'),1800);
+})();
+/* quem pedir a permissão do Drive passa a usar a janela do próprio app */
+const _drvEnsure=async function(){ const t=drvToken(); if(t) return t; conectarDriveRedirect(); return new Promise(()=>{}); };
+try{ window.ensureDriveToken=_drvEnsure; ensureDriveToken=_drvEnsure; }catch(_){ window.ensureDriveToken=_drvEnsure; }
+
 /* ======================= 27) GOOGLE DRIVE: SEM JANELA PRETA ======================= */
 /* A janela do Google (about:blank preta) vinha da conexão do Google Drive (cópia dos comprovantes),
    que o app tentava abrir sozinho. No app instalado essa janela não consegue voltar e fica preta.
@@ -1414,8 +1446,8 @@ function protegeGIS(){
     c.requestAccessToken=function(opts){
       const pediu=Date.now()-_toqueDrive<15000;
       if(!pediu){ try{ cfg.error_callback&&cfg.error_callback({type:'popup_failed_to_open'}); }catch(_){} return; }   /* automático: não abre */
-      if(appInstalado()){ toast('Para conectar o Google Drive, abra o app pelo navegador Chrome (no app instalado a janela do Google não volta).'); try{ cfg.error_callback&&cfg.error_callback({type:'popup_failed_to_open'}); }catch(_){} return; }
-      return req(opts); };
+      const t=drvToken(); if(t){ try{ cfg.callback&&cfg.callback({access_token:t,expires_in:Math.round((_gisExp-Date.now())/1000)}); }catch(_){} return; }
+      conectarDriveRedirect(); return; };
     return c; };
   o.__protegido=true; return true;
 }
