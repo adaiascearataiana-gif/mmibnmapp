@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.26.3)
+   MM IBNM — Extras (v1.28.2)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -16,6 +16,14 @@
 (function(){
 'use strict';
 const e = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* ===== um único "vigia" de tela para todo o extras (antes eram 18, cada um rodando a cada mudança) =====
+   Junta as tarefas e roda todas juntas, uma vez, logo depois que a tela para de mudar. */
+const _tarefas=[]; let _hubT=0, _hubN=0, _hubJan=Date.now();
+function aoMudar(fn){ _tarefas.push(fn); }
+function rodaTarefas(){ _hubT=0; const ag=Date.now(); if(ag-_hubJan>2000){ _hubJan=ag; _hubN=0; } _hubN++;
+  for(const f of _tarefas){ try{ f(); }catch(err){ try{ console.warn('extras:',err); }catch(_){} } } }
+new MutationObserver(()=>{ if(_hubT) return; _hubT=setTimeout(rodaTarefas, _hubN>25? 300 : 45); })
+  .observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class']});
 const sem = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
 const $q = s => document.querySelector(s);
 const admP = () => { try{ return (window.ehPrincipal? ehPrincipal() : ehAdmin()) && !(window.modoUsuario&&modoUsuario()); }catch(_){ return false; } };
@@ -76,7 +84,7 @@ function barraAudio(a){
   });
   a.addEventListener('timeupdate',()=>{ if(A!=null && B!=null && a.currentTime>=B){ a.currentTime=A; } });
 }
-new MutationObserver(()=>{ document.querySelectorAll('#content audio').forEach(barraAudio); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+aoMudar(()=>document.querySelectorAll('#content audio').forEach(barraAudio));
 
 /* ======================= 3+4) ESTATÍSTICAS + ESCALA INTELIGENTE ======================= */
 function cantadas(){ try{ return (typeof MUSICAS_CANTADAS!=='undefined' && Array.isArray(MUSICAS_CANTADAS))? MUSICAS_CANTADAS : []; }catch(_){ return []; } }
@@ -310,7 +318,7 @@ function mascara(orig){
     const c=Math.round((parseFloat(orig.value)||0)*100); if(c!==cent){ cent=c; pinta(); } },300);
 }
 function procuraValores(){ document.querySelectorAll('#lfValor,#finValor,#ivValor,input[type=number][placeholder*="R$"]').forEach(mascara); }
-new MutationObserver(()=>procuraValores()).observe(document.body,{childList:true,subtree:true});
+aoMudar(procuraValores);
 
 /* ======================= 11) LANÇAMENTO = SÓ SAÍDA ======================= */
 /* As entradas vêm das doações confirmadas. No formulário some o "Entrada/Saída":
@@ -323,13 +331,13 @@ function soSaidaNoForm(){
   if(h){ const x=h.querySelector('.mx-x'); h.textContent= novo? '－ Nova saída' : (sel.value==='entrada'? '✏ Editar entrada' : '✏ Editar saída'); if(x) h.appendChild(x); }
   const d=document.querySelector('#modalBox #lfDesc'); if(d && novo) d.placeholder='O que foi? (ex.: Cordas, manutenção, cabo, toner...)';
 }
-new MutationObserver(soSaidaNoForm).observe(document.body,{childList:true,subtree:true});
+aoMudar(soSaidaNoForm);
 
 /* datas pelo horário do Brasil: depois das 21h o app gravava o dia seguinte (fuso UTC) */
 const hojeLocal = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 const hojeUTC = () => new Date().toISOString().slice(0,10);
 function dataCerta(){ const i=document.querySelector('#modalBox #lfData'); if(!i||i.dataset.dl) return; i.dataset.dl='1'; if(i.value===hojeUTC() && hojeUTC()!==hojeLocal()) i.value=hojeLocal(); }
-new MutationObserver(dataCerta).observe(document.body,{childList:true,subtree:true});
+aoMudar(dataCerta);
 try{ if(typeof sb!=='undefined' && sb && !sb.__dataBR){ const _f=sb.from.bind(sb);
   sb.from=function(t){ const q=_f(t); if(t!=='financeiro'||!q||!q.insert) return q; const ins=q.insert.bind(q);
     q.insert=function(o,...r){ const fx=x=>{ if(x && x.data===hojeUTC() && hojeUTC()!==hojeLocal()) x=Object.assign({},x,{data:hojeLocal()}); return x; };
@@ -411,7 +419,7 @@ function aplicaLetra(forca){
     zoomLetra(box,song); song.style.display='none'; box.style.display='';
   } else { song.style.display=''; if(box) box.remove(); }
 }
-let _lt=0; new MutationObserver(()=>{ clearTimeout(_lt); _lt=setTimeout(()=>aplicaLetra(false),30); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+aoMudar(()=>aplicaLetra(false));
 
 /* ======================= 13) EDIÇÕES DA HARPA NA NUVEM ======================= */
 /* Igual ao Cantor: o ADM corrige um hino da Harpa e todos veem.
@@ -769,7 +777,7 @@ function espacoIntro(){
   if(j+1<ls.length && ls[j+1].replace(/<[^>]+>/g,'').trim()!==''){ ls.splice(j+1,0,''); z.innerHTML=ls.join('\n'); }
   z.dataset.esp=z.innerHTML.length+'';
 }
-let _am=0; new MutationObserver(()=>{ clearTimeout(_am); _am=setTimeout(()=>{ espacoIntro(); acordesDaMusica(false); },120); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true,characterData:true});
+aoMudar(()=>{ espacoIntro(); acordesDaMusica(false); });
 
 /* ======================= 16) TOM DA MÚSICA: detecta sozinho, o ADM pode digitar ======================= */
 const NOMES_TOM=['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
@@ -845,7 +853,7 @@ function tomNaTela(){
   const sm=b.parentElement.querySelector('small'); const st=sm? parseInt((sm.textContent.match(/[-+]?\d+/)||[0])[0],10)||0 : 0;
   const v=transpTom(salvo,st); if(v && b.textContent!==v) b.textContent=v;
 }
-let _tn=0; new MutationObserver(()=>{ clearTimeout(_tn); _tn=setTimeout(()=>{ campoTomEditor(); tomNaTela(); },80); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+aoMudar(()=>{ campoTomEditor(); tomNaTela(); });
 
 /* ======================= 17) HINOS EM TEXTO LIVRE (igual às músicas) ======================= */
 /* Os hinos do Cantor e da Harpa aparecem como as músicas: acorde em cima da letra, em linhas
@@ -922,7 +930,7 @@ function botaoEditarTexto(){
   const g=document.querySelector('#content .cc-tools .cc-ga'); if(!g || g.querySelector('.hx-bt') || !podeHinos() || document.querySelector('#content .hcc-page')) return;
   g.insertAdjacentHTML('beforeend','<button class="tog hx-bt" onclick="editarHinoTexto()">✏️ Editar cifra</button>');
 }
-let _hx=0; new MutationObserver(()=>{ clearTimeout(_hx); _hx=setTimeout(()=>{ hinoEmTexto(); botaoEditarTexto(); },40); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+aoMudar(()=>{ hinoEmTexto(); botaoEditarTexto(); });
 
 /* ======================= 18) PARTITURA DO CANTOR → página do hino na Coletânea Cantor Cristão ======================= */
 /* O PDF "Tom Original" de cada hino fica no site da Coletânea (André Luís Souza). O app abre a página
@@ -1099,7 +1107,47 @@ window.bkExcluir=async function(){
   const fl=document.getElementById('bkFlut'); if(fl) fl.remove();
   toast(feitos+' excluído(s).'+(parou?' '+parou:''));
 };
-let _bk=0; new MutationObserver(()=>{ clearTimeout(_bk); _bk=setTimeout(()=>{ marcaListas(); prevEditorMusica(); bkAtualiza(); },150); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+aoMudar(()=>{ marcaListas(); prevEditorMusica(); bkAtualiza(); });
+
+/* ======================= 32) TEMPO REAL PARA AS PARTES NOVAS ======================= */
+/* HCC, partituras enviadas e correções da Harpa chegam na hora para todos (antes: só ao reabrir o app). */
+function tempoRealExtras(){
+  try{
+    if(typeof sb==='undefined' || !sb.channel || window.__rtExtras) return; window.__rtExtras=true;
+    const ch=sb.channel('ibnm-extras');
+    ch.on('postgres_changes',{event:'*',schema:'public',table:'hcc_hinos'},pl=>{ try{ const r=pl.new&&pl.new.num!=null? pl.new : null; HCC_DB=HCC_DB||{};
+        if(pl.eventType==='DELETE'&&pl.old) delete HCC_DB[pl.old.num]; else if(r) HCC_DB[r.num]=r;
+        localStorage.setItem('ibnm_hcc',JSON.stringify(HCC_DB)); const pg=document.querySelector('.hcc-page[data-n]'); if(pg && r && +pg.dataset.n===r.num) hccAbrir(r.num,true); }catch(_){} })
+      .on('postgres_changes',{event:'*',schema:'public',table:'partituras_hinos'},pl=>{ try{ const r=pl.new; if(pl.eventType==='DELETE'&&pl.old) delete PARTS[pl.old.livro+':'+pl.old.num]; else if(r) PARTS[r.livro+':'+r.num]=r; localStorage.setItem('ibnm_parts',JSON.stringify(PARTS)); padronizaHino(true); }catch(_){} })
+      .on('postgres_changes',{event:'*',schema:'public',table:'harpa_edits'},()=>{ try{ hrBaixa(); }catch(_){} })
+      .subscribe(st=>{ window.__rtExtrasStatus=st; });
+  }catch(_){}
+}
+setTimeout(tempoRealExtras,5000);
+
+/* ======================= 33) 🩺 DIAGNÓSTICO DO APP (Painel do ADM, só o principal) ======================= */
+async function diagnostico(){
+  const box=document.getElementById('diagBox'); if(!box) return; box.innerHTML='<div class="am-dica">Verificando…</div>';
+  const res=[]; const ok=(t,b,dica)=>res.push([b?'✅':'⚠️',t,b?'':dica||'']);
+  const tab=async(t,dica)=>{ try{ const {error}=await sb.from(t).select('*',{count:'exact',head:true}); ok('Tabela '+t,!error,dica); }catch(_){ ok('Tabela '+t,false,dica); } };
+  ok('Versão do app', true); res[res.length-1][1]='Versão do app: '+(window.APP_V||'?');
+  ok('Internet', navigator.onLine, 'Sem internet agora.');
+  await tab('hcc_hinos','Rode o SQL-HCC.sql');
+  await tab('partituras_hinos','Rode o SQL-PARTITURAS.sql');
+  await tab('harpa_edits','Rode o SQL-HARPA-EDICOES.sql');
+  try{ const {error}=await sb.rpc('fin_resumo',{p_mes:new Date().toISOString().slice(0,7)}); ok('Resumo do Financeiro (saldo)',!error,'Rode o SQL-ADMS-POR-SECAO.sql'); }catch(_){ ok('Resumo do Financeiro (saldo)',false,'Rode o SQL-ADMS-POR-SECAO.sql'); }
+  try{ const {error}=await sb.from('musicas').select('updated_at').limit(1); ok('Economia de dados (só baixa o que mudou)',!error,'Rode o SQL-ECONOMIA.sql'); }catch(_){}
+  ok('Tempo real (hinos novos e partituras)', window.__rtExtrasStatus==='SUBSCRIBED', 'Rode o SQL-TEMPO-REAL.sql');
+  ok('Índice das partituras (mmibnm-partituras)', !!INDICE, 'Rode o gerar_indice.py no repositório de partituras');
+  ok('Voltar do celular (vigia oficial)', 'CloseWatcher' in window, 'Este navegador usa o modo antigo do voltar (normal no iPhone).');
+  box.innerHTML=res.map(r=>'<div class="dg-l"><span>'+r[0]+'</span><div><b>'+e(r[1])+'</b>'+(r[2]?'<small>'+e(r[2])+'</small>':'')+'</div></div>').join('')+'<button class="mini-btn sec" style="margin-top:8px" onclick="diagnosticoApp()">🔄 Verificar de novo</button>';
+}
+window.diagnosticoApp=diagnostico;
+function cartaoDiagnostico(){
+  if(!souPrincipal()) return; const t=document.querySelector('#content .ad-topo'); if(!t || document.getElementById('diagBox')) return;
+  t.insertAdjacentHTML('afterend','<div class="card"><h3>🩺 Diagnóstico do app</h3><div id="diagBox"><button class="mini-btn" onclick="diagnosticoApp()">Verificar agora</button></div></div>');
+}
+aoMudar(cartaoDiagnostico);
 
 /* ======================= 31) ✏️ EDITAR ESCALA ======================= */
 /* Ao lado de "Reimportar escala": escolher a semana → editar todos os campos de cada culto
@@ -1160,7 +1208,9 @@ function desenhaEdEscala(){
   const cd=colunaEscala(cols,/data/i), cdia=colunaEscala(cols,/^dia/i), cev=colunaEscala(cols,/evento|culto|programa/i);
   const fixas=cols.filter(c=>COL_FIXAS.test(c)), funcoes=cols.filter(c=>!COL_FIXAS.test(c));
   const ico=c=>/vocal|cant|voz/i.test(c)?'🎤':/instrument|piano|teclad|viol|guitar|baix|bateri/i.test(c)?'🎹':/dire/i.test(c)?'🎙️':/devoc/i.test(c)?'📖':/som|audio|mesa/i.test(c)?'🎚️':/projet|data ?show|midia|mídia/i.test(c)?'📽️':'👤';
-  const campo=(l,j,c,tipo)=>{ const v=(l.celulas||{})[c]||''; return '<label class="eed-f '+tipo+'"><span>'+(tipo==='fn'?ico(c)+' ':'')+e(c)+'</span><input class="eed-in'+(tipo==='fn'?' eed-nome':'')+'" data-j="'+j+'" data-c="'+e(c)+'" value="'+e(v)+'" autocomplete="off"'+(tipo==='fn'?' placeholder="Digite um nome…"':'')+'></label>'; };
+  const campo=(l,j,c,tipo)=>{ const v=(l.celulas||{})[c]||'';
+    if(tipo==='fn') return '<label class="eed-f fn"><span>'+ico(c)+' '+e(c)+'</span><textarea class="eed-in eed-nome eed-ta" rows="1" data-j="'+j+'" data-c="'+e(c)+'" autocomplete="off" spellcheck="false" placeholder="Digite um nome…">'+e(v)+'</textarea><div class="eed-chips"></div></label>';
+    return '<label class="eed-f fx'+(/evento|culto|obs|program/i.test(c)?' larga':'')+'"><span>'+e(c)+'</span><input class="eed-in" data-j="'+j+'" data-c="'+e(c)+'" value="'+e(v)+'" autocomplete="off"></label>'; };
   const form=_ESC.linhas.map((l,j)=>{ const c=l.celulas||{};
     const tit=[cd&&c[cd], cdia&&c[cdia]].filter(Boolean).join(' · ')||('Culto '+(j+1));
     return '<div class="eed-culto"><div class="eed-cab"><span class="eed-n">'+(j+1)+'</span><div class="eed-tt"><b>'+e(tit)+'</b><small>'+e((cev&&c[cev])||'')+'</small></div><button class="eed-x" onclick="escalaTiraCulto('+j+')" aria-label="Remover este culto" title="Remover este culto">🗑</button></div>'+
@@ -1172,6 +1222,11 @@ function desenhaEdEscala(){
     '<div class="modal-acts eed-acoes"><button class="btn btn-dark" onclick="editarEscala()">Cancelar</button><button class="btn btn-primary" onclick="escalaSalvar()">💾 Salvar</button></div>');
   const mb=document.getElementById('modalBox'); if(mb) mb.classList.add('mx-grande','eed-modal');
   ligaSugestoes();
+  /* campos da equipe: crescem com o texto (nada escondido) e mostram cada nome em etiqueta */
+  document.querySelectorAll('#escForm .eed-ta').forEach(ta=>{ const upd=()=>{ ta.style.height='auto'; ta.style.height=Math.max(40,ta.scrollHeight+2)+'px';
+      const ch=ta.parentElement.querySelector('.eed-chips'); if(!ch) return; const nomes=ta.value.split(/\s*(?:\/|,|\||;|\n)\s*/).map(x=>x.trim()).filter(Boolean);
+      ch.innerHTML=nomes.length>1? nomes.map(n=>'<span>'+e(n)+'</span>').join('') : ''; };
+    ta.addEventListener('input',upd); ta.addEventListener('keydown',ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); } }); setTimeout(upd,0); });
 }
 function lerFormEscala(){ document.querySelectorAll('#escForm .eed-in').forEach(inp=>{ const l=_ESC.linhas[+inp.dataset.j]; if(!l) return; l.celulas=l.celulas||{}; l.celulas[inp.dataset.c]=inp.value.trim(); }); }
 window.escalaNovoCulto=function(){ lerFormEscala(); const ini=(document.getElementById('escIni')||{}).value||'', fim=(document.getElementById('escFim')||{}).value||''; const cel={}; (DB.escala.colunas||[]).forEach(c=>cel[c]=''); _ESC.linhas.push({periodoInicio:ini+'T00:01:00',periodoFim:fim+'T23:59:00',celulas:cel}); desenhaEdEscala(); };
@@ -1215,7 +1270,7 @@ function botaoEditarEscala(){
   const b=[...document.querySelectorAll('#content button')].find(x=>/Reimportar escala/i.test(x.textContent)); if(!b || document.getElementById('btEdEscala')) return;
   b.insertAdjacentHTML('afterend','<button id="btEdEscala" class="mini-btn" style="margin:0 0 14px 8px" onclick="editarEscala()">✏️ Editar escala</button>');
 }
-let _ee=0; new MutationObserver(()=>{ clearTimeout(_ee); _ee=setTimeout(botaoEditarEscala,90); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+aoMudar(botaoEditarEscala);
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
@@ -1250,7 +1305,7 @@ window.finCfgSalvar=async function(){
     toast(/row-level|policy|permission|42501/i.test(m)? '❌ O banco não deixou salvar: sua conta não tem a seção Financeiro liberada no banco. O ADM principal deve conferir em 👑 ADMs e permissões e rodar o SQL-FINANCEIRO-ADM.' : '❌ Não salvou: '+m);
   }
 };
-let _cfp=0; new MutationObserver(()=>{ clearTimeout(_cfp); _cfp=setTimeout(ajustaCfgPix,80); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+aoMudar(ajustaCfgPix);
 
 /* ======================= 28) BARRA VERDE: "Olá, Nome!" + data, hora e tempo ======================= */
 const DIAS=['dom','seg','ter','qua','qui','sex','sáb'];
@@ -1326,8 +1381,11 @@ if(window.navigation && navigation.addEventListener){
 }
 
 /* imagens da introdução do Cantor (cc-intro): lidas do repositório de partituras, com reserva no app */
-function introsDoRepo(){ document.querySelectorAll('#content img[src^="cc-intro/"]').forEach(im=>{ if(im.dataset.repo) return; const loc=im.getAttribute('src'); im.dataset.repo='1'; im.dataset.res=loc; im.onerror=function(){ if(!this.dataset.r){ this.dataset.r=1; this.src=this.dataset.res; } }; im.src=PART_BASE+loc; }); }
-let _ir=0; new MutationObserver(()=>{ clearTimeout(_ir); _ir=setTimeout(introsDoRepo,40); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+function introsDoRepo(){ document.querySelectorAll('#content img[src^="cc-intro/"]').forEach(im=>{ if(im.dataset.repo) return; im.dataset.repo='1'; const loc=im.getAttribute('src'); const nome=loc.split('/').pop();
+  const noRepo=INDICE && INDICE['cc-intro'] && INDICE['cc-intro'].includes(nome);
+  if(noRepo){ im.dataset.res=loc; im.onerror=function(){ if(!this.dataset.r){ this.dataset.r=1; this.src=this.dataset.res; } }; im.src=PART_BASE+'cc-intro/'+nome; }
+  else { im.onerror=function(){ if(!this.dataset.r){ this.dataset.r=1; this.src=PART_BASE+'cc-intro/'+nome; } }; } }); }
+aoMudar(introsDoRepo);
 
 /* ======================= 27) GOOGLE DRIVE: SEM JANELA PRETA ======================= */
 /* A janela do Google (about:blank preta) vinha da conexão do Google Drive (cópia dos comprovantes),
@@ -1371,7 +1429,7 @@ function setaTopo(){
   if(!b){ const h=tb.querySelector('.hamb'); if(!h) return; h.insertAdjacentHTML('afterend','<button id="btVoltarTopo" class="tb-voltar" onclick="voltarTopo()" aria-label="Voltar">‹</button>'); b=document.getElementById('btVoltarTopo'); }
   const mostra=!naInicio(); if(b.hidden===mostra) b.hidden=!mostra;
 }
-let _st=0; new MutationObserver(()=>{ clearTimeout(_st); _st=setTimeout(setaTopo,60); }).observe(document.getElementById('content')||document.body,{childList:true});
+aoMudar(setaTopo);
 setTimeout(setaTopo,1500);
 window.__sairSim=function(){
   window.__ibnmSaindo=true; window.__saindoAgora=true;
@@ -1515,6 +1573,7 @@ const _musPart={};
 async function partituraMusica(m){
   if(!m) return null; const k=m.id; if(_musPart[k]!==undefined) return _musPart[k];
   _musPart[k]=null; const base=PART_BASE+'musicas/'; const nomes=[SLUG(m.titulo), m.id];
+  if(INDICE){ const u=noIndice('musicas',nomes.map(x=>String(x))); _musPart[k]=u||null; return _musPart[k]; }
   for(const n of nomes) for(const x of ['.pdf','.jpg','.png']){ try{ const r=await fetch(base+encodeURIComponent(n)+x,{method:'HEAD'}); if(r.ok){ _musPart[k]=base+encodeURIComponent(n)+x; return _musPart[k]; } }catch(_){ return null; } }
   return null; }
 async function botaoPartituraMusica(){
@@ -1530,7 +1589,7 @@ function botaoPdf(){
   const tools=document.querySelector('#content .cc-page .cc-tools'); const song=document.querySelector('#content .cc-page .cc-song');
   if(tools && song && !tools.querySelector('#btPdfCifra')){ const g=tools.querySelector('.cc-gm')||tools.querySelector('.cc-gv')||tools; g.insertAdjacentHTML('beforeend','<button class="tog" id="btPdfCifra" onclick="verCifraPdf()">📄 Cifra em PDF</button>'); }
 }
-let _pdfo=0; new MutationObserver(()=>{ clearTimeout(_pdfo); _pdfo=setTimeout(()=>{ botaoPdf(); botaoPartituraMusica(); },110); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+aoMudar(()=>{ botaoPdf(); botaoPartituraMusica(); });
 
 /* ======================= 24) 👑 ADMs E PERMISSÕES (tela própria, só o ADM principal) ======================= */
 const SECS=[['playlist','📅','SETLIST'],['musicas','🎵','Músicas'],['hinos','📖','Cantor, Harpa e HCC'],['importar','📥','Importar músicas'],['escala','📋','Escala'],['avisos','📣','Avisos'],['academia','🎓','Academia'],['ensaios','🎼','Ensaios'],['membros','👥','Membros'],['financeiro','💰','Financeiro'],['inventario','🔧','Inventário']];
@@ -1613,7 +1672,13 @@ const _sondando={};
    O app procura lá primeiro (pelo jsDelivr) e, se não achar, na pasta antiga dentro do app. */
 const PART_BASE='https://cdn.jsdelivr.net/gh/adaiascearataiana-gif/mmibnm-partituras@main/';
 const PASTA_REPO={cc:'cc',hcc:'hcc',hr:'harpa'};
+/* índice do repositório de partituras (indice.json): diz quais arquivos existem, sem precisar "testar" 20 endereços por hino */
+let INDICE=null; try{ const c=JSON.parse(localStorage.getItem('ibnm_part_idx')||'null'); if(c && Date.now()-c.t<6*3600e3) INDICE=c.d; }catch(_){}
+async function carregaIndice(){ try{ const r=await fetch(PART_BASE+'indice.json',{cache:'no-cache'}); if(!r.ok) return; const d=await r.json(); if(d&&typeof d==='object'){ INDICE=d; localStorage.setItem('ibnm_part_idx',JSON.stringify({t:Date.now(),d})); } }catch(_){} }
+if(!INDICE) setTimeout(carregaIndice,3500);
+function noIndice(pasta,nomes){ const L=(INDICE&&INDICE[pasta])||null; if(!L) return null; const set=new Set(L); for(const n of nomes) for(const x of ['.pdf','.jpg','.jpeg','.png']){ if(set.has(n+x)) return PART_BASE+pasta+'/'+n+x; } return ''; }
 function nomesLocais(L,n){ const p3=String(n).padStart(3,'0'); const out=[];
+  if(INDICE){ const nm=L==='hr'? ['h'+p3,p3,'p'+p3] : [p3,String(n),'n'+p3,L+p3]; const u=noIndice(PASTA_REPO[L],nm); if(u) return [u]; return [p3].map(b=>'partituras/'+L+'/'+b+'.pdf'); }
   const nomes=L==='hr'? ['h'+p3,p3,'p'+p3] : [p3,String(n),'n'+p3,L+p3];
   nomes.forEach(b=>['.pdf','.jpg','.png'].forEach(x=>out.push(PART_BASE+PASTA_REPO[L]+'/'+b+x)));
   [p3,String(n),'n'+p3,L+p3].forEach(b=>['.pdf','.jpg','.png'].forEach(x=>out.push('partituras/'+L+'/'+b+x)));
@@ -1733,13 +1798,13 @@ function padronizaHino(forca){
   if(!adm){ tools.querySelectorAll('.cc-ga').forEach(g=>g.style.display='none'); }
   if(forca) tools.dataset.pad='';
 }
-let _pz=0; new MutationObserver(()=>{ clearTimeout(_pz); _pz=setTimeout(()=>{ padronizaHino(false); dicaNova(); },90); }).observe(document.getElementById('content')||document.body,{childList:true,subtree:true});
+aoMudar(()=>{ padronizaHino(false); dicaNova(); });
 
 /* ======================= 10) ✕ PARA FECHAR AS JANELAS ======================= */
 function poeX(){ const bg=document.getElementById('modalBg'), box=document.getElementById('modalBox');
   if(!bg||!box||!bg.classList.contains('show')) return; if(box.querySelector(':scope > .mx-x')) return;
   box.classList.add('mx-tem'); box.insertAdjacentHTML('afterbegin','<button type="button" class="mx-x" aria-label="Fechar" onclick="fecharModal()">✕</button>'); }
-new MutationObserver(poeX).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
+aoMudar(poeX);
 
 /* ======================= estilos ======================= */
 const st=document.createElement('style'); st.textContent=`
@@ -1984,5 +2049,17 @@ white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;borde
 .eed-sug button:hover,.eed-sug button:focus{background:#e9f5ef}
 
 .toast{z-index:10050!important}   /* avisos aparecem por cima das janelas (antes ficavam escondidos atrás) */
+
+.dg-l{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #eef3f0;text-align:left}
+.dg-l>span{font-size:17px;flex:none}
+.dg-l b{display:block;font-size:13.5px;color:#1d2b24}
+.dg-l small{display:block;font-size:12px;color:#a0522d;margin-top:1px}
+
+.eed-ta{resize:none;height:40px;min-height:40px;padding:9px 11px!important;line-height:1.35;overflow:hidden;white-space:pre-wrap;word-break:break-word;font-family:inherit}
+.eed-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.eed-chips:empty{display:none}
+.eed-chips span{background:#e3f2ea;color:#14513b;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:800;text-transform:none;letter-spacing:0}
+.eed-f.fx.larga{grid-column:span 2}
+@media (max-width:420px){ .eed-f.fx.larga{grid-column:1 / -1} }
 `; document.head.appendChild(st);
 })();
