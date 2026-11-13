@@ -249,7 +249,7 @@ function disponivel(id){
   if(String(id).indexOf('hr:')===0) return '<span class="sl-ok">cifra · partitura</span>';
   if(String(id).indexOf('cc:')===0) return '<span class="sl-ok">letra · cifra</span>';
   const m=(DB.musicas||[]).find(x=>x.id===id)||{}; const t=[];
-  if(m.cifra) t.push('cifra'); if(m.letra) t.push('letra'); if((m.audios&&m.audios.length)||m.youtube) t.push('áudio');
+  if(m.cifra) t.push('cifra'); if(m.letra) t.push('letra'); if(m.audios&&m.audios.length) t.push('áudio'); if(m.youtube) t.push('youtube');
   return t.length? '<span class="sl-ok">'+t.join(' · ')+'</span>' : '';
 }
 function linhaItem(id,i,sl,ctx){

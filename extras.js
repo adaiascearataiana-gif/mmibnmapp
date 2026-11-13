@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.29.3)
+   MM IBNM — Extras (v1.30.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -394,7 +394,7 @@ function organiza(tools){
   const acha=f=>itens.filter(f);
   const g=(cls,lbl,els)=>{ els=els.filter(Boolean); if(!els.length) return null; const d=document.createElement('div'); d.className='cc-grp '+cls; if(lbl) d.insertAdjacentHTML('afterbegin','<span class="cc-gl">'+lbl+'</span>'); els.forEach(x=>d.appendChild(x)); return d; };
   const txt=x=>(x.textContent||'');
-  const adm=acha(x=>/SETLIST|Ao vivo|AO VIVO|Editar cifra|Salvar cifras|Cancelar/i.test(txt(x)) || x.id==='ted' || x.classList.contains('cc-live') || x.classList.contains('hx-bt'));
+  const adm=acha(x=>/SETLIST|Ao vivo|AO VIVO|Editar cifra|Salvar cifras|Cancelar|Link do YouTube/i.test(txt(x)) || x.id==='ted' || x.classList.contains('cc-live') || x.classList.contains('hx-bt'));
   const midia=acha(x=>/PARTITURA|YouTube|Ouvir|▶ YouTube/i.test(txt(x)) && !adm.includes(x));
   const ver=acha(x=>!adm.includes(x) && !midia.includes(x));
   const seg=document.createElement('div'); seg.className='cc-seg';
@@ -959,11 +959,11 @@ let HCC_DB=null; let _hccSt={}; let _hccQ='';
 async function hccCarrega(forca){
   if(HCC_DB && !forca) return HCC_DB;
   try{ const c=JSON.parse(localStorage.getItem('ibnm_hcc')||'null'); if(c && !HCC_DB) HCC_DB=c; }catch(_){}
-  try{ if(typeof sb!=='undefined'){ const {data,error}=await sb.from('hcc_hinos').select('num,titulo,texto,tom'); if(!error){ HCC_DB={}; (data||[]).forEach(r=>HCC_DB[r.num]=r); localStorage.setItem('ibnm_hcc',JSON.stringify(HCC_DB)); } } }catch(_){}
+  try{ if(typeof sb!=='undefined'){ const {data,error}=await sb.from('hcc_hinos').select('*'); if(!error){ HCC_DB={}; (data||[]).forEach(r=>HCC_DB[r.num]=r); localStorage.setItem('ibnm_hcc',JSON.stringify(HCC_DB)); } } }catch(_){}
   if(!HCC_DB) HCC_DB={}; return HCC_DB;
 }
 function hccHino(n){ const r=(HCC_DB||{})[n]||{}, si=HCC_SITE[n]; const tx=r.texto||'';
-  return {n, titulo:r.titulo||(si?si[0].t:'Hino '+n), tom:normTom(r.tom)||(tx?detectarTom(tx):''), partes:[], texto:tx, site:!!si, hcc:true}; }
+  return {n, titulo:r.titulo||(si?si[0].t:'Hino '+n), tom:normTom(r.tom)||(tx?detectarTom(tx):''), partes:[], texto:tx, site:!!si, hcc:true, youtube:r.youtube||''}; }
 function hccTodos(){ const ns=new Set([...Object.keys(HCC_SITE),...Object.keys(HCC_DB||{})].map(Number)); return [...ns].sort((a,b)=>a-b).map(hccHino); }
 const hccFavs=()=>{ try{ return new Set(JSON.parse(localStorage.getItem('ibnm_hcc_fav')||'[]')); }catch(_){ return new Set(); } };
 window.hccFav=function(n,ev){ if(ev) ev.stopPropagation(); const f=hccFavs(); f.has(n)?f.delete(n):f.add(n); localStorage.setItem('ibnm_hcc_fav',JSON.stringify([...f])); const pg=document.querySelector('.hcc-page[data-n]'); if(pg) hccAbrir(n,true); else hccBuscar(_hccQ); };
@@ -1010,6 +1010,8 @@ window.hccAbrir=function(n,manter){
       (h.texto&&key?'<span class="chip"><button onclick="hccTransp('+n+',-1)" aria-label="Baixar meio tom">−</button><span class="lbl">Tom <b>'+e(key)+'</b></span><button onclick="hccTransp('+n+',1)" aria-label="Subir meio tom">+</button></span>':'')+
       (h.texto?'<button class="tog" id="tsc" aria-pressed="'+(_hccScroll?'true':'false')+'" onclick="hccScroll()">'+(_hccScroll?'⏸ Pausar rolagem':'▶ Rolagem')+'</button>':'')+
       '<button class="tog cc-part">📜 PARTITURA</button>'+
+      (h.youtube?'<a class="tog cc-yt-chip" href="'+e(ytLink(h.youtube))+'" target="_blank" rel="noopener">▶ Ouvir no YouTube</a>':'')+
+      (adm?'<button class="tog" onclick="hccYt('+n+')">'+(h.youtube?'✎ Link do YouTube':'🔗 Link do YouTube')+'</button>':'')+
       (adm?'<button class="tog hx-bt" onclick="editarHinoTexto()">✏️ Editar cifra</button>':'')+
     '</div>'+
     (h.texto? '<div class="cc-song" style="--cc-fs:'+hccFsVal()+'px"></div>' : corpo)+
@@ -1017,6 +1019,17 @@ window.hccAbrir=function(n,manter){
   c.innerHTML='<div class="page cc-page hcc-page" data-n="'+n+'">'+html+'</div>';
   if(!manter) window.scrollTo(0,0);
 };
+function ytLink(v){ v=String(v||'').trim(); const m=v.match(/(?:youtu\.be\/|v=|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/); if(m) return 'https://www.youtube.com/watch?v='+m[1]; if(/^[A-Za-z0-9_-]{11}$/.test(v)) return 'https://www.youtube.com/watch?v='+v; return /^https?:\/\//.test(v)? v : ''; }
+window.hccYt=function(n){ const h=hccHino(n);
+  abrirModal('<h3>🔗 Link do YouTube — HCC '+n+'</h3><p class="am-dica">Cole o link do vídeo no YouTube. Para tirar, apague e salve.</p><input id="hccYtIn" class="inp" placeholder="https://www.youtube.com/watch?v=…" value="'+e(h.youtube)+'">'+
+    '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" onclick="hccYtSalvar('+n+')">💾 Salvar</button></div>'); };
+window.hccYtSalvar=async function(n){ const v=((document.getElementById('hccYtIn')||{}).value||'').trim(); const url=v? ytLink(v) : '';
+  if(v && !url) return toast('Esse link não parece do YouTube.');
+  const r=(HCC_DB||{})[n]||{}; const h=hccHino(n);
+  const {error}=await sb.from('hcc_hinos').upsert({num:n,titulo:r.titulo||h.titulo,texto:r.texto||'',tom:r.tom||null,youtube:url||null,updated_at:new Date().toISOString()});
+  if(error) return toast('Não salvou: '+error.message+(/youtube|column/i.test(error.message)?' — rode o SQL-YOUTUBE-HCC.sql':''));
+  (HCC_DB=HCC_DB||{})[n]=Object.assign({},r,{num:n,titulo:r.titulo||h.titulo,youtube:url||null}); localStorage.setItem('ibnm_hcc',JSON.stringify(HCC_DB));
+  fecharModal(); toast(url?'✅ Link do YouTube salvo.':'Link do YouTube removido.'); hccAbrir(n,true); };
 window.hccDefinir=function(n,o){ (HCC_DB=HCC_DB||{})[n]=Object.assign({num:n},o); };
 window.hccSalvarTexto=async function(n){
   const texto=((document.getElementById('hxTxt')||{}).value||'').replace(/\r/g,'').replace(/\s+$/,'');
@@ -1855,8 +1868,9 @@ function padronizaHino(forca){
   if(song && !editando && !window.__modoLetra && song.classList.contains('nochords') && tc && !tc.dataset.auto){ tc.dataset.auto='1'; tc.click(); return; }
   if(tc) tc.style.display='none';
   /* tira o que não faz parte do padrão */
-  pg.querySelectorAll('.sl-acts, .cc-letbaix, .cc-yt-chip').forEach(x=>x.style.display='none');
-  tools.querySelectorAll('button, a').forEach(b=>{ if(/Tom original|YouTube/i.test(b.textContent)) b.style.display='none'; });
+  pg.querySelectorAll('.sl-acts, .cc-letbaix').forEach(x=>x.style.display='none');
+  tools.querySelectorAll('button, a').forEach(b=>{ if(/Tom original/i.test(b.textContent)) b.style.display='none';
+    if(/Link do YouTube/i.test(b.textContent)){ if(!adm) b.style.display='none'; else { const ga=tools.querySelector('.cc-ga'); if(ga && b.parentElement!==ga) ga.appendChild(b); } } });
   const chip=tools.querySelector('.chip'); if(chip){ if(!adm) chip.style.display='none'; else { chip.removeAttribute('hidden'); chip.style.display=''; } }
   /* partitura: abre a que houver; sem partitura → ADM sobe, usuário não vê nada */
   { const L=livroDe(harpa), k=L+':'+h.n; if(!PARTS[k] && !(LOCAIS[k]&&(LOCAIS[k].url||Date.now()-LOCAIS[k].t<6*3600e3))) sondaLocal(L,h.n).then(u=>{ if(u) padronizaHino(true); }); }

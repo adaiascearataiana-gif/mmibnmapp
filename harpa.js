@@ -65,7 +65,7 @@ function toggleFav(n){ const tinha=favs.has(n); if(tinha) favs.delete(n); else f
 loadFavs();
 
 /* ---------- links do YouTube (ADM grava; todos veem) ---------- */
-const YT_KEY='ibnm_cc_yt';
+const YT_KEY='ibnm_hr_yt';
 let ytLinks={};
 try{ ytLinks=JSON.parse(localStorage.getItem(YT_KEY)||'{}')||{}; }catch(e){ ytLinks={}; }
 function saveYt(){ try{ localStorage.setItem(YT_KEY, JSON.stringify(ytLinks)); }catch(e){} }
