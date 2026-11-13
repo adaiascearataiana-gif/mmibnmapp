@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.30.0)
+   MM IBNM — Extras (v1.30.1)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1871,6 +1871,10 @@ function padronizaHino(forca){
   pg.querySelectorAll('.sl-acts, .cc-letbaix').forEach(x=>x.style.display='none');
   tools.querySelectorAll('button, a').forEach(b=>{ if(/Tom original/i.test(b.textContent)) b.style.display='none';
     if(/Link do YouTube/i.test(b.textContent)){ if(!adm) b.style.display='none'; else { const ga=tools.querySelector('.cc-ga'); if(ga && b.parentElement!==ga) ga.appendChild(b); } } });
+  /* Harpa: o editor do link existe, mas o botão não aparecia — o ADM ganha o botão */
+  if(adm && harpa===true && window.harpaYtSheet && ![...tools.querySelectorAll('button')].some(b=>/Link do YouTube/i.test(b.textContent))){
+    const ga=tools.querySelector('.cc-ga')||tools; const tem=!!tools.querySelector('.cc-yt-chip');
+    ga.insertAdjacentHTML('beforeend','<button class="tog" onclick="harpaYtSheet('+h.n+')">'+(tem?'✎ Link do YouTube':'🔗 Link do YouTube')+'</button>'); }
   const chip=tools.querySelector('.chip'); if(chip){ if(!adm) chip.style.display='none'; else { chip.removeAttribute('hidden'); chip.style.display=''; } }
   /* partitura: abre a que houver; sem partitura → ADM sobe, usuário não vê nada */
   { const L=livroDe(harpa), k=L+':'+h.n; if(!PARTS[k] && !(LOCAIS[k]&&(LOCAIS[k].url||Date.now()-LOCAIS[k].t<6*3600e3))) sondaLocal(L,h.n).then(u=>{ if(u) padronizaHino(true); }); }
