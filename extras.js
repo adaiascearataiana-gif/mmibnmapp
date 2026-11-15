@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.32.1)
+   MM IBNM — Extras (v1.33.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1424,6 +1424,95 @@ window.escalaGravarCorrecao=async function(){
 .eed-mud div{padding:6px 0;border-bottom:1px solid #eef2ef}
 .eed-mud div:last-child{border:0}
 `; document.head.appendChild(st37); }
+
+/* ======================= 38) ⏳ CADASTRO COM APROVAÇÃO ======================= */
+/* Conta nova só vê os dados do Ministério depois que um ADM aprovar (regra no banco:
+   SQL-3-APROVACAO.sql). Enquanto espera, aparece esta tela. Sem o SQL, nada muda. */
+const escA=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+let _aprovIv=null;
+async function aprovChecar(){
+  try{
+    if(typeof sb==='undefined'||!sb||!sb.auth) return;
+    const {data:{session}}=await sb.auth.getSession(); if(!session) return;
+    const {data,error}=await sb.from('perfis').select('aprovado,admin,nome').eq('id',session.user.id).maybeSingle();
+    if(error||!data) return;                              /* sem a coluna (SQL não rodado): segue normal */
+    if(data.aprovado===false && !data.admin) aprovTela(data.nome||'', session.user.email||'');
+    else if(document.getElementById('aprovGate')){ document.getElementById('aprovGate').remove(); document.body.classList.remove('aprov-espera'); toast('✅ Cadastro aprovado! Carregando…'); setTimeout(()=>location.reload(),900); }
+  }catch(_){}
+}
+window.aprovChecar=aprovChecar;
+function aprovTela(nome,email){
+  document.body.classList.add('aprov-espera');
+  if(document.getElementById('aprovGate')) return;
+  const prim=String(nome).trim().split(' ')[0];
+  document.body.insertAdjacentHTML('beforeend','<div id="aprovGate" role="dialog" aria-modal="true" aria-labelledby="apTt"><div class="ap-card">'+
+    '<div class="ap-ic">⏳</div><h2 id="apTt">Cadastro enviado'+(prim?', '+escA(prim):'')+'!</h2>'+
+    '<p>Para proteger os dados dos membros, um <b>ADM do Ministério</b> precisa aprovar a sua conta. Depois disso você vê a escala, as músicas, o SETLIST e os avisos.</p>'+
+    '<p class="ap-mail">Conta: <b>'+escA(email)+'</b></p>'+
+    '<p class="ap-dica">Você recebe uma notificação quando for aprovado(a). Pode fechar o app e voltar depois.</p>'+
+    '<button class="btn btn-primary" id="apVer">🔄 Já fui aprovado? Verificar</button>'+
+    '<button class="btn btn-dark" id="apSair">Sair desta conta</button></div></div>');
+  document.getElementById('apVer').onclick=function(){ this.textContent='Verificando…'; aprovChecar().then(()=>{ const b=document.getElementById('apVer'); if(b){ b.textContent='🔄 Já fui aprovado? Verificar'; toast('Ainda aguardando a aprovação do ADM.'); } }); };
+  document.getElementById('apSair').onclick=function(){ try{ logout(); }catch(_){ location.reload(); } };
+  if(!_aprovIv) _aprovIv=setInterval(()=>{ if(document.getElementById('aprovGate')) aprovChecar(); },60000);
+}
+/* confere logo que a pessoa entra e sempre que o app volta para a tela */
+(function(){ let n=0; const iv=setInterval(()=>{ n++; if((typeof _sessaoId!=='undefined'&&_sessaoId)||n>40){ clearInterval(iv); aprovChecar(); } },700); })();
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && (document.getElementById('aprovGate')||Math.random()<.2)) aprovChecar(); });
+
+/* ----- Membros (ADM): lista de quem aguarda aprovação ----- */
+aoMudar(function(){
+  const pg=document.querySelector('.mb-page'); if(!pg||pg.querySelector('#aprovBox')) return;
+  const tt=pg.querySelector('.page-ttl'); if(!tt) return;
+  tt.insertAdjacentHTML('afterend','<div id="aprovBox" class="ap-box" hidden></div>');
+  aprovListar();
+});
+async function aprovListar(){
+  const box=document.getElementById('aprovBox'); if(!box||typeof sb==='undefined'||!sb) return;
+  try{
+    const {data,error}=await sb.from('perfis').select('*').eq('aprovado',false);
+    if(error||!data||!data.length){ box.hidden=true; box.innerHTML=''; return; }
+    window.__aprovPend=data;
+    const fun=p=>[].concat(p.vocal||[],p.instr||[]).join(', ');
+    box.hidden=false;
+    box.innerHTML='<div class="ap-tt">📝 Aguardando aprovação <span>'+data.length+'</span></div>'+
+      '<p class="ap-sub">Só aprove quem você conhece. Até lá, a pessoa não vê nenhum dado do Ministério.</p>'+
+      data.map(p=>'<div class="ap-it"><div class="ap-dd"><b>'+escA(p.nome||'(sem nome)')+'</b><small>'+escA(p.email||'')+(p.tel?' · '+escA(p.tel):'')+(fun(p)?' · '+escA(fun(p)):'')+'</small></div>'+
+        '<div class="ap-bts"><button class="ap-ok" onclick="aprovMembro(\''+escA(p.id)+'\',true)">✅ Aprovar</button><button class="ap-no" onclick="aprovMembro(\''+escA(p.id)+'\',false)">✕ Recusar</button></div></div>').join('');
+  }catch(_){ box.hidden=true; }
+}
+window.aprovMembro=async function(id,ok){
+  const p=(window.__aprovPend||[]).find(x=>x.id===id)||{}; const nm=p.nome||p.email||'esta pessoa';
+  if(!ok && !confirm('Recusar o cadastro de '+nm+'?\n\nA conta será apagada e a pessoa não terá acesso ao app.')) return;
+  const {error}=await sb.rpc('aprovar_membro',{p_id:id,p_aprovar:!!ok});
+  if(error) return toast('❌ '+(error.message||error));
+  toast(ok? '✅ '+nm+' aprovado(a). A pessoa recebeu um aviso.' : 'Cadastro de '+nm+' recusado e apagado.');
+  aprovListar(); try{ if(typeof cloudPerfis==='function'){ await cloudPerfis(); if(typeof _viewAtual==='function'&&!document.querySelector('.modal-bg.show')) _viewAtual(); } }catch(_){}
+};
+{ const st38=document.createElement('style'); st38.textContent=`
+#aprovGate{position:fixed;inset:0;z-index:13000;background:linear-gradient(160deg,#0f3d2e,#1b6b4f);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}
+#aprovGate .ap-card{background:#fff;border-radius:22px;max-width:420px;width:100%;padding:26px 22px;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.3)}
+#aprovGate .ap-ic{font-size:54px;line-height:1;margin-bottom:8px}
+#aprovGate h2{margin:0 0 10px;color:#0f3d2e;font-size:22px}
+#aprovGate p{color:#3a4a44;font-size:15px;line-height:1.5;margin:0 0 10px}
+#aprovGate .ap-mail{background:#f1f6f3;border-radius:10px;padding:8px;font-size:14px;word-break:break-all}
+#aprovGate .ap-dica{font-size:13.5px;color:#5c6b65}
+#aprovGate .btn{display:block;width:100%;margin-top:10px}
+body.aprov-espera .av-bg,body.aprov-espera #bvScreen,body.aprov-espera #cadGate,body.aprov-espera #tourBox{display:none!important}
+body.aprov-espera .toast{z-index:13050!important}
+.ap-box{background:#fff8e6;border:1.5px solid #f0c24b;border-radius:16px;padding:12px 14px;margin:0 0 14px}
+.ap-tt{font-weight:800;color:#7a5200;font-size:16px;display:flex;align-items:center;gap:8px}
+.ap-tt span{background:#e0a400;color:#fff;border-radius:20px;padding:1px 9px;font-size:13px}
+.ap-sub{margin:4px 0 8px;font-size:13px;color:#7a6a40}
+.ap-it{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between;background:#fff;border-radius:12px;padding:10px 12px;margin-top:8px;border:1px solid #f3e2b0}
+.ap-dd{min-width:0;flex:1 1 200px}
+.ap-dd b{display:block;color:#1d2b26}
+.ap-dd small{color:#5c6b65;word-break:break-word}
+.ap-bts{display:flex;gap:8px}
+.ap-bts button{border:0;border-radius:10px;padding:9px 12px;font-weight:800;font-size:14px;cursor:pointer}
+.ap-ok{background:#1b6b4f;color:#fff}
+.ap-no{background:#fdecea;color:#b3261e}
+`; document.head.appendChild(st38); }
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
