@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.33.1)
+   MM IBNM — Extras (v1.34.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1528,6 +1528,97 @@ window.salvarConfig=async function(chave,valor){
   toast('❌ Não salvou: '+msg);
   throw new Error(msg);
 };
+
+/* ======================= 40) 🎨 TELA DA MÚSICA ORGANIZADA ======================= */
+/* Em toda música: botões em grade colorida (sem espaços vazios), ferramentas da cifra numa barra
+   compacta e as ações de ADM numa linha própria. Remove os botões repetidos. Cabe na tela do celular. */
+const MX=[ /* [seletor, chave, rótulo curto, ordem] */
+  ['button[onclick^="enviarPraPlaylist"]','sl','➕ SETLIST',1],
+  ['button[onclick^="projetar("]','pj','📺 Projetar',2],
+  ['button[onclick^="fixarTomAtual"]','tc','📌 Tom do culto',3],
+  ['button[onclick^="abrirFerramentas"]','mt','🎛 Metrônomo',4],
+  ['button[onclick^="musWhats"]','wa','📱 WhatsApp',5],
+  ['a.yt-btn','yt','▶ YouTube',6]
+];
+const MXA=[
+  ['button[onclick^="editorCifra"]','ed','✏️ Editar cifra',1],
+  ['button[onclick^="excluirMusicaCifra"]','xc','🗑️ Excluir cifra',2],
+  ['button[onclick^="excluirMusicaInteira"]','xm','🗑️ Excluir música',3]
+];
+function mxCaixa(pg,cls,depois){ let b=pg.querySelector(':scope > .'+cls.split(' ')[0]); if(!b){ b=document.createElement('div'); b.className=cls; depois.after(b); } else if(b.previousElementSibling!==depois) depois.after(b); return b; }
+function mxPoe(el,caixa,k,rot,ord){
+  if(!el) return;
+  if(el.dataset.mx!==k){ el.dataset.mx=k; el.dataset.ord=ord; }
+  el.classList.add('mx-b','mx-'+k); el.removeAttribute('style');
+  if(rot && el.textContent!==rot) el.textContent=rot;
+  if(el.parentElement!==caixa){ caixa.appendChild(el); }
+}
+function mxOrdena(caixa){ const f=[...caixa.children]; const o=f.slice().sort((a,b)=>(+a.dataset.ord||99)-(+b.dataset.ord||99)); if(o.some((x,i)=>x!==f[i])) o.forEach(x=>caixa.appendChild(x)); }
+function arrumaMusica(){
+  const pg=document.querySelector('#content > .page'); if(!pg) return;
+  const head=pg.querySelector(':scope > .song-head'), tabs=pg.querySelector(':scope > .tabs3');
+  if(!head||!tabs) return;
+  /* abas logo depois da navegação do culto */
+  const nav=pg.querySelector(':scope > .sl-nav'); const ref=nav||head;
+  if(tabs.previousElementSibling!==ref) ref.after(tabs);
+  const ac=mxCaixa(pg,'mx-acoes',tabs);
+  /* botões repetidos: Projetar (fica 1) e Partitura (já é aba) */
+  const pjs=[...pg.querySelectorAll('button[onclick^="projetar("]')].filter(b=>!b.closest('.mx-acoes'));
+  const pjOk=ac.querySelector('.mx-pj');
+  pjs.forEach((b,i)=>{ if(pjOk||i>0) b.classList.add('mx-oculto'); });
+  MX.forEach(([sel,k,rot,o])=>{ if(k==='pj'){ if(!pjOk && pjs[0]) mxPoe(pjs[0],ac,k,rot,o); return; }
+    const el=[...pg.querySelectorAll(sel)].find(x=>!x.closest('.mx-acoes')&&!x.classList.contains('mx-oculto')); if(el) mxPoe(el,ac,k,rot,o); });
+  pg.querySelectorAll(':scope > button.mini-btn[onclick^="abrirPartitura"]').forEach(b=>b.classList.add('mx-oculto'));
+  mxOrdena(ac);
+  /* ferramentas da cifra (tamanho, tom, rolagem, PDF) logo abaixo */
+  const zb=pg.querySelector(':scope > .zoom-bar');
+  let ultimo=ac;
+  if(zb){ zb.classList.add('mx-tools'); if(ac.nextElementSibling!==zb) ac.after(zb); ultimo=zb;
+    const r=zb.querySelector('button.rst[onclick^="zoomView(0)"]'); if(r && r.textContent!=='↺'){ r.textContent='↺'; r.title='Tamanho normal'; } }
+  /* ADM: editar e excluir numa linha só */
+  if(MXA.some(([sel])=>pg.querySelector(sel))){
+    const ad=mxCaixa(pg,'mx-adm mm-acoes',ultimo);
+    MXA.forEach(([sel,k,rot,o])=>mxPoe([...pg.querySelectorAll(sel)].find(x=>!x.closest('.mx-adm')) || ad.querySelector(sel),ad,k,rot,o));
+    mxOrdena(ad);
+  }
+  /* sobras vazias */
+  pg.querySelectorAll(':scope > .yt-corner, :scope > div:not([class]):not([id])').forEach(d=>{ if(!d.querySelector('a,button,input,select,img,iframe,audio')) d.remove(); });
+  const sa=pg.querySelector(':scope > .sl-acts'); if(sa && ![...sa.children].some(x=>!x.classList.contains('mx-oculto'))) sa.classList.add('mx-vazio');
+}
+aoMudar(arrumaMusica);
+{ const st40=document.createElement('style'); st40.textContent=`
+#content .page > .song-head{margin-bottom:10px}
+#content .page > .sl-nav{margin:0 0 10px}
+#content .page > .tabs3{margin:0 0 10px}
+.sl-acts.mx-vazio,.mx-oculto{display:none!important}
+.mx-acoes,.mx-adm{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin:0 0 10px;width:100%;box-sizing:border-box}
+.mx-acoes .mx-b,.mx-adm .mx-b{margin:0!important;min-width:0;min-height:44px;padding:8px 6px!important;border-radius:12px!important;border:0!important;
+  font-size:14px!important;font-weight:800!important;line-height:1.15;white-space:normal;text-align:center;display:flex;align-items:center;justify-content:center;
+  color:#fff!important;text-decoration:none!important;box-shadow:0 2px 6px rgba(0,0,0,.12);box-sizing:border-box;cursor:pointer;word-break:break-word}
+.mx-acoes .mx-b.mx-sl{background:#1b6b4f!important}
+.mx-acoes .mx-b.mx-pj{background:#3949ab!important}
+.mx-acoes .mx-b.mx-tc{background:#f2b705!important;color:#3b2a00!important}
+.mx-acoes .mx-b.mx-mt{background:#7b1fa2!important}
+.mx-acoes .mx-b.mx-wa{background:#1fa855!important}
+.mx-acoes .mx-b.mx-yt{background:#e53935!important}
+.mx-adm{grid-template-columns:repeat(3,minmax(0,1fr))}
+.mx-adm .mx-b{min-height:40px;font-size:13px!important;box-shadow:none}
+.mx-adm .mx-b.mx-ed{background:#ef6c00!important}
+.mx-adm .mx-b.mx-xc{background:#fdecea!important;color:#b3261e!important;border:1.5px solid #f3b8b2!important}
+.mx-adm .mx-b.mx-xm{background:#c62828!important;color:#fff!important;border:0!important}
+.zoom-bar.mx-tools{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;padding:8px;border-radius:14px;background:#fff;border:1px solid #dfe9e4;box-shadow:0 1px 4px rgba(0,0,0,.05);width:100%;box-sizing:border-box;max-width:100%}
+.zoom-bar.mx-tools .zh{display:none}
+.zoom-bar.mx-tools > button{margin:0!important;min-width:40px;height:38px;padding:0 10px;border-radius:10px;font-weight:800;font-size:14px;border:0;background:#dbe7f5;color:#1d3a5f;flex:0 0 auto}
+.zoom-bar.mx-tools > button.rst{background:#e6e9ee;color:#45505c}
+.zoom-bar.mx-tools .mm-tom{margin:0;height:38px;background:#fff6d6;border:1.5px solid #f0c24b;border-radius:10px;display:inline-flex;align-items:center;flex:0 1 auto;min-width:0}
+.zoom-bar.mx-tools .mm-tom > button{height:34px;min-width:34px;border:0;background:transparent;font-size:18px;font-weight:800;color:#7a5200}
+.zoom-bar.mx-tools > #musRolBtn{background:#00897b!important;color:#fff!important;border:0!important}
+.zoom-bar.mx-tools > #btPdfCifra{background:#d84315!important;color:#fff!important;border:0!important}
+[data-theme=dark] .zoom-bar.mx-tools{background:#1f2a26;border-color:#2e3d37}
+[data-theme=dark] .zoom-bar.mx-tools > button{background:#2c3b52;color:#e3ecf7}
+[data-theme=dark] .zoom-bar.mx-tools .mm-tom{background:#3a3214}
+[data-theme=dark] .zoom-bar.mx-tools .mm-tom > button{color:#ffd76a}
+`; document.head.appendChild(st40); }
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
