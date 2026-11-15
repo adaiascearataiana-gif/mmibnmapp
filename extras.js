@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.33.0)
+   MM IBNM — Extras (v1.33.1)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1513,6 +1513,21 @@ body.aprov-espera .toast{z-index:13050!important}
 .ap-ok{background:#1b6b4f;color:#fff}
 .ap-no{background:#fdecea;color:#b3261e}
 `; document.head.appendChild(st38); }
+
+/* ======================= 39) 💾 SALVAR CONFIG MOSTRA O ERRO DO BANCO ======================= */
+/* Antes, se o banco recusasse (sem permissão), o app dizia que salvou e o SETLIST sumia depois. */
+window.salvarConfig=async function(chave,valor){
+  const tinha=Object.prototype.hasOwnProperty.call(APP_CFG,chave), antes=APP_CFG[chave];
+  APP_CFG[chave]=valor;
+  let error=null;
+  try{ const r=await sb.from('config').upsert({chave,valor,updated_at:new Date().toISOString()}); error=r&&r.error; }catch(e){ error=e; }
+  if(!error) return true;
+  if(tinha) APP_CFG[chave]=antes; else delete APP_CFG[chave];
+  const m=String(error.message||error);
+  const msg=/row-level security|permission|42501/i.test(m)? 'o banco não deixou salvar (sem permissão). Saia e entre de novo; se continuar, abra Painel → 🩺 Diagnóstico.' : m;
+  toast('❌ Não salvou: '+msg);
+  throw new Error(msg);
+};
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
