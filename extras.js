@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.32.0)
+   MM IBNM — Extras (v1.32.1)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1367,12 +1367,20 @@ function acertaSemana(linhas,cols,W){
   const livres=EV_PADRAO.map(p=>p.k); const tipos=linhas.map(l=>tipoLinha(l,cols));
   tipos.forEach(t=>{ const i=livres.indexOf(t); if(i>=0) livres.splice(i,1); });
   const cd=colunaEscala(cols,/data/i);
-  const ord=linhas.map((l,i)=>{ let t=tipos[i];
-    if(!t){ const d=cd? lerDataBR((l.celulas||{})[cd]) : null; if(d&&d.getDay()===3&&livres.includes('qua')) t='qua'; else if(livres.length) t=livres[0]; else t=(d&&d.getDay()===3)?'qua':'noite';
-      const j=livres.indexOf(t); if(j>=0) livres.splice(j,1); }
-    const p=EV_PADRAO.find(x=>x.k===t); l.celulas=l.celulas||{}; preencheLinha(l.celulas,cols,p,W);
+  const cdia=colunaEscala(cols,/^dia/i), cev=colunaEscala(cols,/evento|culto|programa/i);
+  const DIAS=['DOMINGO','SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA','SÁBADO'];
+  const ord=linhas.map((l,i)=>{ let t=tipos[i]; l.celulas=l.celulas||{};
     l.periodoInicio=W.seg+'T00:01:00'; l.periodoFim=W.dom+'T23:59:00';
-    return {l,o:EV_PADRAO.indexOf(p)*100+i}; });
+    const d=cd? lerDataBR(l.celulas[cd]) : null; const temNome=cev&&String(l.celulas[cev]||'').trim();
+    /* evento extra (VIGÍLIA, ANIVERSÁRIO…): fica no mesmo dia da semana em que foi cadastrado */
+    if(!t && d && (temNome || d.getDay()!==3 && d.getDay()!==0)){
+      const off=(d.getDay()+6)%7; const iso=isoD(diaMais(isoParaData(W.seg),off));
+      l.celulas[cd]=escreveData(iso,formatoData(cols)); if(cdia&&String(l.celulas[cdia]||'').trim()) l.celulas[cdia]=DIAS[d.getDay()];
+      return {l,o:off*1000+i}; }
+    if(!t){ if(d&&d.getDay()===3&&livres.includes('qua')) t='qua'; else if(livres.length) t=livres[0]; else t=(d&&d.getDay()===3)?'qua':'noite';
+      const j=livres.indexOf(t); if(j>=0) livres.splice(j,1); }
+    const p=EV_PADRAO.find(x=>x.k===t); preencheLinha(l.celulas,cols,p,W);
+    return {l,o:p.off*1000+EV_PADRAO.indexOf(p)*100+i}; });
   return ord.sort((a,b)=>a.o-b.o).map(x=>x.l); }
 /* nova semana já com QUARTA-FEIRA, EBD e CULTO DA NOITE */
 window.escalaNovaSemana=function(){
