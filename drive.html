@@ -1,22 +1,55 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Google Drive — MM IBNM</title>
-<style>body{margin:0;font-family:system-ui,sans-serif;background:#0e4a37;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center}p{font-size:17px}</style>
-</head><body><p id="m">Conectando o Google Drive…</p>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;background:#0e4a37;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:20px;box-sizing:border-box}
+.c{max-width:420px}p{font-size:17px;line-height:1.45}small{opacity:.85}
+.err{background:#fff;color:#7a1a12;border-radius:14px;padding:14px;margin:14px 0;font-size:15px;text-align:left;word-break:break-word}
+a.b{display:inline-block;margin-top:10px;background:#f2b705;color:#2b1f00;font-weight:800;text-decoration:none;padding:12px 20px;border-radius:12px;font-size:16px}
+</style>
+</head><body><div class="c" id="m"><p>Conectando o Google Drive…</p></div>
 <script>
-/* Retorno do login do Google Drive: guarda a permissão e volta para o app (sem tela preta). */
+/* Retorno do login do Google Drive (v2): guarda a permissão e volta para o app.
+   Se der erro, MOSTRA o motivo e um botão para voltar (não some sozinho). */
 (function(){
-  var p=new URLSearchParams((location.hash||'').slice(1)), salvo={};
-  try{ salvo=JSON.parse(sessionStorage.getItem('ibnm_drv_state')||localStorage.getItem('ibnm_drv_state')||'{}'); }catch(e){}
-  if(salvo.t && Date.now()-salvo.t>15*60*1000) salvo={};   /* pedido com mais de 15 min: inválido */
-  var r={ok:false,rota:salvo.rota||''};
-  if(p.get('access_token') && salvo.st && p.get('state')===salvo.st){
+  var p=new URLSearchParams((location.hash||'').slice(1)), q=new URLSearchParams(location.search);
+  var st=p.get('state')||q.get('state')||'', salvo=null, lista=[];
+  try{ lista=JSON.parse(localStorage.getItem('ibnm_drv_states')||'[]'); }catch(e){}
+  try{ var um=JSON.parse(sessionStorage.getItem('ibnm_drv_state')||localStorage.getItem('ibnm_drv_state')||'null'); if(um) lista.push(um); }catch(e){}
+  for(var i=0;i<lista.length;i++){ if(lista[i] && lista[i].st===st && Date.now()-lista[i].t<15*60*1000){ salvo=lista[i]; break; } }
+  var r={ok:false,rota:(salvo&&salvo.rota)||''}, tok=p.get('access_token');
+  var M={access_denied:'você não autorizou (ou cancelou) na tela do Google',
+         invalid_request:'o pedido ao Google veio incompleto',
+         unauthorized_client:'este endereço não está autorizado no Client ID do Google',
+         redirect_uri_mismatch:'o endereço de retorno não está cadastrado no Google Cloud',
+         disallowed_useragent:'o Google não aceita login dentro deste aplicativo (abra pelo Chrome)',
+         interaction_required:'o Google precisa que você escolha a conta',
+         login_required:'é preciso entrar na conta Google',
+         consent_required:'é preciso aceitar a permissão do Drive'};
+  if(tok && salvo){
     var exp=Date.now()+(+(p.get('expires_in')||3600))*1000;
-    try{ localStorage.setItem('ibnm_drive_tok',JSON.stringify({tok:p.get('access_token'),exp:exp})); localStorage.setItem('ibnm_drive_ok','1'); }catch(e){}
+    try{ localStorage.setItem('ibnm_drive_tok',JSON.stringify({tok:tok,exp:exp})); localStorage.setItem('ibnm_drive_ok','1'); localStorage.removeItem('ibnm_drive_falhou'); }catch(e){}
     r.ok=true;
-  } else { r.erro=p.get('error')||(salvo.st?'resposta inválida':'sessão expirada'); }
-  try{ sessionStorage.removeItem('ibnm_drv_state'); localStorage.removeItem('ibnm_drv_state'); localStorage.setItem('ibnm_drive_retorno',JSON.stringify(r)); }catch(e){}
-  document.getElementById('m').innerHTML=r.ok?'✅ Google Drive conectado.<br><small>Voltando para o app… (se continuar aqui, feche esta tela e volte ao app)</small>':'Não foi possível conectar.<br><small>Feche esta tela e tente de novo no app.</small>';
-  setTimeout(function(){ try{ window.close(); }catch(e){} location.replace('./'); },900);
+  } else {
+    var cod=p.get('error')||q.get('error')||'';
+    r.erro= cod? (M[cod]||cod) : (tok? 'o pedido expirou ou veio de outra janela — tente de novo' : 'o Google não devolveu a permissão');
+    try{ localStorage.setItem('ibnm_drive_falhou','1'); }catch(e){}
+  }
+  try{ localStorage.removeItem('ibnm_drv_state'); sessionStorage.removeItem('ibnm_drv_state'); localStorage.removeItem('ibnm_drv_states'); localStorage.setItem('ibnm_drive_retorno',JSON.stringify(r)); }catch(e){}
+  var volta='./';
+  function vai(){ try{ window.close(); }catch(e){} location.replace(volta); }
+  if(r.ok){
+    document.getElementById('m').innerHTML='<p>✅ Google Drive conectado.<br><small>Voltando para o app…</small></p>';
+    /* descobre qual conta Google foi usada (para sugerir a mesma da próxima vez) */
+    var feito=false, fim=function(){ if(feito) return; feito=true; vai(); };
+    try{ fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)',{headers:{Authorization:'Bearer '+tok}})
+      .then(function(x){ return x.json(); }).then(function(j){ var em=j&&j.user&&j.user.emailAddress; if(em) localStorage.setItem('ibnm_drive_email',String(em).toLowerCase()); }).catch(function(){}).then(fim); }catch(e){ fim(); }
+    setTimeout(fim,2500);
+  } else {
+    document.getElementById('m').innerHTML='<p>❌ O Google Drive não foi conectado.</p><div class="err"><b>Motivo:</b> '+String(r.erro).replace(/</g,'&lt;')+
+      (p.get('error_description')?'<br><small>'+String(p.get('error_description')).replace(/</g,'&lt;')+'</small>':'')+'</div>'+
+      '<p><small>Volte ao app e toque em <b>🔗 Conectar Google Drive</b> de novo. Na tela do Google, escolha a conta <b>Google (gmail)</b> do Ministério.</small></p>'+
+      '<a class="b" href="./" onclick="event.preventDefault();location.replace(\'./\')">Voltar ao app</a>';
+  }
 })();
 </script></body></html>

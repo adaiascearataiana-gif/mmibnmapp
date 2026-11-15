@@ -1,5 +1,5 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v134';
+const CACHE = 'mmibnm-v135';
 const CORE = [
   './',
   './index.html',
@@ -76,7 +76,7 @@ self.addEventListener('fetch', function (e) {
     e.respondWith(
       fetch(req, { cache: 'no-cache' }).then(function (r) {
         const cp = r.clone();
-        caches.open(CACHE).then(function (c) { c.put('./index.html', cp); });
+        if (/\/(index\.html)?$/.test(url.pathname)) caches.open(CACHE).then(function (c) { c.put('./index.html', cp); });   /* só a tela do app (não a do Drive) */
         return r;
       }).catch(function () { return caches.match('./index.html'); })
     );
