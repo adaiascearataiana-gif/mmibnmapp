@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.31.1)
+   MM IBNM — Extras (v1.32.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1204,9 +1204,12 @@ window.editarEscala=function(){
   const W=semanasEscala(); const hoje=new Date().toISOString().slice(0,10);
   if(!W.length) return toast('Ainda não há escala. Importe a planilha primeiro.');
   const E=DB.escala;
-  abrirModal('<h3>✏️ Editar escala — escolha a semana</h3><div class="eed-sem">'+W.map(w=>{ const [ini,fim]=w.k.split('|'); const sd=ini==='sem'; const atual=!sd&&ini<=hoje&&hoje<=fim;
+  abrirModal('<h3>✏️ Editar escala — escolha a semana</h3>'+
+    '<div class="eed-topbtns"><button class="mini-btn" onclick="escalaNovaSemana()">➕ Montar a próxima semana</button><button class="mini-btn" onclick="escalaConferirDatas()">📅 Conferir as datas</button></div>'+
+    '<p class="eed-dica" style="margin:0 0 10px">Semana padrão: <b>Quarta-feira</b> · <b>EBD</b> (domingo de manhã) · <b>Culto da noite</b> (domingo) — as mesmas datas do SETLIST.</p>'+
+    '<div class="eed-sem">'+W.map(w=>{ const [ini,fim]=w.k.split('|'); const sd=ini==='sem'; const atual=!sd&&ini<=hoje&&hoje<=fim;
     const ev=w.idx.map(i=>e(resumoCulto(E.linhas[i],E.colunas||[]))).join('<br>');
-    return '<div class="eed-card'+(atual?' atual':'')+'"><div><b>'+(sd?'Sem data':fmtD(ini)+' a '+fmtD(fim))+(atual?' <span>esta semana</span>':'')+'</b><small>'+ev+'</small></div><button class="mini-btn" onclick="escalaEditarSemana(\''+w.k+'\')">✏️ Editar</button></div>'; }).join('')+'</div>'+
+    return '<div class="eed-card'+(atual?' atual':'')+'"><div><b>'+(sd?'Sem data':'Quarta '+fmtD(isoD(diaMais(isoParaData(ini),2)))+' · Domingo '+fmtD(fim))+(atual?' <span>esta semana</span>':'')+'</b><small>'+ev+'</small></div><button class="mini-btn" onclick="escalaEditarSemana(\''+w.k+'\')">✏️ Editar</button></div>'; }).join('')+'</div>'+
     '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button></div>');
   const mb=document.getElementById('modalBox'); if(mb) mb.classList.add('mx-grande');
   setTimeout(()=>{ const a=document.querySelector('.eed-card.atual'); if(a) a.scrollIntoView({block:'center'}); },60);
@@ -1229,7 +1232,9 @@ function desenhaEdEscala(){
     return '<div class="eed-culto"><div class="eed-cab"><span class="eed-n">'+(j+1)+'</span><div class="eed-tt"><b>'+e(tit)+'</b><small>'+e((cev&&c[cev])||'')+'</small></div><button class="eed-x" onclick="escalaTiraCulto('+j+')" aria-label="Remover este culto" title="Remover este culto">🗑</button></div>'+
       '<div class="eed-grid eed-fixas">'+fixas.map(x=>campo(l,j,x,'fx')).join('')+'</div>'+
       '<div class="eed-sub">Equipe</div><div class="eed-grid">'+funcoes.map(x=>campo(l,j,x,'fn')).join('')+'</div></div>'; }).join('');
-  abrirModal('<div class="eed-topo"><h3>✏️ Escala da semana</h3><div class="eed-per"><label><span>📅 Início</span><input type="date" class="eed-in" id="escIni" value="'+ini+'"></label><label><span>📅 Fim</span><input type="date" class="eed-in" id="escFim" value="'+fim+'"></label></div>'+
+  const _qua=isoD(diaMais(segDe(isoParaData(ini)),2)), _dom=isoD(diaMais(segDe(isoParaData(ini)),6));
+  abrirModal('<div class="eed-topo"><h3>✏️ Escala da semana</h3><div class="eed-per"><label><span>📅 Quarta-feira</span><input type="date" class="eed-in" id="escQua" value="'+_qua+'" onchange="escalaMudaQuarta()"></label><label><span>📅 Domingo (EBD e noite)</span><input type="date" class="eed-in" id="escDom" value="'+_dom+'" disabled></label></div>'+
+    '<button class="eed-acertar" onclick="escalaAcertarDatas()">📅 Acertar as datas desta semana (quarta · EBD · culto da noite)</button>'+
     '<p class="eed-dica">💡 Nos campos da equipe, comece a digitar e toque no nome sugerido. Para mais de um nome, separe com vírgula ou barra.</p></div>'+
     '<div id="escForm" class="eed-lista">'+form+'</div><button class="eed-novo" onclick="escalaNovoCulto()">＋ Adicionar culto nesta semana</button>'+
     '<div class="modal-acts eed-acoes"><button class="btn btn-dark" onclick="editarEscala()">Cancelar</button><button class="btn btn-primary" onclick="escalaSalvar()">💾 Salvar</button></div>');
@@ -1241,8 +1246,15 @@ function desenhaEdEscala(){
       ch.innerHTML=nomes.length>1? nomes.map(n=>'<span>'+e(n)+'</span>').join('') : ''; };
     ta.addEventListener('input',upd); ta.addEventListener('keydown',ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); } }); setTimeout(upd,0); });
 }
+function semanaDoForm(){ const q=(document.getElementById('escQua')||{}).value; return __semanaIBNM(isoParaData(q)||new Date()); }
+window.escalaMudaQuarta=function(){ lerFormEscala(); const W=semanaDoForm(); _ESC.chave=W.seg+'|'+W.dom; const d=document.getElementById('escDom'); if(d) d.value=W.dom; };
+window.escalaAcertarDatas=function(){ lerFormEscala(); const W=semanaDoForm(); const cols=DB.escala.colunas||[];
+  _ESC.chave=W.seg+'|'+W.dom; _ESC.linhas=acertaSemana(_ESC.linhas,cols,W); desenhaEdEscala(); toast('📅 Datas acertadas — confira e toque em Salvar.'); };
 function lerFormEscala(){ document.querySelectorAll('#escForm .eed-in').forEach(inp=>{ const l=_ESC.linhas[+inp.dataset.j]; if(!l) return; l.celulas=l.celulas||{}; l.celulas[inp.dataset.c]=inp.value.trim(); }); }
-window.escalaNovoCulto=function(){ lerFormEscala(); const ini=(document.getElementById('escIni')||{}).value||'', fim=(document.getElementById('escFim')||{}).value||''; const cel={}; (DB.escala.colunas||[]).forEach(c=>cel[c]=''); _ESC.linhas.push({periodoInicio:ini+'T00:01:00',periodoFim:fim+'T23:59:00',celulas:cel}); desenhaEdEscala(); };
+window.escalaNovoCulto=function(){ lerFormEscala(); const W=semanaDoForm(); const cols=DB.escala.colunas||[]; const cel={}; cols.forEach(c=>cel[c]='');
+  const tem=new Set(_ESC.linhas.map(l=>tipoLinha(l,cols)).filter(Boolean)); const p=EV_PADRAO.find(x=>!tem.has(x.k));
+  if(p) preencheLinha(cel,cols,p,W);
+  _ESC.linhas.push({periodoInicio:W.seg+'T00:01:00',periodoFim:W.dom+'T23:59:00',celulas:cel}); desenhaEdEscala(); };
 window.escalaTiraCulto=function(j){ lerFormEscala(); if(!confirm('Remover este culto da escala?')) return; _ESC.linhas.splice(j,1); desenhaEdEscala(); };
 /* sugestões de nomes enquanto digita */
 function ligaSugestoes(){
@@ -1270,8 +1282,8 @@ function ligaSugestoes(){
 function fechaSug(){ document.querySelectorAll('.eed-sug').forEach(x=>x.remove()); }
 window.escalaSalvar=async function(){
   lerFormEscala();
-  const ini=(document.getElementById('escIni')||{}).value, fim=(document.getElementById('escFim')||{}).value;
-  if(!ini||!fim||fim<ini){ ['escIni','escFim'].forEach(id=>{ const x=document.getElementById(id); if(x) x.style.borderColor='#c0392b'; }); return toast('Confira as datas de início e fim da semana.'); }
+  const _q=(document.getElementById('escQua')||{}).value; if(!_q){ const x=document.getElementById('escQua'); if(x) x.style.borderColor='#c0392b'; return toast('Escolha a data da quarta-feira da semana.'); }
+  const _W=__semanaIBNM(isoParaData(_q)); const ini=_W.seg, fim=_W.dom;
   const E=DB.escala, cols=E.colunas||[];
   /* cada culto fica na semana da sua própria Data; sem data legível, usa as datas acima */
   _ESC.linhas.forEach(l=>{ const k=semanaDaLinha({celulas:l.celulas},cols); if(!k.startsWith('sem|')){ const [a,b]=k.split('|'); l.periodoInicio=a+'T00:01:00'; l.periodoFim=b+'T23:59:00'; } else { l.periodoInicio=ini+'T00:01:00'; l.periodoFim=fim+'T23:59:00'; } });
@@ -1296,6 +1308,114 @@ function botaoEditarEscala(){
   b.insertAdjacentHTML('afterend','<button id="btEdEscala" class="mini-btn" style="margin:0 0 14px 8px" onclick="editarEscala()">✏️ Editar escala</button>');
 }
 aoMudar(botaoEditarEscala);
+
+/* ======================= 37) 📅 SEMANA PADRÃO: QUARTA-FEIRA · EBD · CULTO DA NOITE ======================= */
+/* O SETLIST e a Escala usam as MESMAS datas: começa na quarta; EBD e culto da noite no domingo. */
+const EV_PADRAO=[{k:'qua',nome:'QUARTA-FEIRA',dia:'QUARTA',off:2},{k:'ebd',nome:'EBD',dia:'DOMINGO',off:6},{k:'noite',nome:'CULTO DA NOITE',dia:'DOMINGO',off:6}];
+const MAIUS=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();
+function tipoEvento(nome){ const n=MAIUS(nome);
+  if(/QUARTA/.test(n)) return 'qua';
+  if(/\bEBD\b|ESCOLA BIBLICA|MANHA/.test(n)) return 'ebd';
+  if(/NOITE/.test(n)) return 'noite';
+  return ''; }
+function segDe(dt){ const x=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; }
+function diaMais(dt,n){ const x=new Date(dt); x.setDate(x.getDate()+n); return x; }
+function isoParaData(iso){ const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m? new Date(+m[1],+m[2]-1,+m[3]) : null; }
+window.__semanaIBNM=function(ref){ const s=segDe(ref||new Date()); return {seg:isoD(s), qua:isoD(diaMais(s,2)), dom:isoD(diaMais(s,6))}; };
+/* SETLIST (esta semana / próxima): sempre QUARTA-FEIRA, EBD e CULTO DA NOITE com as datas certas.
+   As músicas de cada evento continuam; outros eventos (ANIVERSÁRIO…) ficam depois. */
+window.__slSemanaPadrao=function(evs,prox,sl){
+  evs=Array.isArray(evs)? evs : [];
+  const ch=String((sl&&sl.chave)||'');
+  let ref=new Date(); if(ch.indexOf('slq_')===0 && isoParaData(sl.inicio)) ref=isoParaData(sl.inicio); else if(prox) ref=diaMais(ref,7);
+  const W=__semanaIBNM(ref);
+  const uid=()=>'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const usados=new Set(), slot={};
+  evs.forEach((ev,i)=>{ const t=tipoEvento(ev&&ev.nome); if(t&&!slot[t]){ slot[t]=ev; usados.add(i); } });
+  evs.forEach((ev,i)=>{ if(usados.has(i)||!ev) return; const d=isoParaData(ev.data); const n=MAIUS(ev.nome).trim();
+    if(!slot.qua && d && d.getDay()===3){ slot.qua=ev; usados.add(i); return; }
+    if(!slot.noite && (/^CULTO\b/.test(n)||!n)){ slot.noite=ev; usados.add(i); } });
+  const out=EV_PADRAO.map(p=>{ const ev=slot[p.k]||{id:uid(),itens:[],concluido:false,concluido_em:null};
+    ev.nome=p.nome; ev.data=p.off===2? W.qua : W.dom; ev.itens=Array.isArray(ev.itens)? ev.itens : []; return ev; });
+  evs.forEach((ev,i)=>{ if(usados.has(i)||!ev) return; if(ev.data && (ev.data<W.seg||ev.data>W.dom)) ev.data=''; out.push(ev); });
+  return out;
+};
+/* aviso dentro do SETLIST com as datas da semana */
+aoMudar(function(){
+  const box=document.getElementById('plEvts'); if(!box||document.getElementById('plSemDica')) return;
+  const h=document.querySelector('#modalBox h3'); if(!h||!/desta semana|próxima semana/i.test(h.textContent)) return;
+  const ds=[...box.querySelectorAll('.pl-ev-data')].map(x=>x.value).filter(Boolean); if(!ds.length) return;
+  const W=__semanaIBNM(isoParaData(ds[0]));
+  box.insertAdjacentHTML('beforebegin','<div id="plSemDica" class="pl-dica" style="background:#eef7f2;border-left:4px solid var(--verde-med)">📅 <b>Semana do SETLIST:</b> Quarta-feira '+fmtD(W.qua)+' · EBD (domingo de manhã) '+fmtD(W.dom)+' · Culto da noite '+fmtD(W.dom)+'. A escala usa estas mesmas datas.</div>');
+});
+/* ----- escala: tipo de cada culto (pela coluna Evento, depois pelo Dia) ----- */
+function tipoLinha(l,cols){ const c=l.celulas||{}; const cev=colunaEscala(cols,/evento|culto|programa/i), cdia=colunaEscala(cols,/^dia/i);
+  const t=tipoEvento(cev&&c[cev]); if(t) return t;
+  const d=MAIUS(cdia&&c[cdia]); if(/QUARTA/.test(d)) return 'qua';
+  return ''; }
+function formatoData(cols){ const cd=colunaEscala(cols,/data/i); const ls=(DB.escala&&DB.escala.linhas)||[];
+  const curto=ls.some(l=>/^\s*\d{1,2}\/\d{1,2}\s*$/.test(String((l.celulas||{})[cd]||''))), longo=ls.some(l=>/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(String((l.celulas||{})[cd]||'')));
+  return (curto&&!longo)? 'curto' : 'longo'; }
+function escreveData(iso,fmt){ const m=String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return fmt==='curto'? m[3]+'/'+m[2] : m[3]+'/'+m[2]+'/'+m[1]; }
+function preencheLinha(cel,cols,p,W){ const cd=colunaEscala(cols,/data/i), cdia=colunaEscala(cols,/^dia/i), cev=colunaEscala(cols,/evento|culto|programa/i);
+  const iso=p.off===2? W.qua : W.dom;
+  if(cd) cel[cd]=escreveData(iso,formatoData(cols));
+  if(cdia) cel[cdia]=p.dia;
+  if(cev && !String(cel[cev]||'').trim()) cel[cev]=p.nome; }
+/* acerta as datas de uma semana: quarta → quarta-feira; EBD e culto da noite → domingo */
+function acertaSemana(linhas,cols,W){
+  const livres=EV_PADRAO.map(p=>p.k); const tipos=linhas.map(l=>tipoLinha(l,cols));
+  tipos.forEach(t=>{ const i=livres.indexOf(t); if(i>=0) livres.splice(i,1); });
+  const cd=colunaEscala(cols,/data/i);
+  const ord=linhas.map((l,i)=>{ let t=tipos[i];
+    if(!t){ const d=cd? lerDataBR((l.celulas||{})[cd]) : null; if(d&&d.getDay()===3&&livres.includes('qua')) t='qua'; else if(livres.length) t=livres[0]; else t=(d&&d.getDay()===3)?'qua':'noite';
+      const j=livres.indexOf(t); if(j>=0) livres.splice(j,1); }
+    const p=EV_PADRAO.find(x=>x.k===t); l.celulas=l.celulas||{}; preencheLinha(l.celulas,cols,p,W);
+    l.periodoInicio=W.seg+'T00:01:00'; l.periodoFim=W.dom+'T23:59:00';
+    return {l,o:EV_PADRAO.indexOf(p)*100+i}; });
+  return ord.sort((a,b)=>a.o-b.o).map(x=>x.l); }
+/* nova semana já com QUARTA-FEIRA, EBD e CULTO DA NOITE */
+window.escalaNovaSemana=function(){
+  const E=DB.escala||{}; const cols=E.colunas||[]; if(!cols.length) return toast('Importe a planilha da escala primeiro.');
+  const W0=semanasEscala().map(w=>w.k.split('|')[0]).filter(x=>/^\d{4}/.test(x)).sort();
+  const hoje=__semanaIBNM(new Date()).seg; let seg=W0.length? isoD(diaMais(isoParaData(W0[W0.length-1]),7)) : hoje; if(seg<hoje) seg=hoje;
+  const W=__semanaIBNM(isoParaData(seg));
+  const linhas=EV_PADRAO.map(p=>{ const cel={}; cols.forEach(c=>cel[c]=''); preencheLinha(cel,cols,p,W); return {periodoInicio:W.seg+'T00:01:00',periodoFim:W.dom+'T23:59:00',celulas:cel}; });
+  _ESC={chave:W.seg+'|'+W.dom, idx:[], linhas}; desenhaEdEscala();
+};
+/* confere TODAS as semanas e mostra o que vai mudar antes de salvar */
+window.escalaConferirDatas=function(){
+  const E=DB.escala||{}; const cols=E.colunas||[]; const cd=colunaEscala(cols,/data/i), cdia=colunaEscala(cols,/^dia/i);
+  if(!cd) return toast('A escala não tem a coluna "Data".');
+  const fmt=formatoData(cols); const mud=[];
+  const novas=(E.linhas||[]).map((l,i)=>{ const d=lerDataBR((l.celulas||{})[cd]); if(!d) return l;
+    const t=tipoLinha(l,cols) || (d.getDay()===0? 'noite' : '');
+    const W=__semanaIBNM(d); const n=JSON.parse(JSON.stringify(l)); n.periodoInicio=W.seg+'T00:01:00'; n.periodoFim=W.dom+'T23:59:00';
+    if(t){ const p=EV_PADRAO.find(x=>x.k===t); const iso=p.off===2? W.qua : W.dom;
+      if(isoD(d)!==iso){ n.celulas[cd]=escreveData(iso,fmt); mud.push(resumoCulto(l,cols)+' → <b>'+fmtD(iso)+'</b> ('+(p.off===2?'quarta':'domingo')+')'); }
+      if(cdia && MAIUS(n.celulas[cdia])!==p.dia && String(n.celulas[cdia]||'').trim()!==''){ n.celulas[cdia]=p.dia; } }
+    return n; });
+  window.__escCorrigidas=novas;
+  if(!mud.length) return abrirModal('<h3>📅 Datas da escala</h3><p>✅ Todas as datas já estão certas: quarta-feira para o culto de quarta; domingo para a EBD e o culto da noite.</p><div class="modal-acts"><button class="btn btn-dark" onclick="editarEscala()">Voltar</button></div>');
+  abrirModal('<h3>📅 Datas para corrigir ('+mud.length+')</h3><p class="eed-dica">Cada culto vai para o dia certo da própria semana (a mesma do SETLIST):</p><div class="eed-mud">'+mud.map(x=>'<div>'+x+'</div>').join('')+'</div>'+
+    '<div class="modal-acts"><button class="btn btn-dark" onclick="editarEscala()">Cancelar</button><button class="btn btn-primary" id="btEscCorr" onclick="escalaGravarCorrecao()">✅ Corrigir as datas</button></div>');
+};
+window.escalaGravarCorrecao=async function(){
+  const novas=window.__escCorrigidas; if(!novas) return; const cols=(DB.escala||{}).colunas||[];
+  const bt=document.getElementById('btEscCorr'); if(bt){ bt.disabled=true; bt.textContent='Salvando…'; }
+  try{ const {error}=await sb.from('escala').update({colunas:cols,linhas:novas,updated_at:new Date().toISOString()}).eq('id',1); if(error) throw error;
+    DB.escala={colunas:cols,linhas:novas}; try{ if(typeof saveDB==='function') saveDB(); }catch(_){}
+    window.__escCorrigidas=null; fecharModal(); toast('✅ Datas da escala corrigidas.'); go('escala');
+  }catch(err){ if(bt){ bt.disabled=false; bt.textContent='✅ Corrigir as datas'; } toast('❌ Não salvou: '+(err.message||err)); }
+};
+{ const st37=document.createElement('style'); st37.textContent=`
+.eed-topbtns{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px}
+.eed-topbtns .mini-btn{flex:1;min-width:150px}
+.eed-acertar{display:block;width:100%;margin:8px 0 4px;padding:10px 12px;border-radius:12px;border:1.5px dashed var(--verde-med);background:#eef7f2;color:var(--verde-escuro);font-weight:800;font-size:14px}
+.eed-mud{max-height:50vh;overflow:auto;border:1px solid #e3ece7;border-radius:12px;padding:6px 10px;margin:8px 0;font-size:13.5px;line-height:1.5}
+.eed-mud div{padding:6px 0;border-bottom:1px solid #eef2ef}
+.eed-mud div:last-child{border:0}
+`; document.head.appendChild(st37); }
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade

@@ -652,6 +652,7 @@ window.modalPlaylist=function(qual){
   if(!evs){ const outro=setlist(prox?'':'prox'); if(outro&&outro.eventos) evs=seedEventos(outro.eventos,ini,fim); }
   if(!evs && sl.itens.length) evs=[{id:evtUid(),nome:'CULTO',data:'',itens:sl.itens.slice(),concluido:false}];
   if(!evs) evs=[];
+  if(!ehExtra && typeof window.__slSemanaPadrao==='function'){ try{ evs=window.__slSemanaPadrao(evs,prox,sl); }catch(_){} }
   _ed={qual:ehExtra?qual:(prox?'prox':''),nome:String(sl.nome||'').slice(0,60),inicio:ini,fim:fim,evs,tons:Object.assign({},sl.tons),youtube:sl.youtube||'',tema:sl.tema||'',textoBase:sl.textoBase||'',chave:sl.chave||(prox?'setlist_prox':'setlist'),
     aberto: evs.length? evs[0].id : null, trocando:null};
   abrirModal('<h3>'+(ehExtra? '📌 '+e(String(sl.nome||'SETLIST')) : (prox?'🗓️ SETLIST da próxima semana':'📅 SETLIST desta semana'))+'</h3>'+
