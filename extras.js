@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.35.1)
+   MM IBNM — Extras (v1.36.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1662,6 +1662,167 @@ addEventListener('resize',()=>{ document.querySelectorAll('#content .mx-acoes,#c
 [data-theme=dark] #content .zoom-bar.mx-tools .mm-tom,[data-theme=dark] #content .cc-gv .chip.mx-tom{background:#3a3214!important}
 [data-theme=dark] #content .zoom-bar.mx-tools .mm-tom > button,[data-theme=dark] #content .cc-gv .chip.mx-tom > button{color:#ffd76a}
 `; document.head.appendChild(st40); }
+
+/* ======================= 41) 🔍 BUSCA GERAL (músicas + Cantor + Harpa + HCC) ======================= */
+/* Lupa no topo (todas as telas) e no menu. Digite título, número ou um TRECHO da letra:
+   aparece na hora em qual seção está, com o trecho encontrado em destaque. */
+const BG_SEC={mus:{nm:'Músicas',ic:'🎵',cor:'#1b6b4f'},cc:{nm:'Cantor Cristão',ic:'📖',cor:'#3949ab'},hr:{nm:'Harpa Cristã',ic:'🎼',cor:'#7b1fa2'},hcc:{nm:'Hinário HCC',ic:'📕',cor:'#c62828'}};
+const bgNorm=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const BG_ACORDE=/^(?:\s*(?:[A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add|M|º|°|\+)?\d*(?:\([^)]*\))?(?:\/[A-G](?:#|b)?)?|\||-|x\d+|\(|\)|%)\s*)+$/;
+function bgLetra(txt){ /* tira acordes ([G] e linhas só de acordes) e marcações */
+  return String(txt||'').replace(/\[[^\]]*\]/g,'').split(/\r?\n/).filter(l=>{ const t=l.trim(); return t && !BG_ACORDE.test(t) && !/^(intro|tom|ritmo|solo|final|ponte)\b\s*:/i.test(t) && !/^\[?\d+\]?$/.test(t); })
+    .map(l=>l.replace(/(\S)\s*-\s+(?=\S)/g,'$1').replace(/\s+/g,' ').trim()).join('\n'); }
+let _bgIdx=null, _bgQ='', _bgFiltro='tudo', _bgT=null;
+function bgEd(livro,n){ try{ return (JSON.parse(localStorage.getItem(livro==='hr'?'ibnm_hr_ed':'ibnm_cc_ed')||'{}')||{})[n]||null; }catch(_){ return null; } }
+function bgMonta(){
+  const docs=[];
+  /* sílabas separadas ("ale-gre") viram palavra inteira; e também guarda a versão com espaço ("enche nos") */
+  const push=(sec,id,n,titulo,sub,texto)=>{ const letra=bgLetra(texto); docs.push({sec,id,n,titulo,sub,letra,nt:bgNorm(titulo),nl:bgNorm(letra.replace(/-/g,''))+' | '+bgNorm(letra),ns:bgNorm(sub)}); };
+  try{ (DB.musicas||[]).forEach(m=>{ const tx=[m.letra||'', m.cifra&&m.cifra!==m.letra? m.cifra : ''].join('\n'); push('mus',m.id,null,m.titulo||'(sem título)',m.artista||'',tx); }); }catch(_){}
+  try{ (window.HINOS||[]).forEach(h=>{ const e=bgEd('cc',h.n); let tx='';
+      if(e&&e.__texto) tx=e.__texto; else tx=(h.partes||[]).map((pt,pi)=>(pt.linhas||[]).map((l,li)=>{ const k=pi+'-'+li; return e&&k in e? e[k] : l; }).join('\n')).join('\n');
+      push('cc','cc'+h.n,h.n,h.titulo,'',tx); }); }catch(_){}
+  try{ (window.HARPA||[]).forEach(h=>{ const e=bgEd('hr',h.n); push('hr','hr'+h.n,h.n,h.titulo,'',(e&&e.__texto)||h.letra||((h.partes||[]).map(pt=>(pt.linhas||[]).join('\n')).join('\n'))); }); }catch(_){}
+  try{ const vistos=new Set(); const db=(typeof HCC_DB!=='undefined'&&HCC_DB)||{};
+    Object.keys(db).forEach(k=>{ const r=db[k]; const n=+k; vistos.add(n); push('hcc','hcc'+n,n,r.titulo||((HCC_SITE[n]||[{}])[0].t)||('Hino '+n),'',r.texto||''); });
+    if(typeof HCC_SITE!=='undefined') Object.keys(HCC_SITE).forEach(k=>{ const n=+k; if(!vistos.has(n)) push('hcc','hcc'+n,n,(HCC_SITE[n][0]||{}).t||('Hino '+n),'',''); }); }catch(_){}
+  _bgIdx=docs;
+}
+function bgTrecho(doc,palavras){ /* linha da letra onde o trecho aparece */
+  const ls=doc.letra.split('\n'); let melhor=-1, pts=0;
+  ls.forEach((l,i)=>{ const nl=bgNorm(l); const c=palavras.filter(w=>nl.includes(w)).length; if(c>pts){ pts=c; melhor=i; } });
+  if(melhor<0) return '';
+  let t=ls[melhor]; if(ls[melhor+1] && t.length<40) t+=' / '+ls[melhor+1];
+  return t;
+}
+function bgMarca(txt,palavras){
+  let h=escA(txt); const base=bgNorm(txt);
+  /* marca cada palavra procurada (ignora acentos) mapeando posições do texto sem acento */
+  const mapa=[]; let simp=''; for(let i=0;i<txt.length;i++){ const c=txt[i].normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); for(const ch of c){ simp+=ch; mapa.push(i); } }
+  const marcas=[]; palavras.forEach(w=>{ if(w.length<2) return; let p=simp.indexOf(w); while(p>=0){ marcas.push([mapa[p],mapa[p+w.length-1]+1]); p=simp.indexOf(w,p+w.length); } });
+  if(!marcas.length) return h; marcas.sort((a,b)=>a[0]-b[0]); const jun=[]; marcas.forEach(m=>{ const u=jun[jun.length-1]; if(u&&m[0]<=u[1]) u[1]=Math.max(u[1],m[1]); else jun.push(m.slice()); });
+  let out='', pos=0; jun.forEach(([a,b])=>{ out+=escA(txt.slice(pos,a))+'<mark>'+escA(txt.slice(a,b))+'</mark>'; pos=b; }); return out+escA(txt.slice(pos));
+}
+function bgBusca(q){
+  const nq=bgNorm(String(q).replace(/(\w)-(\w)/g,'$1$2')); if(!nq) return [];
+  const pal=nq.split(' ').filter(Boolean); const num=/^\d+$/.test(nq)? +nq : null;
+  const res=[];
+  _bgIdx.forEach(d=>{
+    let sc=0, onde='';
+    if(num!==null && d.n===num){ sc=1000; onde='num'; }
+    else if(d.nt===nq){ sc=900; onde='tit'; }
+    else if(d.nt.startsWith(nq)){ sc=800; onde='tit'; }
+    else if(d.nt.includes(nq)){ sc=700; onde='tit'; }
+    else if(pal.every(w=>d.nt.includes(w))){ sc=600; onde='tit'; }
+    else if(nq.length>=3 && d.nl.includes(nq)){ sc=500; onde='letra'; }
+    else if(pal.length>1 && pal.every(w=>d.nl.includes(w))){ sc=300; onde='letra'; }
+    else if(d.ns && d.ns.includes(nq)){ sc=200; onde='art'; }
+    if(sc) res.push({d,sc,onde});
+  });
+  res.sort((a,b)=>b.sc-a.sc || (a.d.n||0)-(b.d.n||0) || a.d.titulo.localeCompare(b.d.titulo));
+  return res;
+}
+function bgDesenha(){
+  const box=document.getElementById('bgRes'); if(!box) return;
+  const q=_bgQ.trim();
+  if(!q){ box.innerHTML='<div class="bg-vazio">Digite o <b>título</b>, o <b>número</b> do hino ou um <b>trecho</b> da letra.<br><small>Procura em Músicas, Cantor Cristão, Harpa e HCC ao mesmo tempo.</small></div>'; bgChips({}); return; }
+  const r=bgBusca(q); const pal=bgNorm(q).split(' ').filter(Boolean);
+  const cont={tudo:r.length}; r.forEach(x=>cont[x.d.sec]=(cont[x.d.sec]||0)+1); bgChips(cont);
+  const vis=r.filter(x=>_bgFiltro==='tudo'||x.d.sec===_bgFiltro);
+  if(!vis.length){ box.innerHTML='<div class="bg-vazio">Nada encontrado'+(_bgFiltro!=='tudo'?' em '+BG_SEC[_bgFiltro].nm+' — veja as outras abas':'')+'.<br><small>Tente menos palavras ou outro trecho.</small></div>'; return; }
+  const grupos={}; vis.forEach(x=>(grupos[x.d.sec]=grupos[x.d.sec]||[]).push(x));
+  box.innerHTML=Object.keys(BG_SEC).filter(k=>grupos[k]).sort((a,b)=>grupos[b][0].sc-grupos[a][0].sc).map(k=>{ const S=BG_SEC[k], L=grupos[k];
+    const lim=_bgFiltro==='tudo'? 6 : 60;
+    return '<div class="bg-gr"><div class="bg-gt" style="color:'+S.cor+'">'+S.ic+' '+S.nm+' <span>'+L.length+'</span></div>'+
+      L.slice(0,lim).map(x=>{ const d=x.d; const tr=x.onde==='letra'? bgTrecho(d,pal) : '';
+        return '<button class="bg-it" onclick="bgAbrir(\''+d.sec+'\',\''+escA(String(d.id))+'\')"><span class="bg-n" style="background:'+S.cor+'">'+(d.n!=null?d.n:'♪')+'</span>'+
+          '<span class="bg-tx"><b>'+bgMarca(d.titulo,x.onde==='tit'||x.onde==='num'?pal:[])+'</b>'+(d.sub?'<small>'+bgMarca(d.sub,x.onde==='art'?pal:[])+'</small>':'')+
+          (tr?'<em>“'+bgMarca(tr,pal)+'”</em>':'')+'</span></button>'; }).join('')+
+      (L.length>lim?'<button class="bg-mais" onclick="bgFiltra(\''+k+'\')">Ver todos os '+L.length+' em '+S.nm+' ›</button>':'')+'</div>'; }).join('');
+}
+function bgChips(cont){ const c=document.getElementById('bgChips'); if(!c) return;
+  c.innerHTML=[['tudo','Tudo']].concat(Object.keys(BG_SEC).map(k=>[k,BG_SEC[k].ic+' '+BG_SEC[k].nm.split(' ')[0]])).map(([k,nm])=>'<button class="'+(_bgFiltro===k?'on':'')+'" onclick="bgFiltra(\''+k+'\')">'+nm+(cont[k]!=null?' <span>'+cont[k]+'</span>':'')+'</button>').join(''); }
+window.bgFiltra=function(k){ _bgFiltro=k; bgDesenha(); const r=document.getElementById('bgRes'); if(r) r.scrollTop=0; };
+window.bgAbrir=function(sec,id){
+  try{ localStorage.setItem('ibnm_bg_q',_bgQ); }catch(_){}
+  fecharModal();
+  setTimeout(()=>{ try{
+    if(sec==='mus') abrirMusica(id,'cifra');
+    else if(sec==='cc') cantorAbrir(+String(id).slice(2));
+    else if(sec==='hr') harpaAbrir(+String(id).slice(2));
+    else if(sec==='hcc') hccAbrir(+String(id).slice(3));
+  }catch(e){ toast('Não consegui abrir: '+(e.message||e)); } },60);
+};
+window.buscaGeral=async function(){
+  try{ toggleMenu(false); }catch(_){}
+  try{ _bgQ=localStorage.getItem('ibnm_bg_q')||''; }catch(_){ _bgQ=''; }
+  _bgFiltro='tudo';
+  abrirModal('<div class="bg-top"><div class="bg-in"><span>🔍</span><input id="bgQ" type="search" enterkeyhint="search" autocomplete="off" placeholder="Título, número ou trecho da letra" value="'+escA(_bgQ)+'"><button id="bgLimpa" aria-label="Limpar">✕</button></div></div><div class="bg-chips" id="bgChips"></div><div class="bg-res" id="bgRes"></div>');
+  const mb=document.getElementById('modalBox'); if(mb) mb.classList.add('bg-modal');
+  const inp=document.getElementById('bgQ');
+  bgMonta(); bgDesenha();
+  inp.addEventListener('input',()=>{ _bgQ=inp.value; clearTimeout(_bgT); _bgT=setTimeout(bgDesenha,120); });
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const f=document.querySelector('#bgRes .bg-it'); if(f) f.click(); } });
+  document.getElementById('bgLimpa').onclick=()=>{ inp.value=''; _bgQ=''; bgDesenha(); inp.focus(); };
+  setTimeout(()=>{ inp.focus(); try{ inp.select(); }catch(_){} },80);
+  /* HCC vem da nuvem: quando chegar, refaz o índice */
+  try{ if(typeof hccCarrega==='function'){ await hccCarrega(); if(document.getElementById('bgRes')){ bgMonta(); bgDesenha(); } } }catch(_){}
+};
+/* tira a classe do modal quando ele fecha/troca */
+aoMudar(function(){ const mb=document.getElementById('modalBox'); if(mb && mb.classList.contains('bg-modal') && !mb.querySelector('#bgQ')) mb.classList.remove('bg-modal'); });
+/* lupa no topo e campo no menu */
+aoMudar(function(){
+  const tb=document.querySelector('#appShell .topbar');
+  if(tb && !document.getElementById('btBuscaGeral')){ const sino=tb.querySelector('button.ico-btn[onclick*="notificacoes"]');
+    const b=document.createElement('button'); b.id='btBuscaGeral'; b.className='ico-btn bg-lupa'; b.type='button'; b.title='Buscar em todas as músicas e hinos'; b.setAttribute('aria-label','Busca geral'); b.textContent='🔍'; b.onclick=()=>buscaGeral();
+    if(sino) sino.before(b); else tb.appendChild(b); }
+  const nav=document.querySelector('#sidemenu .sm-nav');
+  if(nav && !document.getElementById('smBusca')){ const ref=document.getElementById('smModo');
+    const h='<button id="smBusca" type="button" class="sm-busca" onclick="buscaGeral()"><span>🔍</span>Buscar música, hino ou trecho…</button>';
+    if(ref) ref.insertAdjacentHTML('afterend',h); else nav.insertAdjacentHTML('afterbegin',h); }
+});
+{ const st41=document.createElement('style'); st41.textContent=`
+#appShell .topbar .bg-lupa{font-size:20px}
+@media (max-width:520px){
+  #appShell .topbar{gap:5px!important;padding-left:10px!important;padding-right:10px!important}
+  #appShell .topbar .ico-btn,#appShell .topbar .hamb,#appShell .topbar #btVoltarTopo{width:36px!important;height:36px!important;min-width:36px!important;flex:0 0 36px!important;margin:0!important}
+  #appShell .topbar .ico-btn{font-size:18px}
+  #appShell .topbar #topAvatar{width:36px!important;height:36px!important;flex:0 0 36px!important;margin:0!important}
+  #appShell .topbar .ttl{min-width:0;flex:1 1 auto}
+}
+.sm-busca{display:flex;align-items:center;gap:10px;width:calc(100% - 28px);margin:6px 14px 10px;padding:12px 14px;border-radius:14px;border:0;background:#fff;color:#5c6b65;font-size:15.5px;text-align:left;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.sm-busca span{font-size:18px}
+#modalBox.bg-modal{width:min(720px,100%)!important;max-width:100%!important;height:min(92vh,900px);max-height:92vh;display:flex!important;flex-direction:column;padding:12px!important;box-sizing:border-box;overflow:hidden!important}
+.bg-top{display:flex;gap:8px;align-items:center;padding-right:44px}
+.bg-in{flex:1;display:flex;align-items:center;gap:6px;background:#f1f6f3;border:2px solid #1b6b4f;border-radius:14px;padding:0 6px 0 12px;min-width:0}
+.bg-in input{flex:1;min-width:0;border:0;background:transparent;font-size:17px;padding:12px 0;outline:none;color:inherit}
+.bg-in input::-webkit-search-cancel-button{display:none}
+.bg-in button{border:0;background:#dfe9e4;border-radius:50%;width:30px;height:30px;font-size:14px;cursor:pointer;flex:0 0 auto}
+.bg-fe{border:0;background:none;color:#1b6b4f;font-weight:800;font-size:15px;padding:8px 4px;cursor:pointer;flex:0 0 auto}
+.bg-chips{display:flex;gap:6px;overflow-x:auto;padding:10px 0 8px;flex:0 0 auto;scrollbar-width:none}
+.bg-chips::-webkit-scrollbar{display:none}
+.bg-chips button{flex:0 0 auto;border:1.5px solid #cfe0d7;background:#fff;border-radius:20px;padding:6px 12px;font-weight:700;font-size:13.5px;color:#2d3b35;cursor:pointer;white-space:nowrap}
+.bg-chips button.on{background:#1b6b4f;border-color:#1b6b4f;color:#fff}
+.bg-chips button span{opacity:.75;font-weight:800}
+.bg-res{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0}
+.bg-vazio{text-align:center;color:#5c6b65;padding:30px 10px;line-height:1.5}
+.bg-gr{margin:4px 0 12px}
+.bg-gt{font-weight:800;font-size:14px;letter-spacing:.3px;text-transform:uppercase;margin:6px 2px 6px;display:flex;align-items:center;gap:6px}
+.bg-gt span{background:currentColor;color:#fff;border-radius:10px;padding:0 7px;font-size:12px}
+.bg-gt span{color:#fff;filter:none}
+.bg-it{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;border:0;background:#fff;border-radius:12px;padding:10px;margin:0 0 6px;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;color:inherit;font:inherit}
+.bg-n{flex:0 0 auto;min-width:38px;height:30px;border-radius:9px;color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;padding:0 6px;box-sizing:border-box}
+.bg-tx{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
+.bg-tx b{font-size:15.5px;color:#1d2b26;line-height:1.25}
+.bg-tx small{color:#5c6b65;font-size:13px}
+.bg-tx em{font-style:normal;color:#3d4c46;font-size:13.5px;line-height:1.35;background:#f6f8f7;border-radius:8px;padding:4px 7px;margin-top:2px;word-break:break-word}
+.bg-tx mark{background:#ffe08a;color:inherit;border-radius:3px;padding:0 1px}
+.bg-mais{width:100%;border:0;background:#eef4f1;color:#1b6b4f;font-weight:800;border-radius:10px;padding:10px;cursor:pointer}
+[data-theme=dark] .bg-in{background:#1f2a26}
+[data-theme=dark] .bg-it,[data-theme=dark] .bg-chips button{background:#22302b;color:#e6efe9}
+[data-theme=dark] .bg-tx b{color:#f0f5f2}
+[data-theme=dark] .bg-tx em{background:#1a2420;color:#cfdcd5}
+`; document.head.appendChild(st41); }
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
