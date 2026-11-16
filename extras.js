@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.38.0)
+   MM IBNM — Extras (v1.39.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1919,6 +1919,123 @@ aoMudar(function(){
 .au-erro a{color:#1d5c45;font-weight:800}
 .vz-card .au-erro,.au-erro{word-break:break-word}
 `; document.head.appendChild(st42); }
+
+/* ======================= 43) 📅 SETLIST PELA DATA: ESTA SEMANA · PRÓXIMA SEMANA · e os seguintes ======================= */
+/* Quem decide é a DATA (semana de segunda a domingo), não o tipo do SETLIST:
+   - o da semana atual é sempre "Esta semana" (é o que aparece na home de todos);
+   - o da semana seguinte é sempre "Próxima semana";
+   - os outros vêm embaixo, por data, e vão subindo sozinhos a cada segunda-feira. */
+const slSeg=iso=>{ const d=isoParaData(iso); return d? isoD(segDe(d)) : ''; };
+function slDatas(s){ const d=(s.eventos||[]).map(x=>String(x.data||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort();
+  return d.length? [d[0],d[d.length-1]] : [String(s.inicio||'').slice(0,10), String(s.fim||s.inicio||'').slice(0,10)]; }
+const SL_GEN=/^\s*(set\s*list)?\s*(da|desta|de|para)?\s*(a\s+)?(semana|esta semana|pr[oó]xima semana)?\s*$/i;
+function slPrio(k,s){ if(k==='setlist') return 0; if(k==='setlist_prox') return 1; if(k.indexOf('slq_')===0) return 2; if(k.indexOf('slx_')===0) return SL_GEN.test(s.nome||'')? 3 : 5; return 9; }
+function slTodos(){ const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{}; const N=window.__normSl; if(typeof N!=='function') return [];
+  return Object.keys(C).filter(k=>k==='setlist'||k==='setlist_prox'||k.indexOf('slq_')===0||k.indexOf('slx_')===0).map(k=>{
+    let sl=null; try{ sl=N(C[k],k); }catch(_){} if(!sl) return null; const dd=slDatas(sl); if(!/^\d{4}-\d{2}-\d{2}$/.test(dd[0])) return null;
+    return {k,s:sl,d0:dd[0],d1:dd[1]||dd[0],sem:slSeg(dd[0]),pr:slPrio(k,sl)}; }).filter(Boolean); }
+function slSemanas(){ const W0=__semanaIBNM(new Date()).seg; return {W0, W1:isoD(diaMais(isoParaData(W0),7))}; }
+function slDaSemana(sem,todos){ const l=(todos||slTodos()).filter(x=>x.sem===sem).sort((a,b)=>a.pr-b.pr||a.d0.localeCompare(b.d0)); return l[0]||null; }
+/* gancho usado pelo culto.js (setlist() / setlist('prox')) */
+window.__slSemana=function(qual,base){
+  if(qual && qual!=='prox') return base(qual);
+  const todos=slTodos(); if(!todos.length) return base(qual);
+  const {W0,W1}=slSemanas(); const x=slDaSemana(qual==='prox'? W1 : W0, todos);
+  return x? x.s : null;
+};
+/* publicar "Esta semana"/"Próxima semana" a partir de um SETLIST avulso: não deixa cópia repetida */
+if(typeof window.publicarPlaylist==='function'){ const _pub=window.publicarPlaylist;
+  window.publicarPlaylist=async function(){
+    const ed=(typeof window.__edAtual==='function')? window.__edAtual() : null; const ch=String((ed&&ed.chave)||''), q=String((ed&&ed.qual)||'');
+    const r=await _pub.apply(this,arguments);
+    try{ if(ch.indexOf('slx_')===0 && (q===''||q==='prox')){ const t=slTodos(); const eu=t.find(x=>x.k===ch);
+        if(eu && t.some(x=>x.k!==ch && x.sem===eu.sem && x.pr<3)){ await salvarConfig(ch,{}); try{ go('playlist'); }catch(_){} } } }catch(_){}
+    return r; };
+}
+const slFmt=(a,b)=>fmtD(a)+(b&&b!==a? ' - '+fmtD(b) : '');
+function slRotulo(sem,W0,W1){ return sem===W0? 'Esta semana' : sem===W1? 'Próxima semana' : 'Semana de '+fmtD(sem); }
+function slCard(x,titulo,ctx,cls,adm){
+  const s=x.s, evs=(s.eventos||[]).length, k=x.k;
+  const st= k.indexOf('slq_')===0? '📋 programado' : k.indexOf('slx_')===0? '📌 rascunho' : (s.publicada===false? 'não publicado' : '✓ publicado');
+  const nome=String(s.nome||'').trim(); const mostraNome=nome && !SL_GEN.test(nome) && nome.toLowerCase()!==titulo.toLowerCase();
+  const tt=(s.tema||s.textoBase)? '<div class="slc-tt">'+(s.tema?'🔥 '+escA(s.tema):'')+(s.tema&&s.textoBase?' · ':'')+(s.textoBase?'📖 '+escA(s.textoBase):'')+'</div>' : '';
+  return '<div class="slc '+cls+'" onclick="go(\'playlist\',\''+ctx+'\')"><div class="slc-l"><div class="slc-t">'+escA(titulo)+'</div>'+(mostraNome?'<div class="slc-n">📌 '+escA(nome)+'</div>':'')+
+    '<div class="slc-d">'+slFmt(x.d0,x.d1)+'</div><div class="slc-m">'+[st,(s.itens||[]).length+' música(s)',evs?evs+' evento(s)':''].filter(Boolean).join(' · ')+'</div>'+tt+
+    (adm?'<button class="mini-btn slc-ed" onclick="event.stopPropagation();modalPlaylist(\''+(ctx==='atual'?'':ctx)+'\')">✏️ Editar</button>':'')+'</div><span class="slc-s">›</span></div>';
+}
+function slLista(){
+  const adm=(typeof ehAdmin==='function')&&ehAdmin(); const {W0,W1}=slSemanas(); const todos=slTodos();
+  const sems=[...new Set(todos.map(x=>x.sem))].filter(w=>w>=W0).sort();
+  if(sems.indexOf(W0)<0) sems.unshift(W0); if(sems.indexOf(W1)<0) sems.splice(sems.indexOf(W0)+1,0,W1);
+  let h='<div class="page"><div class="page-ttl">📅 SETLIST</div><div class="slc-dica">Toque em um SETLIST para ver os eventos.</div>';
+  if(adm) h+='<div class="slc-bts"><button class="mini-btn" onclick="modalPlaylist(\'\')">✏️ Montar esta semana</button><button class="mini-btn" onclick="modalPlaylist(\'prox\')">🗓️ Montar próxima semana</button><button class="mini-btn slc-novo" onclick="criarSetlistExtra()">➕ Novo SETLIST</button></div>';
+  sems.forEach(sem=>{
+    const rot=slRotulo(sem,W0,W1); const l=todos.filter(x=>x.sem===sem).sort((a,b)=>a.pr-b.pr||a.d0.localeCompare(b.d0));
+    const cls= sem===W0? 'slc-at' : sem===W1? 'slc-px' : 'slc-fut';
+    if(!l.length){
+      const fim=isoD(diaMais(isoParaData(sem),6));
+      h+='<div class="slc slc-vazio '+cls+'"><div class="slc-l"><div class="slc-t">'+rot+'</div><div class="slc-d">'+slFmt(sem,fim)+'</div><div class="slc-m">ainda não publicado</div>'+
+        (adm?'<button class="mini-btn slc-ed" onclick="modalPlaylist(\''+(sem===W0?'':'prox')+'\')">✏️ Montar agora</button>':'')+'</div></div>'; return; }
+    l.forEach((x,i)=>{ const ctx= i===0? (sem===W0? 'atual' : sem===W1? 'prox' : (x.k.indexOf('sl')===0&&/^sl[xq]_/.test(x.k)? x.k : 'prox')) : (/^sl[xq]_/.test(x.k)? x.k : (x.k==='setlist'?'atual':'prox'));
+      h+=slCard(x, i===0? rot : (String(x.s.nome||'').trim()||'SETLIST')+' · '+rot, ctx, cls+(i?' slc-sub':''), adm); });
+  });
+  const velhos=todos.filter(x=>x.sem<W0 && /^sl[xq]_/.test(x.k)).sort((a,b)=>b.d0.localeCompare(a.d0));
+  if(adm && velhos.length) h+='<details class="slc-ant"><summary>Anteriores ('+velhos.length+')</summary>'+velhos.map(x=>slCard(x,(String(x.s.nome||'').trim()||'SETLIST'),x.k,'slc-old',adm)).join('')+'</details>';
+  return h+'</div>';
+}
+if(typeof ROTAS!=='undefined' && ROTAS.playlist){ const _plR=ROTAS.playlist;
+  ROTAS.playlist=function(arg){ if(arg==='prox'||arg==='atual'||/^sl[xq]_/.test(String(arg||''))) return _plR.apply(this,arguments);
+    try{ if(!slTodos().length) return _plR.apply(this,arguments); return slLista(); }catch(e){ return _plR.apply(this,arguments); } };
+}
+/* HOME: o cartão do alto mostra SEMPRE o SETLIST desta semana (antes lia um registro antigo e ficava parado) */
+if(typeof ROTAS!=='undefined' && ROTAS.inicio){ const _iniR=ROTAS.inicio;
+  ROTAS.inicio=function(){ let h=_iniR.apply(this,arguments);
+    try{ const sl=window.setlistDe? setlistDe() : null; if(!slTodos().length) return h;
+      const re=/<div class="semana-badge"><div class="lbl">SETLIST DA SEMANA<\/div><div class="dt">[^<]*<\/div>/;
+      const vazio=/<div class="card"><div class="empty" style="padding:20px"><div class="big">🎼<\/div>Nenhum SETLIST publicado ainda\.<\/div><\/div>/;
+      if(sl){ const dd=slDatas(sl); const cab='<div class="semana-badge"><div class="lbl">SETLIST · ESTA SEMANA</div><div class="dt">'+slFmt(dd[0],dd[1])+'</div>';
+        if(re.test(h)){ h=h.replace(re,cab);
+          /* o link do YouTube é o DESTA semana (não o de outra) */
+          const yre=/<a class="yt-home" href="[^"]*" target="_blank" rel="noopener">▶ Playlist do YouTube<\/a>/;
+          h= sl.youtube? h.replace(yre,'<a class="yt-home" href="'+escA(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist do YouTube</a>') : h.replace(yre,''); }
+        else if(vazio.test(h)) h=h.replace(vazio, cab+(sl.youtube?'<a class="yt-home" href="'+escA(sl.youtube)+'" target="_blank" rel="noopener">▶ Playlist do YouTube</a>':'')+
+          ((sl.tema||sl.textoBase)?'<div class="sb-tt">'+(sl.tema?'🔥 '+escA(sl.tema):'')+(sl.tema&&sl.textoBase?' · ':'')+(sl.textoBase?'📖 '+escA(sl.textoBase):'')+'</div>':'')+
+          '<span class="pl-home-lk" onclick="go(\'playlist\')">Ver SETLIST completo ›</span></div>');
+      } else {
+        const {W0}=slSemanas(); const msg='<div class="semana-badge"><div class="lbl">SETLIST · ESTA SEMANA</div><div class="dt" style="font-size:20px">'+slFmt(W0,isoD(diaMais(isoParaData(W0),6)))+'</div><div class="sb-tt">Ainda não publicado.</div>';
+        if(re.test(h)) h=h.replace(re,msg);
+      }
+    }catch(_){}
+    return h; };
+}
+{ const st43=document.createElement('style'); st43.textContent=`
+.slc-dica{font-size:15px;color:#5b6b64;margin:-2px 0 12px}
+.slc-bts{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.slc-bts .mini-btn{margin:0;flex:1 1 auto}
+.slc-bts .slc-novo{border-style:dashed}
+.slc{display:flex;align-items:center;gap:10px;background:#fff;border:2px solid #d8e8e0;border-left:8px solid #0b3d2e;border-radius:16px;padding:14px 16px;margin-bottom:12px;cursor:pointer;box-shadow:0 2px 8px rgba(11,61,46,.08)}
+.slc.slc-px{border-left-color:#2f7d62}
+.slc.slc-fut{border-left-color:#9fbfb1}
+.slc.slc-sub{margin-left:14px;border-left-width:5px}
+.slc.slc-vazio{border-style:dashed;cursor:default;background:#f7faf8}
+.slc.slc-old{opacity:.8}
+.slc-l{flex:1;min-width:0}
+.slc-t{font-weight:800;font-size:19px;color:#0b3d2e;line-height:1.2}
+.slc-at .slc-t::before{content:'📅 '}
+.slc-px .slc-t::before{content:'🗓️ '}
+.slc-fut .slc-t::before{content:'📋 '}
+.slc-n{font-size:14px;color:#8a6d1a;font-weight:700;margin-top:2px}
+.slc-d{font-size:15px;color:#5b6b64;margin-top:2px}
+.slc-m{margin-top:6px;font-size:14px;font-weight:700;color:#1f7a5a}
+.slc-vazio .slc-m{color:#a05a00}
+.slc-tt{margin-top:6px;font-size:14px;color:#8a6d1a}
+.slc-ed{margin:10px 0 0!important}
+.slc-s{font-size:30px;color:#1f7a5a;font-weight:800}
+.slc-ant{margin-top:6px}
+.slc-ant summary{cursor:pointer;font-weight:800;color:#5b6b64;padding:8px 2px}
+[data-theme=dark] .slc{background:#1f2a26;border-color:#2e3d37}
+[data-theme=dark] .slc-t{color:#e6f2ec}
+`; document.head.appendChild(st43); }
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade

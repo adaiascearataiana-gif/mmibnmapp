@@ -206,7 +206,8 @@ function normSl(x,chave){ if(!x||typeof x!=='object'||!Array.isArray(x.itens)) r
     eventos:(Array.isArray(x.eventos)&&x.eventos.length)? x.eventos : null,chave}; }
 /* qual: (vazio) = esta semana · 'prox' = próxima semana.
    A da próxima semana vira "esta semana" sozinha quando chega a data de início. */
-function setlist(qual){
+function setlist(qual){ if(typeof window.__slSemana==='function'){ try{ return window.__slSemana(qual,setlistBase); }catch(_){} } return setlistBase(qual); }
+function setlistBase(qual){
   const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{};
   if(qual && ehSlExtra(qual)){ const x=C[qual]; return (x&&typeof x==='object')? normSl(x,qual): null; }
   const a=normSl(C.setlist,'setlist'), p=normSl(C.setlist_prox,'setlist_prox');
@@ -224,7 +225,7 @@ function setlist(qual){
   if(pl.publicada && pl.musicas && pl.musicas.length) return {inicio:pl.inicio,fim:pl.fim,itens:pl.musicas.filter(existe),tons:{},youtube:'',tema:pl.tema||'',textoBase:pl.textoBase||'',eventos:(Array.isArray(pl.eventos)&&pl.eventos.length)?pl.eventos:null,chave:'setlist'};
   return null;
 }
-window.setlistDe=setlist;
+window.setlistDe=setlist; window.__normSl=normSl;
 window.infoM=function(id){ return info(id); };
 /* de qual lista é este item (para "Anterior/Próxima" e tom do culto) */
 function listaDe(id){
@@ -635,7 +636,7 @@ function escaladoNoPeriodo(sl){
   return false;
 }
 /* ---- editor da playlist (ADM): músicas + hinos com busca, ordem, tom e link do YouTube ---- */
-let _ed=null;
+let _ed=null; window.__edAtual=()=>_ed;
 const semAc = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 function proxSemana(){ const d=new Date(); const w=(d.getDay()+6)%7; const s=new Date(d); s.setDate(d.getDate()-w+7); const f=new Date(s); f.setDate(s.getDate()+6);
   const iso=x=>x.getFullYear()+'-'+pad2(x.getMonth()+1)+'-'+pad2(x.getDate()); return [iso(s),iso(f)]; }
