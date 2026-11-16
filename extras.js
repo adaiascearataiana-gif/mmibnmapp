@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.36.0)
+   MM IBNM — Extras (v1.37.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1564,18 +1564,25 @@ function arrumaMusica(){
   const nav=pg.querySelector(':scope > .sl-nav'); const ref=nav||head;
   if(tabs.previousElementSibling!==ref) ref.after(tabs);
   const ac=mxCaixa(pg,'mx-acoes',tabs);
-  const pjs=[...pg.querySelectorAll('button[onclick^="projetar("]')].filter(b=>!b.closest('.mx-acoes'));
-  const pjOk=ac.querySelector('.mx-pj'); pjs.forEach((b,i)=>{ if(pjOk||i>0) mxAdd(b,'mx-oculto'); });
-  if(!pjOk && pjs[0]) mxPoe(pjs[0],ac,'pj',2,'📺 Projetar');
-  [['button[onclick^="enviarPraPlaylist"]','sl',1,'➕ SETLIST'],['button[onclick^="fixarTomAtual"]','tc',3,'📌 Tom do culto'],
-   ['button[onclick^="abrirFerramentas"]','mt',4,'🎛 Metrônomo'],['button[onclick^="musWhats"]','wa',5,'📱 WhatsApp'],['a.yt-btn','yt',6,'▶ YouTube']]
+  /* aba aberta: Cifra, Letra ou Áudio */
+  const aba=((tabs.querySelector('button.active')||{}).textContent||'').toLowerCase();
+  const ehCifra=/cifra/.test(aba);
+  /* Projetar sai de todas as abas */
+  pg.querySelectorAll('button[onclick^="projetar("]').forEach(b=>mxAdd(b,'mx-oculto'));
+  [['button[onclick^="enviarPraPlaylist"]','sl',1,'➕ SETLIST'],['button[onclick^="fixarTomAtual"]','tc',4,'📌 Tom do culto'],
+   ['button[onclick^="abrirFerramentas"]','mt',5,'🎛 Ferramentas'],['button[onclick^="musWhats"]','wa',6,'📱 WhatsApp'],['a.yt-btn','yt',7,'▶ YouTube']]
     .forEach(([sel,k,o,r])=>mxPoe(mxAchar(pg,sel,'.mx-acoes'),ac,k,o,r));
+  /* Cifra em PDF: na grade (no lugar do Projetar) só na aba Cifra; some na Letra */
+  const pdfM=document.getElementById('btPdfCifra');
+  if(pdfM && pg.contains(pdfM)){ if(ehCifra){ if(pdfM.classList.contains('mx-oculto')) pdfM.classList.remove('mx-oculto'); mxPoe(pdfM,ac,'pdf',2,'📄 Cifra em PDF'); } else mxAdd(pdfM,'mx-oculto'); }
+  const ptM=document.getElementById('btPartMus'); if(ptM && pg.contains(ptM)) mxPoe(ptM,ac,'pt',3,'📜 Partitura');
   pg.querySelectorAll(':scope > button.mini-btn[onclick^="abrirPartitura"]').forEach(b=>mxAdd(b,'mx-oculto'));
   mxOrdena(ac); mxCols(ac);
   const zb=pg.querySelector(':scope > .zoom-bar'); let ult=ac;
   if(zb){ mxAdd(zb,'mx-tools'); if(ac.nextElementSibling!==zb) ac.after(zb); ult=zb;
     const r=zb.querySelector('button.rst[onclick^="zoomView(0)"]'); if(r && r.textContent!=='↺'){ r.textContent='↺'; r.title='Tamanho normal'; } }
-  const ADM=[['button[onclick^="editorCifra"]','ed',1,'✏️ Editar cifra'],['button[onclick^="excluirMusicaCifra"]','xc',2,'🗑️ Excluir cifra'],['button[onclick^="excluirMusicaInteira"]','xm',3,'🗑️ Excluir música']];
+  const ADM=[['button[onclick^="editorCifra"]','ed',1,'✏️ Editar cifra'],['button[onclick^="excluirMusicaCifra"]','xc',2,'🗑️ Excluir cifra'],
+    ['button[onclick^="editarLetra"]','ed',1,null],['button[onclick^="excluirLetra"]','xc',2,'🗑️ Excluir letra'],['button[onclick^="excluirMusicaInteira"]','xm',3,'🗑️ Excluir música']];
   if(ADM.some(([sel])=>pg.querySelector(sel))){
     const ad=mxCaixa(pg,'mx-adm mm-acoes',ult);
     ADM.forEach(([sel,k,o,r])=>mxPoe(mxAchar(pg,sel,'.mx-adm')||ad.querySelector(sel),ad,k,o,r));
@@ -1606,7 +1613,8 @@ function arrumaHino(){
   /* FERRAMENTAS */
   const ch=gv.querySelector('.chip'); if(ch) mxAdd(ch,'mx-tom');
   const rol=tools.querySelector('#tsc'); if(rol){ mxAdd(rol,'mx-rol'); if(rol.parentElement!==gv) gv.appendChild(rol); }
-  const pdf=tools.querySelector('#btPdfCifra'); if(pdf){ mxAdd(pdf,'mx-pdf'); if(pdf.parentElement!==gv) gv.appendChild(pdf); }
+  const pdf=tools.querySelector('#btPdfCifra'); if(pdf){ mxAdd(pdf,'mx-pdf'); if(pdf.parentElement!==gv) gv.appendChild(pdf);
+    const letra=!!tools.querySelector('.cc-seg-l.on'); if(letra) mxAdd(pdf,'mx-oculto'); else if(pdf.classList.contains('mx-oculto')) pdf.classList.remove('mx-oculto'); }
   /* ADM */
   if(ga){
     const lbl=ga.querySelector('.cc-gl'); if(lbl) mxAdd(lbl,'mx-oculto');
@@ -1631,32 +1639,42 @@ addEventListener('resize',()=>{ document.querySelectorAll('#content .mx-acoes,#c
 #content [data-cols="4"] > *{flex-basis:calc(25% - 6px)}
 #content [data-cols="5"] > *{flex-basis:calc(20% - 7px)}
 #content [data-cols="6"] > *{flex-basis:calc(16.666% - 7px)}
-#content :is(.mx-acoes,.mx-adm) > .mx-b{margin:0!important;min-width:0;min-height:44px;height:auto!important;padding:8px 6px!important;border-radius:12px!important;border:0!important;
-  font-size:14px!important;font-weight:800!important;line-height:1.15!important;white-space:normal!important;text-align:center;display:flex!important;align-items:center;justify-content:center;
-  color:#fff!important;text-decoration:none!important;box-shadow:0 2px 6px rgba(0,0,0,.12);box-sizing:border-box;cursor:pointer;word-break:break-word;opacity:1!important}
-#content :is(.mx-acoes,.mx-adm) > .mx-b.mx-sl{background:#1b6b4f!important}
-#content :is(.mx-acoes,.mx-adm) > .mx-b.mx-pj{background:#3949ab!important}
-#content :is(.mx-acoes,.mx-adm) > .mx-b.mx-tc{background:#f2b705!important;color:#3b2a00!important}
-#content :is(.mx-acoes,.mx-adm) > .mx-b.mx-mt{background:#7b1fa2!important}
-#content :is(.mx-acoes,.mx-adm) > .mx-b.mx-wa{background:#1fa855!important}
-#content :is(.mx-acoes,.mx-adm) > .mx-b.mx-yt{background:#e53935!important}
-#content :is(.mx-acoes,.mx-adm) > .mx-b.mx-pt{background:#6d4c41!important}
-#content :is(.mx-acoes,.mx-adm) > .mx-b.mx-up{background:#8d6e63!important}
-#content :is(.mx-acoes,.mx-adm) > .mx-b.mx-lv{background:#ad1457!important}
+#content :is(.mx-acoes,.mx-adm) > .mx-b{margin:0!important;min-width:0;min-height:44px;height:auto!important;padding:8px 6px!important;border-radius:12px!important;
+  font-size:14px!important;font-weight:800!important;line-height:1.2!important;white-space:normal!important;text-align:center;display:flex!important;align-items:center;justify-content:center;gap:4px;
+  background:var(--bt-bg)!important;color:var(--bt-tx)!important;border:1.5px solid var(--bt-bd)!important;text-decoration:none!important;box-shadow:0 1px 3px rgba(0,0,0,.06);box-sizing:border-box;cursor:pointer;word-break:break-word;opacity:1!important;overflow:visible!important}
+/* paleta suave (fundo claro + texto/ícone na cor do mesmo tom; contraste conferido ≥ 5:1) */
+#content .mx-b.mx-sl{--bt-bg:#e1f1e9;--bt-tx:#1d5c45;--bt-bd:#bcdccc}
+#content .mx-b.mx-pdf{--bt-bg:#fbe8df;--bt-tx:#953b1f;--bt-bd:#f0c8b8}
+#content .mx-b.mx-pt{--bt-bg:#f2eae5;--bt-tx:#6b4636;--bt-bd:#dccbc0}
+#content .mx-b.mx-up{--bt-bg:#f5efeb;--bt-tx:#6b4636;--bt-bd:#e2d5cc}
+#content .mx-b.mx-tc{--bt-bg:#fdf2cf;--bt-tx:#6f5100;--bt-bd:#efd88d}
+#content .mx-b.mx-mt{--bt-bg:#ece7f6;--bt-tx:#54408a;--bt-bd:#d3c8ea}
+#content .mx-b.mx-wa{--bt-bg:#e0f3e7;--bt-tx:#1b6e3f;--bt-bd:#b7dfc6}
+#content .mx-b.mx-yt{--bt-bg:#fde6e5;--bt-tx:#a8302c;--bt-bd:#f3c0bd}
+#content .mx-b.mx-lv{--bt-bg:#fbe5ee;--bt-tx:#9a2e58;--bt-bd:#efc0d3}
+#content .mx-b.mx-pj{--bt-bg:#e6eaf7;--bt-tx:#2f3f86;--bt-bd:#c9d1ee}
 #content .mx-adm > .mx-b{min-height:40px;font-size:13px!important;box-shadow:none}
-#content .mx-adm > .mx-b.mx-ed{background:#ef6c00!important}
-#content .mx-adm > .mx-b.mx-lk{background:#455a64!important}
-#content .mx-adm > .mx-b.mx-xc{background:#fdecea!important;color:#b3261e!important;border:1.5px solid #f3b8b2!important}
-#content .mx-adm > .mx-b.mx-xm{background:#c62828!important}
+#content .mx-b.mx-ed{--bt-bg:#fdeada;--bt-tx:#8e4a10;--bt-bd:#f1cba4}
+#content .mx-b.mx-lk{--bt-bg:#e6edf1;--bt-tx:#36505e;--bt-bd:#c8d6de}
+#content .mx-b.mx-xc{--bt-bg:#fff3f2;--bt-tx:#a52019;--bt-bd:#f3c2be}
+#content .mx-b.mx-xm{--bt-bg:#fbdedb;--bt-tx:#9a1d16;--bt-bd:#eeaaa5}
 /* ferramentas da cifra (música e hino) */
-#content .zoom-bar.mx-tools,#content .cc-gv.mx-tools-h{display:flex!important;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;padding:8px;border-radius:14px;background:#fff;border:1px solid #dfe9e4;box-shadow:0 1px 4px rgba(0,0,0,.05);width:100%;box-sizing:border-box;max-width:100%}
+#content .zoom-bar.mx-tools,#content .cc-gv.mx-tools-h{display:flex!important;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;padding:8px;border-radius:14px;background:#fff;border:1px solid #e1ebe6;box-shadow:0 1px 3px rgba(0,0,0,.04);width:100%;box-sizing:border-box;max-width:100%}
 #content .zoom-bar.mx-tools .zh{display:none}
-#content .zoom-bar.mx-tools > button{margin:0!important;min-width:40px;height:38px;padding:0 10px;border-radius:10px;font-weight:800;font-size:14px;border:0;background:#dbe7f5;color:#1d3a5f;flex:0 0 auto}
-#content .zoom-bar.mx-tools > button.rst{background:#e6e9ee;color:#45505c}
-#content .zoom-bar.mx-tools .mm-tom,#content .cc-gv .chip.mx-tom{margin:0;height:38px;background:#fff6d6!important;border:1.5px solid #f0c24b!important;border-radius:10px;display:inline-flex;align-items:center;justify-content:space-between;flex:1 1 150px;min-width:0}
-#content .zoom-bar.mx-tools .mm-tom > button,#content .cc-gv .chip.mx-tom > button{height:34px;min-width:34px;border:0;background:transparent;font-size:18px;font-weight:800;color:#7a5200}
-#content .zoom-bar.mx-tools > #musRolBtn,#content .cc-gv > .mx-rol{flex:1 1 auto;height:38px;margin:0!important;border-radius:10px!important;background:#00897b!important;color:#fff!important;border:0!important;font-weight:800}
-#content .zoom-bar.mx-tools > #btPdfCifra,#content .cc-gv > .mx-pdf{flex:1 1 auto;height:38px;margin:0!important;border-radius:10px!important;background:#d84315!important;color:#fff!important;border:0!important;font-weight:800}
+#content .zoom-bar.mx-tools > button{margin:0!important;min-width:40px;height:38px;padding:0 10px;border-radius:10px;font-weight:800;font-size:14px;border:1.5px solid #cfdcec;background:#e6eef8;color:#2a4769;flex:0 0 auto}
+#content .zoom-bar.mx-tools > button.rst{background:#eef0f3;color:#46505b;border-color:#dde1e6}
+#content .zoom-bar.mx-tools .mm-tom,#content .cc-gv .chip.mx-tom{margin:0;height:38px;background:#fdf2cf!important;border:1.5px solid #efd88d!important;border-radius:10px;display:inline-flex;align-items:center;justify-content:space-between;flex:1 1 150px;min-width:0;color:#6f5100}
+#content .zoom-bar.mx-tools .mm-tom > button,#content .cc-gv .chip.mx-tom > button{height:34px;min-width:34px;border:0;background:transparent;font-size:18px;font-weight:800;color:#6f5100}
+#content .zoom-bar.mx-tools > #musRolBtn,#content .cc-gv > .mx-rol{flex:1 1 auto;height:38px;margin:0!important;border-radius:10px!important;background:#dcefec!important;color:#1a625a!important;border:1.5px solid #b5dbd5!important;font-weight:800}
+#content .zoom-bar.mx-tools > #btPdfCifra,#content .cc-gv > .mx-pdf{flex:1 1 auto;height:38px;margin:0!important;border-radius:10px!important;background:#fbe8df!important;color:#953b1f!important;border:1.5px solid #f0c8b8!important;font-weight:800}
+/* abas Cifra/Letra/Áudio: a ativa em tom suave, ícone sempre visível */
+#content .tabs3 button{color:#1d5c45}
+#content .tabs3 button .ic{opacity:1!important;filter:none!important}
+#content .tabs3 button.active{background:#d8ece2!important;color:#14513d!important;box-shadow:inset 0 0 0 2px #2f7d62,0 2px 8px rgba(0,0,0,.06)!important}
+#content .cc-seg button.on{background:#d8ece2!important;color:#14513d!important;box-shadow:inset 0 0 0 2px #2f7d62!important}
+/* outros botões vivos do app */
+.yt-btn{background:#fde6e5!important;color:#a8302c!important;border:1.5px solid #f3c0bd!important}
+.av-wa,.mb-tab a.wa{background:#e0f3e7!important;color:#1b6e3f!important;border:1px solid #b7dfc6}
 [data-theme=dark] #content .zoom-bar.mx-tools,[data-theme=dark] #content .cc-gv.mx-tools-h{background:#1f2a26;border-color:#2e3d37}
 [data-theme=dark] #content .zoom-bar.mx-tools > button{background:#2c3b52;color:#e3ecf7}
 [data-theme=dark] #content .zoom-bar.mx-tools .mm-tom,[data-theme=dark] #content .cc-gv .chip.mx-tom{background:#3a3214!important}
