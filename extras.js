@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.37.0)
+   MM IBNM — Extras (v1.38.0)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1841,6 +1841,84 @@ aoMudar(function(){
 [data-theme=dark] .bg-tx b{color:#f0f5f2}
 [data-theme=dark] .bg-tx em{background:#1a2420;color:#cfdcd5}
 `; document.head.appendChild(st41); }
+
+/* ======================= 42) 🎧 ÁUDIOS DO GOOGLE DRIVE TOCAM DE VERDADE ======================= */
+/* O link antigo do Drive (drive.google.com/uc?export=download) não toca mais direto no player em
+   muitos celulares (o Google passou a redirecionar). Agora cada áudio do Drive tenta, em ordem:
+   1) API do Drive com a chave do app (forma oficial; funciona para todos os membros)
+   2) servidor novo do Google (drive.usercontent.google.com)  3) link antigo
+   4) ADM conectado ao Drive: baixa com a permissão dele e ainda deixa o arquivo público de novo
+   Se nada der certo, aparece o motivo e o link para ouvir no Drive. */
+const DRV_ID=u=>{ const m=String(u||'').match(/(?:drive\.google\.com\/(?:uc\?(?:[^#]*?&)?id=|file\/d\/|open\?id=)|drive\.usercontent\.google\.com\/(?:download|uc)\?(?:[^#]*?&)?id=|googleapis\.com\/drive\/v3\/files\/)([-\w]{20,})/); return m? m[1] : ''; };
+function drvChaveApi(){ try{ const v=APP_CFG.drive_api_key; return String((v&&v.key)||v||'').trim(); }catch(_){ return ''; } }
+function audioFontes(id){ const k=drvChaveApi(), l=[];
+  if(k) l.push('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media&key='+encodeURIComponent(k));
+  l.push('https://drive.usercontent.google.com/download?id='+id+'&export=download');
+  l.push('https://drive.google.com/uc?export=download&id='+id); return l; }
+function auAviso(a,html){ let d=a.nextElementSibling; if(!d||!d.classList.contains('au-erro')){ a.insertAdjacentHTML('afterend','<div class="au-erro"></div>'); d=a.nextElementSibling; } if(d.innerHTML!==html) d.innerHTML=html; }
+async function auProxima(a){
+  const id=a.dataset.drv; if(!id) return; const f=audioFontes(id); const i=(+a.dataset.fi||0)+1; const tocar=a.dataset.quer==='1';
+  if(i<f.length){ a.dataset.fi=String(i); a.src=f[i]; a.load(); if(tocar) a.play().catch(()=>{}); return; }
+  if(!a.dataset.oauth){ a.dataset.oauth='1'; let tok=null; try{ tok=drvToken(); }catch(_){}
+    if(tok){ try{ const r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media',{headers:{Authorization:'Bearer '+tok}});
+        if(r.ok){ const b=await r.blob(); a.src=URL.createObjectURL(b); a.load(); if(tocar) a.play().catch(()=>{});
+          /* garante que o arquivo fique aberto para os membros ouvirem */
+          fetch('https://www.googleapis.com/drive/v3/files/'+id+'/permissions',{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({role:'reader',type:'anyone'})}).catch(()=>{});
+          if(!drvChaveApi()) auAviso(a,'ℹ️ Tocando pela sua conexão do Drive. Para os <b>membros</b> ouvirem, cadastre a <b>chave do Google</b> em Painel → Conectividade.');
+          return; } }catch(_){} } }
+  const adm=(typeof ehAdmin==='function')&&ehAdmin();
+  auAviso(a,'⚠️ Este áudio não abriu aqui. <a href="https://drive.google.com/file/d/'+id+'/view" target="_blank" rel="noopener">Ouvir no Google Drive ↗</a>'+
+    (adm&&!drvChaveApi()? '<br><small>ADM: cadastre a <b>chave do Google</b> em Painel → Conectividade para os áudios tocarem aqui para todos.</small>' : ''));
+}
+/* acompanha troca de arquivo no mesmo player (Principal / Back 1 / Back 2) */
+function auAjusta(a){
+  const id=DRV_ID(a.getAttribute('src')||a.currentSrc); if(!id) return;
+  const f=audioFontes(id);
+  if(id!==a.dataset.drv){ a.dataset.drv=id; a.dataset.fi='0'; delete a.dataset.oauth; const d=a.nextElementSibling; if(d&&d.classList.contains('au-erro')) d.remove(); }
+  const fi=+a.dataset.fi||0;
+  if(a.getAttribute('src')!==f[fi]){ a.src=f[fi]; if(a.dataset.quer==='1'||a.autoplay) a.play().catch(()=>{}); }   /* sem load(): quem está em preload=none só baixa ao tocar */
+}
+function auPrepara(a){
+  if(a.dataset.au==='1'){ auAjusta(a); return; }
+  a.dataset.au='1';
+  a.addEventListener('play',()=>{ a.dataset.quer='1'; });
+  a.addEventListener('loadstart',()=>auAjusta(a));
+  a.addEventListener('error',()=>{ if(DRV_ID(a.getAttribute('src'))) auProxima(a); });
+  a.addEventListener('playing',()=>{ const d=a.nextElementSibling; if(d&&d.classList.contains('au-erro')&&!/Tocando pela/.test(d.textContent)) d.remove(); });
+  auAjusta(a);
+}
+/* player da aba Áudio: já troca para o endereço que toca */
+if(typeof tocar==='function'){ const _tocar=tocar; window.tocar=tocar=function(url,btn,nome){ const id=DRV_ID(url); return _tocar(id? audioFontes(id)[0] : url,btn,nome); }; }
+aoMudar(function(){ document.querySelectorAll('audio[src*="drive.google.com"],audio[src*="drive.usercontent.google.com"],audio[src*="googleapis.com/drive"]').forEach(auPrepara); });
+
+/* Painel → Conectividade: chave do Google para tocar os áudios */
+window.drvChaveEditar=function(){
+  const k=drvChaveApi();
+  abrirModal('<h3>🔑 Chave do Google para tocar os áudios</h3>'+
+    '<p style="font-size:14px;line-height:1.5;margin:6px 0 10px">Com ela, os áudios do Drive tocam no app para <b>todos os membros</b>. É gratuita e fica no mesmo projeto do Google Cloud do login do Drive.</p>'+
+    '<ol style="font-size:13.5px;line-height:1.55;padding-left:18px;margin:0 0 10px"><li>console.cloud.google.com → seu projeto → <b>APIs e serviços → Credenciais</b></li><li><b>Criar credenciais → Chave de API</b></li><li>Em <b>Restrições</b>: “Sites” → <code>https://adaiascearataiana-gif.github.io/*</code>; e “Restringir chave” → <b>Google Drive API</b></li><li>Copie a chave e cole abaixo</li></ol>'+
+    '<div class="field"><label>Chave de API (começa com AIza…)</label><input id="drvKeyIn" value="'+escA(k)+'" placeholder="AIza..." autocomplete="off"></div>'+
+    '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Cancelar</button><button class="btn btn-primary" id="drvKeyBt" onclick="drvChaveSalvar()">Salvar</button></div>');
+};
+window.drvChaveSalvar=async function(){
+  const v=((document.getElementById('drvKeyIn')||{}).value||'').trim();
+  if(v && !/^AIza[\w-]{30,}$/.test(v)) return toast('Essa chave não parece certa: ela começa com "AIza".');
+  const bt=document.getElementById('drvKeyBt'); if(bt){ bt.disabled=true; bt.textContent='Salvando…'; }
+  try{ await salvarConfig('drive_api_key',{key:v}); fecharModal(); toast(v?'✅ Chave salva. Os áudios do Drive passam a tocar para todos.':'Chave removida.');
+    document.querySelectorAll('audio[data-drv]').forEach(a=>{ const id=a.dataset.drv; if(!id) return; a.dataset.fi='0'; delete a.dataset.oauth; const f=audioFontes(id); a.src=f[0]; a.load(); const d=a.nextElementSibling; if(d&&d.classList.contains('au-erro')) d.remove(); });
+  }catch(_){ if(bt){ bt.disabled=false; bt.textContent='Salvar'; } }
+};
+aoMudar(function(){
+  const b=document.getElementById('btDrvPainel'); if(!b) return;
+  let k=document.getElementById('btDrvChave'); const txt=drvChaveApi()? '🔑 Chave dos áudios ✓' : '🔑 Chave para tocar os áudios';
+  if(!k){ b.insertAdjacentHTML('afterend','<button id="btDrvChave" class="mini-btn" style="margin:8px 0 0 8px" onclick="drvChaveEditar()"></button>'); k=document.getElementById('btDrvChave'); }
+  if(k.textContent!==txt) k.textContent=txt;
+});
+{ const st42=document.createElement('style'); st42.textContent=`
+.au-erro{margin:6px 0 4px;padding:8px 10px;border-radius:10px;background:#fff6e6;border:1px solid #f1d7a8;color:#6b4d0d;font-size:13.5px;line-height:1.45}
+.au-erro a{color:#1d5c45;font-weight:800}
+.vz-card .au-erro,.au-erro{word-break:break-word}
+`; document.head.appendChild(st42); }
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
