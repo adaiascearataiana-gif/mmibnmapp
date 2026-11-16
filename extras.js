@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.39.2)
+   MM IBNM — Extras (v1.40)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1845,53 +1845,104 @@ aoMudar(function(){
 `; document.head.appendChild(st41); }
 
 /* ======================= 42) 🎧 ÁUDIOS DO GOOGLE DRIVE TOCAM DE VERDADE ======================= */
-/* O link antigo do Drive (drive.google.com/uc?export=download) não toca mais direto no player em
-   muitos celulares (o Google passou a redirecionar). Agora cada áudio do Drive tenta, em ordem:
-   1) API do Drive com a chave do app (forma oficial; funciona para todos os membros)
-   2) servidor novo do Google (drive.usercontent.google.com)  3) link antigo
-   4) ADM conectado ao Drive: baixa com a permissão dele e ainda deixa o arquivo público de novo
-   Se nada der certo, aparece o motivo e o link para ouvir no Drive. */
+/* v1.40 — toca NA HORA e só UM áudio por vez.
+   • Cada aparelho lembra qual caminho do Google funcionou e começa direto por ele (sem tentar os que falham).
+   • Com a 🔑 chave do Google o áudio é tocado em "streaming": começa em menos de 1 segundo.
+   • Se um caminho travar (o Google às vezes segura o pedido), em 4 s passa para o próximo, sem esperar o erro.
+   • ADM conectado ao Drive sem chave: o áudio baixado fica guardado no aparelho; da 2ª vez toca na hora.
+   • Ao dar play em qualquer áudio, o que estava tocando PARA na mesma hora. */
 const DRV_ID=u=>{ const m=String(u||'').match(/(?:drive\.google\.com\/(?:uc\?(?:[^#]*?&)?id=|file\/d\/|open\?id=)|drive\.usercontent\.google\.com\/(?:download|uc)\?(?:[^#]*?&)?id=|googleapis\.com\/drive\/v3\/files\/)([-\w]{20,})/); return m? m[1] : ''; };
 function drvChaveApi(){ try{ const v=APP_CFG.drive_api_key; return String((v&&v.key)||v||'').trim(); }catch(_){ return ''; } }
-function audioFontes(id){ const k=drvChaveApi(), l=[];
-  if(k) l.push('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media&key='+encodeURIComponent(k));
-  l.push('https://drive.usercontent.google.com/download?id='+id+'&export=download');
-  l.push('https://drive.google.com/uc?export=download&id='+id); return l; }
+const AU_MODO_K='ibnm_au_modo', AU_CACHE='mmibnm-audios', AU_BLOB=new Map();
+function auModo(){ try{ return localStorage.getItem(AU_MODO_K)||''; }catch(_){ return ''; } }
+function auModoOk(m){ try{ if(m && m!=='blob' && localStorage.getItem(AU_MODO_K)!==m) localStorage.setItem(AU_MODO_K,m); }catch(_){} }
+function auTok(){ try{ return drvToken(); }catch(_){ return null; } }
+/* caminhos para o arquivo, na ordem certa para ESTE aparelho */
+function audioFontes(id){
+  const k=drvChaveApi(), l=[], b=AU_BLOB.get(id);
+  if(b) l.push({m:'blob',u:b});
+  if(k) l.push({m:'key',u:'https://www.googleapis.com/drive/v3/files/'+id+'?alt=media&key='+encodeURIComponent(k)});
+  const ext=[{m:'uc2',u:'https://drive.usercontent.google.com/download?id='+id+'&export=download'},{m:'uc',u:'https://drive.google.com/uc?export=download&id='+id}];
+  const modo=auModo();
+  if(modo==='tok' && auTok()) return l;                       /* aqui só a conexão do Drive funciona: nem tenta os outros */
+  if(modo==='uc') ext.reverse();
+  return l.concat(ext);
+}
 function auAviso(a,html){ let d=a.nextElementSibling; if(!d||!d.classList.contains('au-erro')){ a.insertAdjacentHTML('afterend','<div class="au-erro"></div>'); d=a.nextElementSibling; } if(d.innerHTML!==html) d.innerHTML=html; }
+function auLimpaAviso(a){ const d=a.nextElementSibling; if(d&&d.classList.contains('au-erro')&&!/Tocando pela/.test(d.textContent)) d.remove(); }
+function auQuer(a){ return a.dataset.quer==='1' || a.autoplay; }
+function auPoe(a,f){ a.dataset.fm=f.m; a.src=f.u; auVigia(a); if(auQuer(a)) a.play().catch(()=>{}); }
+/* se o Google segurar o pedido, não fica esperando: passa para o próximo caminho */
+function auVigia(a){
+  clearTimeout(a._auT); if(!auQuer(a)) return; const s=a.getAttribute('src'), m=a.dataset.fm;
+  if(m==='blob' || (m && m===auModo())) return;               /* caminho que já funcionou aqui: não interrompe */
+  a._auT=setTimeout(()=>{ if(a.isConnected && a.getAttribute('src')===s && a.readyState===0) auProxima(a); },4000);
+}
+/* arquivo guardado no aparelho (2ª vez toca na hora) */
+async function auDoCache(id){ try{ if(!window.caches) return null; const c=await caches.open(AU_CACHE); const r=await c.match('https://au.ibnm/'+id); if(!r) return null; return URL.createObjectURL(await r.blob()); }catch(_){ return null; } }
+async function auGuarda(id,blob){ try{ if(!window.caches) return; const c=await caches.open(AU_CACHE); await c.put('https://au.ibnm/'+id,new Response(blob,{headers:{'Content-Type':blob.type||'audio/mpeg'}}));
+  const ks=await c.keys(); for(let i=0;i<ks.length-40;i++) await c.delete(ks[i]); }catch(_){} }
+async function auBaixa(a,id){
+  if(a.dataset.oauth===id) return false; a.dataset.oauth=id; const tocar=auQuer(a);
+  let u=AU_BLOB.get(id)||await auDoCache(id);
+  if(!u){ const tok=auTok(); if(!tok) return false;
+    try{ const r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media',{headers:{Authorization:'Bearer '+tok}});
+      if(!r.ok) return false; const b=await r.blob(); u=URL.createObjectURL(b); auGuarda(id,b);
+      fetch('https://www.googleapis.com/drive/v3/files/'+id+'/permissions',{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({role:'reader',type:'anyone'})}).catch(()=>{});
+      if(!drvChaveApi()){ auModoOk('tok'); auAviso(a,'ℹ️ Tocando pela sua conexão do Drive. Para tocar <b>na hora</b> e para os <b>membros</b>, cadastre a <b>🔑 chave do Google</b> em Painel → Conectividade.'); }
+    }catch(_){ return false; } }
+  AU_BLOB.set(id,u);
+  if(a.dataset.drv!==id) return true;   /* trocou de arquivo enquanto baixava */
+  clearTimeout(a._auT); a.dataset.fm='blob'; a.src=u; if(tocar) a.play().catch(()=>{}); return true;
+}
 async function auProxima(a){
-  const id=a.dataset.drv; if(!id) return; const f=audioFontes(id); const i=(+a.dataset.fi||0)+1; const tocar=a.dataset.quer==='1';
-  if(i<f.length){ a.dataset.fi=String(i); a.src=f[i]; a.load(); if(tocar) a.play().catch(()=>{}); return; }
-  if(!a.dataset.oauth){ a.dataset.oauth='1'; let tok=null; try{ tok=drvToken(); }catch(_){}
-    if(tok){ try{ const r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media',{headers:{Authorization:'Bearer '+tok}});
-        if(r.ok){ const b=await r.blob(); a.src=URL.createObjectURL(b); a.load(); if(tocar) a.play().catch(()=>{});
-          /* garante que o arquivo fique aberto para os membros ouvirem */
-          fetch('https://www.googleapis.com/drive/v3/files/'+id+'/permissions',{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({role:'reader',type:'anyone'})}).catch(()=>{});
-          if(!drvChaveApi()) auAviso(a,'ℹ️ Tocando pela sua conexão do Drive. Para os <b>membros</b> ouvirem, cadastre a <b>chave do Google</b> em Painel → Conectividade.');
-          return; } }catch(_){} } }
+  const id=a.dataset.drv; if(!id) return; clearTimeout(a._auT);
+  const f=audioFontes(id); const i=(+a.dataset.fi||0)+1;
+  if(i<f.length){ a.dataset.fi=String(i); auPoe(a,f[i]); return; }
+  if(await auBaixa(a,id)) return;
+  if(auModo()==='tok' && !a.dataset.retry){ a.dataset.retry='1'; try{ localStorage.removeItem(AU_MODO_K); }catch(_){}   /* a conexão falhou: volta a tentar os caminhos públicos */
+    const g=audioFontes(id); if(g.length){ a.dataset.fi='0'; auPoe(a,g[0]); return; } }
   const adm=(typeof ehAdmin==='function')&&ehAdmin();
   auAviso(a,'⚠️ Este áudio não abriu aqui. <a href="https://drive.google.com/file/d/'+id+'/view" target="_blank" rel="noopener">Ouvir no Google Drive ↗</a>'+
     (adm&&!drvChaveApi()? '<br><small>ADM: cadastre a <b>chave do Google</b> em Painel → Conectividade para os áudios tocarem aqui para todos.</small>' : ''));
 }
 /* acompanha troca de arquivo no mesmo player (Principal / Back 1 / Back 2) */
 function auAjusta(a){
-  const id=DRV_ID(a.getAttribute('src')||a.currentSrc); if(!id) return;
+  const src=a.getAttribute('src')||''; if(src.startsWith('blob:')) return;
+  const id=DRV_ID(src||a.currentSrc); if(!id) return;
+  if(id!==a.dataset.drv){ a.dataset.drv=id; a.dataset.fi='0'; delete a.dataset.oauth; auLimpaAviso(a); }
   const f=audioFontes(id);
-  if(id!==a.dataset.drv){ a.dataset.drv=id; a.dataset.fi='0'; delete a.dataset.oauth; const d=a.nextElementSibling; if(d&&d.classList.contains('au-erro')) d.remove(); }
-  const fi=+a.dataset.fi||0;
-  if(a.getAttribute('src')!==f[fi]){ a.src=f[fi]; if(a.dataset.quer==='1'||a.autoplay) a.play().catch(()=>{}); }   /* sem load(): quem está em preload=none só baixa ao tocar */
+  if(!f.length){ if(auQuer(a)||a.preload!=='none') auBaixa(a,id).then(ok=>{ if(!ok) auProxima(a); }); return; }
+  const fi=Math.min(+a.dataset.fi||0,f.length-1);
+  if(src!==f[fi].u) auPoe(a,f[fi]);   /* sem load(): quem está em preload=none só baixa ao tocar */
 }
 function auPrepara(a){
+  if(a.id==='plAudio' && a.preload!=='auto') a.preload='auto';   /* player principal já vai carregando ao abrir a música */
   if(a.dataset.au==='1'){ auAjusta(a); return; }
   a.dataset.au='1';
-  a.addEventListener('play',()=>{ a.dataset.quer='1'; });
+  a.addEventListener('play',()=>{ a.dataset.quer='1'; const s=a.getAttribute('src')||''; if(a.readyState<2 && !s.startsWith('blob:')) auVigia(a); });
   a.addEventListener('loadstart',()=>auAjusta(a));
-  a.addEventListener('error',()=>{ if(DRV_ID(a.getAttribute('src'))) auProxima(a); });
-  a.addEventListener('playing',()=>{ const d=a.nextElementSibling; if(d&&d.classList.contains('au-erro')&&!/Tocando pela/.test(d.textContent)) d.remove(); });
+  a.addEventListener('error',()=>{ const s=a.getAttribute('src')||''; if(DRV_ID(s)) auProxima(a); });
+  a.addEventListener('playing',()=>{ clearTimeout(a._auT); auModoOk(a.dataset.fm); auLimpaAviso(a); });
+  a.addEventListener('canplay',()=>clearTimeout(a._auT));
   auAjusta(a);
 }
-/* player da aba Áudio: já troca para o endereço que toca */
-if(typeof tocar==='function'){ const _tocar=tocar; window.tocar=tocar=function(url,btn,nome){ const id=DRV_ID(url); return _tocar(id? audioFontes(id)[0] : url,btn,nome); }; }
-aoMudar(function(){ document.querySelectorAll('audio[src*="drive.google.com"],audio[src*="drive.usercontent.google.com"],audio[src*="googleapis.com/drive"]').forEach(auPrepara); });
+/* player da aba Áudio: já entra com o endereço que toca */
+if(typeof tocar==='function'){ const _tocar=tocar; window.tocar=tocar=function(url,btn,nome){
+  const a=document.getElementById('plAudio'), id=DRV_ID(url); if(!a||!id) return _tocar(url,btn,nome);
+  a.dataset.quer='1'; a.dataset.drv=id; a.dataset.fi='0'; delete a.dataset.oauth; delete a.dataset.retry; auLimpaAviso(a);
+  const f=audioFontes(id);
+  if(f.length) auPoe(a,f[0]); else { try{ a.pause(); }catch(_){} auBaixa(a,id).then(ok=>{ if(!ok){ a.dataset.fi='-1'; auProxima(a); } }); }
+  const n=document.getElementById('plNome'); if(n) n.textContent=nome;
+  document.querySelectorAll('.player-list button').forEach(b=>b.classList.remove('playing')); if(btn) btn.classList.add('playing'); }; }
+aoMudar(function(){ document.querySelectorAll('audio[src*="drive.google.com"],audio[src*="drive.usercontent.google.com"],audio[src*="googleapis.com/drive"],audio[data-drv]').forEach(auPrepara); });
+/* abre a conexão com o Google antes do toque (economiza o tempo de "aperto de mão") */
+['https://www.googleapis.com','https://drive.usercontent.google.com'].forEach(h=>{ if(!document.querySelector('link[rel=preconnect][href="'+h+'"]')){ const l=document.createElement('link'); l.rel='preconnect'; l.href=h; l.crossOrigin='anonymous'; document.head.appendChild(l); const l2=document.createElement('link'); l2.rel='preconnect'; l2.href=h; document.head.appendChild(l2); } });
+/* 🔇 UM ÁUDIO POR VEZ: deu play em um, todos os outros param na hora */
+if(!window.__auUmPorVez){ window.__auUmPorVez=1;
+  document.addEventListener('play',function(e){ const t=e.target; if(!t||!(t instanceof HTMLMediaElement)) return;
+    document.querySelectorAll('audio,video').forEach(x=>{ if(x!==t && !x.paused){ try{ x.pause(); }catch(_){} } }); },true);
+}
 
 /* Painel → Conectividade: chave do Google para tocar os áudios */
 window.drvChaveEditar=function(){
@@ -1907,7 +1958,7 @@ window.drvChaveSalvar=async function(){
   if(v && !/^AIza[\w-]{30,}$/.test(v)) return toast('Essa chave não parece certa: ela começa com "AIza".');
   const bt=document.getElementById('drvKeyBt'); if(bt){ bt.disabled=true; bt.textContent='Salvando…'; }
   try{ await salvarConfig('drive_api_key',{key:v}); fecharModal(); toast(v?'✅ Chave salva. Os áudios do Drive passam a tocar para todos.':'Chave removida.');
-    document.querySelectorAll('audio[data-drv]').forEach(a=>{ const id=a.dataset.drv; if(!id) return; a.dataset.fi='0'; delete a.dataset.oauth; const f=audioFontes(id); a.src=f[0]; a.load(); const d=a.nextElementSibling; if(d&&d.classList.contains('au-erro')) d.remove(); });
+    document.querySelectorAll('audio[data-drv]').forEach(a=>{ const id=a.dataset.drv; if(!id) return; a.dataset.fi='0'; delete a.dataset.oauth; AU_BLOB.delete(id); const f=audioFontes(id); if(f[0]){ a.dataset.fm=f[0].m; a.src=f[0].u; a.load(); } const d=a.nextElementSibling; if(d&&d.classList.contains('au-erro')) d.remove(); });
   }catch(_){ if(bt){ bt.disabled=false; bt.textContent='Salvar'; } }
 };
 aoMudar(function(){
