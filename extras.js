@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.39.0)
+   MM IBNM — Extras (v1.39.1)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1516,6 +1516,7 @@ body.aprov-espera .toast{z-index:13050!important}
 
 /* ======================= 39) 💾 SALVAR CONFIG MOSTRA O ERRO DO BANCO ======================= */
 /* Antes, se o banco recusasse (sem permissão), o app dizia que salvou e o SETLIST sumia depois. */
+document.addEventListener('click',ev=>{ const b=ev.target&&ev.target.closest&&ev.target.closest('#modalBox button'); if(b&&!b.disabled) b.dataset.txtOrig=b.textContent; },true);
 window.salvarConfig=async function(chave,valor){
   const tinha=Object.prototype.hasOwnProperty.call(APP_CFG,chave), antes=APP_CFG[chave];
   APP_CFG[chave]=valor;
@@ -1523,6 +1524,7 @@ window.salvarConfig=async function(chave,valor){
   try{ const r=await sb.from('config').upsert({chave,valor,updated_at:new Date().toISOString()}); error=r&&r.error; }catch(e){ error=e; }
   if(!error) return true;
   if(tinha) APP_CFG[chave]=antes; else delete APP_CFG[chave];
+  document.querySelectorAll('#modalBox button[disabled]').forEach(b=>{ if(b.dataset.txtOrig){ b.disabled=false; b.textContent=b.dataset.txtOrig; } });
   const m=String(error.message||error);
   const msg=/row-level security|permission|42501/i.test(m)? 'o banco não deixou salvar (sem permissão). Saia e entre de novo; se continuar, abra Painel → 🩺 Diagnóstico.' : m;
   toast('❌ Não salvou: '+msg);
@@ -1947,10 +1949,27 @@ window.__slSemana=function(qual,base){
 if(typeof window.publicarPlaylist==='function'){ const _pub=window.publicarPlaylist;
   window.publicarPlaylist=async function(){
     const ed=(typeof window.__edAtual==='function')? window.__edAtual() : null; const ch=String((ed&&ed.chave)||''), q=String((ed&&ed.qual)||'');
-    const r=await _pub.apply(this,arguments);
+    let r, falhou=null;
+    try{ r=await _pub.apply(this,arguments); }catch(e){ falhou=e; }
+    const bt=document.getElementById('plPub'), mb=document.getElementById('modalBg');
+    if((falhou || (bt && bt.disabled)) && mb && mb.classList.contains('show')){   /* o banco recusou no meio: libera o botão e explica */
+      if(bt){ bt.disabled=false; bt.textContent='📢 Publicar'; } await slExplicaErro(falhou); return r; }
+    if(falhou) return r;
     try{ if(ch.indexOf('slx_')===0 && (q===''||q==='prox')){ const t=slTodos(); const eu=t.find(x=>x.k===ch);
         if(eu && t.some(x=>x.k!==ch && x.sem===eu.sem && x.pr<3)){ await salvarConfig(ch,{}); try{ go('playlist'); }catch(_){} } } }catch(_){}
     return r; };
+}
+/* por que o banco não deixou salvar? pergunta ao próprio banco e mostra dentro da janela */
+async function slPermissoes(){ const o={}; try{ const a=await sb.rpc('is_principal'); o.principal=a.error? null : !!a.data; }catch(_){ o.principal=null; }
+  try{ const b=await sb.rpc('tem_secao',{sec:'playlist'}); o.setlist=b.error? null : !!b.data; }catch(_){ o.setlist=null; } return o; }
+window.slPermissoes=slPermissoes;
+async function slExplicaErro(e){
+  let msg=String((e&&e.message)||e||'o banco recusou');
+  const P=await slPermissoes();
+  if(P.principal===false && P.setlist===false) msg='o banco NÃO reconhece sua conta como ADM principal (nem com a seção SETLIST). Rode no Supabase o SQL-6-ADM-PRINCIPAL.sql e saia e entre de novo no app.';
+  const box=document.getElementById('modalBox'); const acts=box&&box.querySelector('.modal-acts');
+  if(acts){ let d=box.querySelector('.sl-err'); if(!d){ acts.insertAdjacentHTML('beforebegin','<div class="err-msg sl-err"></div>'); d=box.querySelector('.sl-err'); } d.textContent='❌ Não publicou: '+msg; d.scrollIntoView({block:'nearest'}); }
+  toast('❌ Não publicou: '+msg);
 }
 const slFmt=(a,b)=>fmtD(a)+(b&&b!==a? ' - '+fmtD(b) : '');
 function slRotulo(sem,W0,W1){ return sem===W0? 'Esta semana' : sem===W1? 'Próxima semana' : 'Semana de '+fmtD(sem); }
