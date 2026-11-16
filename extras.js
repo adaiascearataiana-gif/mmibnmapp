@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.39.1)
+   MM IBNM — Extras (v1.39.2)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -2967,7 +2967,7 @@ white-space:pre-wrap;font-family:inherit;font-size:14px;background:#f6faf8;borde
 .eed-sug .sem{color:#7a8f86;font-weight:600}
 .eed-sug{z-index:60!important}
 
-.toast{z-index:10050!important}   /* avisos aparecem por cima das janelas (antes ficavam escondidos atrás) */
+.toast{z-index:10050!important;pointer-events:none!important}   /* avisos aparecem por cima das janelas, mas NUNCA bloqueiam o toque nos botões (o aviso apagado ficava invisível por cima do 📢 Publicar) */
 
 .dg-l{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #eef3f0;text-align:left}
 .dg-l>span{font-size:17px;flex:none}
