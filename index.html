@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0b3d2e">
 <link rel="manifest" href="manifest.webmanifest">
@@ -14,6 +15,7 @@
 <script>try{ if(localStorage.getItem('ibnm_tema')==='dark') document.documentElement.setAttribute('data-theme','dark'); }catch(e){}</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="seguranca.js"></script>
 <style>
 :root{
   --verde-escuro:#0b3d2e; --verde:#145c43; --verde-med:#1f7a5a; --verde-claro:#2fa377;
@@ -436,7 +438,7 @@ function ehAdmin(){ const u=usuarioAtual(); return u && u.admin; }
 
 /* ---------- Helpers ---------- */
 const $ = s=>document.querySelector(s);
-function esc(t){ return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(t){ return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function hashSenha(s){ let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h)+s.charCodeAt(i); return 'h'+(h>>>0).toString(36); }
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3200); }
@@ -2406,7 +2408,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v144';
+window.APP_V='v145';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */

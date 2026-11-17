@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.41)
+   MM IBNM — Extras (v1.42)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -2115,6 +2115,56 @@ if(typeof ROTAS!=='undefined' && ROTAS.inicio){ const _iniR=ROTAS.inicio;
 .song-row .s-ar{line-height:1.35}
 [data-theme=dark] .song-row .s-ar .sl-ok{background:#1d3b2e;color:#9fe0bd}
 `; document.head.appendChild(st44); }
+
+/* ======================= 45) ⚡ ABRE JÁ NO SETLIST ATUAL (sem "piscar" o antigo) ======================= */
+/* As configurações (SETLISTs) ficam guardadas no aparelho. Ao abrir, a Início já monta a semana certa
+   com o que está guardado e, quando a nuvem responde, só confirma. */
+const CFG_CACHE_K='ibnm_cfg_cache';
+function cfgGuarda(){ try{ if(APP_CFG && Object.keys(APP_CFG).length) localStorage.setItem(CFG_CACHE_K, JSON.stringify(APP_CFG)); }catch(_){} }
+function cfgRestaura(){ try{ if(APP_CFG && Object.keys(APP_CFG).length) return; const c=JSON.parse(localStorage.getItem(CFG_CACHE_K)||'null'); if(c && typeof c==='object') Object.assign(APP_CFG,c); }catch(_){} }
+cfgRestaura();
+if(typeof cloudConfig==='function'){ const _cc=cloudConfig;
+  window.cloudConfig=cloudConfig=async function(){ const r=await _cc.apply(this,arguments); if(APP_CFG && Object.keys(APP_CFG).length){ window.__cfgOk=1; cfgGuarda(); } else cfgRestaura(); return r; }; }
+/* 1ª vez (nada guardado ainda): em vez de mostrar o SETLIST antigo, mostra "carregando" até a nuvem responder */
+if(typeof ROTAS!=='undefined' && ROTAS.inicio){ const _ini45=ROTAS.inicio;
+  ROTAS.inicio=function(){ let h=_ini45.apply(this,arguments);
+    try{ if(window.__cfgOk || slTodos().length) return h;
+      const T=document.createElement('template'); T.innerHTML=h; const pg=T.content.querySelector('.page')||T.content;
+      const {W0}=slSemanas(); const bd=pg.querySelector('.semana-badge');
+      if(bd) bd.innerHTML='<div class="lbl">SETLIST · ESTA SEMANA</div><div class="dt">'+slFmt(W0,isoD(diaMais(isoParaData(W0),6)))+'</div><div class="sb-tt">⏳ Atualizando…</div>';
+      [...pg.querySelectorAll('.card')].forEach(c=>{ if(/Ordem dos Eventos/i.test(c.textContent)) c.remove(); });
+      return T.innerHTML;
+    }catch(_){ return h; } };
+}
+
+if(typeof salvarConfig==='function'){ const _sc=salvarConfig;
+  window.salvarConfig=salvarConfig=async function(){ const r=await _sc.apply(this,arguments); cfgGuarda(); return r; }; }
+/* se a Início já está na tela com a semana errada, refaz assim que der */
+setTimeout(()=>{ try{ if(document.querySelector('#content .semana-badge') && (window.__navStack? (__navStack().slice(-1)[0]||'inicio') : 'inicio')==='inicio' && slTodos().length){ const lbl=document.querySelector('#content .semana-badge .lbl'); if(lbl && !/ESTA SEMANA/.test(lbl.textContent)) go('inicio'); } }catch(_){} },50);
+
+/* ======================= 46) 🕐 BARRA VERDE: data, hora, tempo e SALDO bem visíveis ======================= */
+{ const st46=document.createElement('style'); st46.textContent=`
+.topbar .ttl.ola .ola-info{font-size:13.5px!important;font-weight:800!important;color:#fff!important;opacity:1!important;letter-spacing:.2px!important;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.topbar .ttl.ola .ola-info2{display:none!important}
+.topbar .ttl.ola .ola-info3{display:flex!important;align-items:center;gap:6px;margin-top:3px;opacity:1!important;font-size:13.5px;font-weight:800;color:#fff;letter-spacing:.1px;white-space:nowrap}
+.topbar .ttl.ola .ola-tp{white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.topbar .ttl.ola .ola-sd{white-space:nowrap;background:#ffd60a;color:#2b2100;border-radius:999px;padding:2px 9px 2px 7px;font-weight:900;font-size:13.5px;line-height:1.35;box-shadow:0 1px 4px rgba(0,0,0,.3),inset 0 0 0 1.5px rgba(255,255,255,.55)}
+.topbar .ttl.ola .ola-sd.neg{background:#ff5d5d;color:#fff}
+.topbar .ttl.ola .ola-sd:empty,.topbar .ttl.ola .ola-tp:empty{display:none}
+@media (max-width:350px){.topbar .ttl.ola .ola-info,.topbar .ttl.ola .ola-info3,.topbar .ttl.ola .ola-sd{font-size:12px!important}.topbar .ttl.ola .ola-sd{padding:1px 7px 1px 5px}.topbar .ttl.ola .ola-info3{gap:4px}}
+`; document.head.appendChild(st46); }
+function barraTopo2(){
+  try{ const ttl=document.querySelector('.topbar .ttl.ola'); if(!ttl) return;
+    let i3=ttl.querySelector('.ola-info3');
+    if(!i3){ ttl.insertAdjacentHTML('beforeend','<small class="ola-info3"><span class="ola-tp"></span><span class="ola-sd"></span></small>'); i3=ttl.querySelector('.ola-info3'); }
+    let tp=''; if(_clima){ let [ic]=TEMPO[_clima.c]||['🌡️']; if(!_clima.dia && (_clima.c===0||_clima.c===1)) ic='🌙'; tp=ic+' '+_clima.t+'°'; }
+    const sd=_saldo!=null? '💰 '+brl(_saldo) : '';
+    const a=i3.querySelector('.ola-tp'), b=i3.querySelector('.ola-sd');
+    if(a.textContent!==tp) a.textContent=tp; if(b.textContent!==sd) b.textContent=sd;
+    const neg=_saldo!=null&&_saldo<0; if(b.classList.contains('neg')!==neg) b.classList.toggle('neg',neg);
+  }catch(_){}
+}
+setInterval(barraTopo2,1000); setTimeout(barraTopo2,350);
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
