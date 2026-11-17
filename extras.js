@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.40)
+   MM IBNM — Extras (v1.41)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -2106,6 +2106,15 @@ if(typeof ROTAS!=='undefined' && ROTAS.inicio){ const _iniR=ROTAS.inicio;
 [data-theme=dark] .slc{background:#1f2a26;border-color:#2e3d37}
 [data-theme=dark] .slc-t{color:#e6f2ec}
 `; document.head.appendChild(st43); }
+
+/* ======================= 44) 🏷️ ETIQUETAS NA LINHA DE BAIXO (cifra · letra · áudio · youtube) ======================= */
+/* Antes a etiqueta ficava na mesma linha do cantor/banda e era cortada com "…".
+   Agora: 1ª linha título, 2ª cantor/banda, 3ª etiquetas — sempre visíveis, dentro do card. */
+{ const st44=document.createElement('style'); st44.textContent=`
+.song-row .s-ar .sl-ok{display:block;width:-moz-fit-content;width:fit-content;max-width:100%;margin:4px 0 0!important;white-space:normal;line-height:1.35;padding:2px 8px}
+.song-row .s-ar{line-height:1.35}
+[data-theme=dark] .song-row .s-ar .sl-ok{background:#1d3b2e;color:#9fe0bd}
+`; document.head.appendChild(st44); }
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
