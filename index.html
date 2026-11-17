@@ -2406,7 +2406,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v143';
+window.APP_V='v144';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */
@@ -2469,7 +2469,7 @@ function pedirPermissaoNotif(){
   Notification.requestPermission().then(p=>{ toast(p==='granted'?'Notificações ativadas! \uD83D\uDD14':'Permissao negada.'); if($('#appShell')&&!$('#appShell').classList.contains('hidden')) go('perfil'); });
 }
 function notifSistema(titulo,corpo){
-  try{ if(('Notification' in window)&&Notification.permission==='granted'){ new Notification(titulo||'IBNM Musica',{body:corpo||'',icon:'icon-192.png',badge:'icon-192.png'}); } }catch(e){}
+  try{ if(('Notification' in window)&&Notification.permission==='granted'){ new Notification(titulo||'IBNM Musica',{body:corpo||'',icon:'notif-icon-192.png',badge:'badge-96.png'}); } }catch(e){}
 }
 
 /* ---------- WRAPPERS v2 ---------- */

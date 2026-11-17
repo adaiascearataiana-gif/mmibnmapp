@@ -1,5 +1,5 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v143';
+const CACHE = 'mmibnm-v144';
 const CORE = [
   './',
   './index.html',
@@ -33,7 +33,9 @@ const CORE = [
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',
-  './favicon-32.png'
+  './favicon-32.png',
+  './badge-96.png',
+  './notif-icon-192.png'
 ];
 
 self.addEventListener('install', function (e) {
@@ -129,7 +131,7 @@ self.addEventListener('push', function (e) {
     // app aberto na tela: ele mesmo mostra o aviso (som/janela)
     if (cs.some(function (c) { return c.visibilityState === 'visible'; })) return;
     return self.registration.showNotification(d.title || 'Ministério de Música IBNM', {
-      body: d.body || '', icon: 'icon-192.png', badge: 'favicon-32.png',
+      body: d.body || '', icon: 'notif-icon-192.png', badge: 'badge-96.png',
       tag: d.id ? 'ibnm-' + d.id : undefined, renotify: true, vibrate: [80, 40, 80],
       data: { link: d.link || '' }
     });
