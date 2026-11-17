@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.42)
+   MM IBNM — Extras (v1.43)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1866,7 +1866,9 @@ function audioFontes(id){
   const modo=auModo();
   if(modo==='tok' && auTok()) return l;                       /* aqui só a conexão do Drive funciona: nem tenta os outros */
   if(modo==='uc') ext.reverse();
-  return l.concat(ext);
+  const tudo=l.concat(ext), i=tudo.findIndex(f=>f.m===modo);   /* o caminho que já funcionou aqui vem primeiro */
+  if(i>0 && tudo[0].m!=='blob') tudo.unshift(tudo.splice(i,1)[0]);
+  return tudo;
 }
 function auAviso(a,html){ let d=a.nextElementSibling; if(!d||!d.classList.contains('au-erro')){ a.insertAdjacentHTML('afterend','<div class="au-erro"></div>'); d=a.nextElementSibling; } if(d.innerHTML!==html) d.innerHTML=html; }
 function auLimpaAviso(a){ const d=a.nextElementSibling; if(d&&d.classList.contains('au-erro')&&!/Tocando pela/.test(d.textContent)) d.remove(); }
@@ -1876,7 +1878,7 @@ function auPoe(a,f){ a.dataset.fm=f.m; a.src=f.u; auVigia(a); if(auQuer(a)) a.pl
 function auVigia(a){
   clearTimeout(a._auT); if(!auQuer(a)) return; const s=a.getAttribute('src'), m=a.dataset.fm;
   if(m==='blob' || (m && m===auModo())) return;               /* caminho que já funcionou aqui: não interrompe */
-  a._auT=setTimeout(()=>{ if(a.isConnected && a.getAttribute('src')===s && a.readyState===0) auProxima(a); },4000);
+  a._auT=setTimeout(()=>{ if(a.isConnected && a.getAttribute('src')===s && a.readyState===0) auProxima(a); },3000);
 }
 /* arquivo guardado no aparelho (2ª vez toca na hora) */
 async function auDoCache(id){ try{ if(!window.caches) return null; const c=await caches.open(AU_CACHE); const r=await c.match('https://au.ibnm/'+id); if(!r) return null; return URL.createObjectURL(await r.blob()); }catch(_){ return null; } }
@@ -2165,6 +2167,68 @@ function barraTopo2(){
   }catch(_){}
 }
 setInterval(barraTopo2,1000); setTimeout(barraTopo2,350);
+
+/* ======================= 47) 🎧 ÁUDIO SOB CONTROLE: só toca no PLAY, um por vez, e começa rápido ======================= */
+/* • Ao entrar em "Áudios" (ou numa música) nada toca sozinho: só quando você aperta ▶.
+   • Trocou de música ou deu play em outro áudio: o anterior PARA na hora (mesmo o que ficou escondido).
+   • O player já entra com o endereço que funciona e vai carregando antes do toque, para o play ser imediato.
+   • ADM conectado ao Drive sem a chave: os áudios do SETLIST da semana são baixados em segundo plano
+     e ficam guardados no aparelho (tocam na hora, até sem internet). */
+const AU_TODOS=new Set();
+function auReg(a){ if(!a || a._auReg) return; a._auReg=1; AU_TODOS.add(a); a.addEventListener('play',()=>auPararTodos(a)); }
+function auPararTodos(menos){
+  AU_TODOS.forEach(x=>{ if(x!==menos && !x.paused){ try{ x.pause(); }catch(_){} } });
+  document.querySelectorAll('audio,video').forEach(x=>{ if(x!==menos && !x.paused){ try{ x.pause(); }catch(_){} } });
+}
+document.addEventListener('play',e=>{ const t=e.target; if(!(t instanceof HTMLMediaElement)) return; auReg(t); auPararTodos(t);
+  t._auT0=t._auT0||performance.now(); },true);
+/* nada de tocar sozinho: tira o "autoplay" assim que o player aparece */
+function auSemAutoplay(n){
+  const lista = n.matches && n.matches('audio,video') ? [n] : (n.querySelectorAll? n.querySelectorAll('audio,video') : []);
+  lista.forEach(a=>{ if(a.autoplay||a.hasAttribute('autoplay')){ a.autoplay=false; a.removeAttribute('autoplay'); if(a.dataset) a.dataset.quer='0'; } auReg(a); });
+}
+new MutationObserver(ms=>{ for(const m of ms){ m.addedNodes.forEach(n=>{ if(n.nodeType===1) auSemAutoplay(n); });
+    m.removedNodes.forEach(n=>{ if(n.nodeType!==1) return; const l=n.matches&&n.matches('audio,video')? [n] : [...(n.querySelectorAll?n.querySelectorAll('audio,video'):[])];
+      l.forEach(a=>{ if(a.id==='plAudio' && !a.paused) return; /* o player principal pode seguir tocando enquanto você lê a cifra da MESMA música */ }); }); } })
+  .observe(document.documentElement,{childList:true,subtree:true});
+/* trocou de música: para o áudio da anterior */
+let _auMus=null;
+if(typeof window.abrirMusica==='function'){ const _am47=window.abrirMusica;
+  window.abrirMusica=function(id){ if(_auMus!==null && String(id)!==String(_auMus)) auPararTodos(null); _auMus=id; return _am47.apply(this,arguments); }; }
+/* o player já nasce com o endereço certo, sem "autoplay" e carregando antes do toque */
+if(typeof renderPlayer==='function'){ const _rp=renderPlayer;
+  window.renderPlayer=renderPlayer=function(m){ let h=_rp.apply(this,arguments);
+    try{ const a0=(m&&m.audios&&m.audios[0])||null, id=a0&&DRV_ID(a0.url); h=h.replace(/<audio id="plAudio" controls autoplay/,'<audio id="plAudio" controls preload="auto"');
+      if(id){ const f=audioFontes(id); if(f.length) h=h.replace(/(<audio id="plAudio"[^>]*?src=")[^"]*(")/, (_,x,y)=>x+f[0].u.replace(/&/g,'&amp;').replace(/"/g,'&quot;')+y).replace('<audio id="plAudio"','<audio id="plAudio" data-drv="'+id+'" data-fi="0" data-fm="'+f[0].m+'"'); }
+    }catch(_){}
+    return h; }; }
+/* medição: quanto tempo do ▶ até o som (aparece no Painel → Conectividade) */
+document.addEventListener('playing',e=>{ const a=e.target; if(!(a instanceof HTMLMediaElement)||!a._auT0) return;
+  const ms=Math.round(performance.now()-a._auT0); a._auT0=0;
+  const nomes={key:'chave do Google',uc2:'link público (1)',uc:'link público (2)',blob:'guardado no aparelho',tok:'conexão do Drive'};
+  try{ localStorage.setItem('ibnm_au_ult',JSON.stringify({ms, via:nomes[a.dataset.fm]||a.dataset.fm||'arquivo', t:Date.now()})); }catch(_){} },true);
+document.addEventListener('pause',e=>{ const a=e.target; if(a instanceof HTMLMediaElement) a._auT0=0; },true);
+aoMudar(function(){
+  const k=document.getElementById('btDrvChave'); if(!k) return;
+  let d=document.getElementById('auDiag'); let u=null; try{ u=JSON.parse(localStorage.getItem('ibnm_au_ult')||'null'); }catch(_){}
+  const txt=u? '🎧 Último áudio: começou em '+(u.ms/1000).toFixed(1).replace('.',',')+' s · '+u.via : '🎧 Toque um áudio para medir o tempo de início';
+  if(!d){ k.insertAdjacentHTML('afterend','<div id="auDiag" style="font-size:12.5px;margin:6px 0 0 8px;opacity:.85"></div>'); d=document.getElementById('auDiag'); }
+  if(d.textContent!==txt) d.textContent=txt;
+});
+/* ADM sem chave, conectado ao Drive: deixa os áudios da semana guardados no aparelho */
+function auPreBaixa(){
+  try{ if(drvChaveApi() || auModo()!=='tok' || !auTok() || (navigator.connection&&navigator.connection.saveData)) return;
+    const ids=new Set(); const {W0,W1}=slSemanas(); [slDaSemana(W0),slDaSemana(W1)].filter(Boolean).forEach(x=>{ const v=x.s||{}; const its=[].concat(v.itens||[], ...((v.eventos||[]).map(e=>e.itens||[])));
+      its.forEach(i=>{ const m=(DB.musicas||[]).find(x=>String(x.id)===String(i)); ((m&&m.audios)||[]).slice(0,1).forEach(a=>{ const id=DRV_ID(a.url); if(id) ids.add(id); }); }); });
+    const fila=[...ids].filter(id=>!AU_BLOB.has(id)); let i=0;
+    const prox=async()=>{ if(i>=fila.length) return; const id=fila[i++];
+      try{ let u=await auDoCache(id); if(!u){ const r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media',{headers:{Authorization:'Bearer '+auTok()}}); if(r.ok){ const b=await r.blob(); u=URL.createObjectURL(b); auGuarda(id,b); } }
+        if(u) AU_BLOB.set(id,u); }catch(_){}
+      setTimeout(prox,400); };
+    prox();
+  }catch(_){}
+}
+setTimeout(auPreBaixa,8000);
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
