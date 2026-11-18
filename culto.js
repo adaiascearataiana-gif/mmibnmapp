@@ -206,8 +206,7 @@ function normSl(x,chave){ if(!x||typeof x!=='object'||!Array.isArray(x.itens)) r
     eventos:(Array.isArray(x.eventos)&&x.eventos.length)? x.eventos : null,chave}; }
 /* qual: (vazio) = esta semana · 'prox' = próxima semana.
    A da próxima semana vira "esta semana" sozinha quando chega a data de início. */
-function setlist(qual){ if(typeof window.__slSemana==='function'){ try{ return window.__slSemana(qual,setlistBase); }catch(_){} } return setlistBase(qual); }
-function setlistBase(qual){
+function setlist(qual){
   const C=(typeof APP_CFG!=='undefined'&&APP_CFG)||{};
   if(qual && ehSlExtra(qual)){ const x=C[qual]; return (x&&typeof x==='object')? normSl(x,qual): null; }
   const a=normSl(C.setlist,'setlist'), p=normSl(C.setlist_prox,'setlist_prox');
@@ -225,7 +224,7 @@ function setlistBase(qual){
   if(pl.publicada && pl.musicas && pl.musicas.length) return {inicio:pl.inicio,fim:pl.fim,itens:pl.musicas.filter(existe),tons:{},youtube:'',tema:pl.tema||'',textoBase:pl.textoBase||'',eventos:(Array.isArray(pl.eventos)&&pl.eventos.length)?pl.eventos:null,chave:'setlist'};
   return null;
 }
-window.setlistDe=setlist; window.__normSl=normSl;
+window.setlistDe=setlist;
 window.infoM=function(id){ return info(id); };
 /* de qual lista é este item (para "Anterior/Próxima" e tom do culto) */
 function listaDe(id){
@@ -250,7 +249,7 @@ function disponivel(id){
   if(String(id).indexOf('hr:')===0) return '<span class="sl-ok">cifra · partitura</span>';
   if(String(id).indexOf('cc:')===0) return '<span class="sl-ok">letra · cifra</span>';
   const m=(DB.musicas||[]).find(x=>x.id===id)||{}; const t=[];
-  if(m.cifra) t.push('cifra'); if(m.letra) t.push('letra'); if(m.audios&&m.audios.length) t.push('áudio'); if(m.youtube) t.push('youtube');
+  if(m.cifra) t.push('cifra'); if(m.letra) t.push('letra'); if((m.audios&&m.audios.length)||m.youtube) t.push('áudio');
   return t.length? '<span class="sl-ok">'+t.join(' · ')+'</span>' : '';
 }
 function linhaItem(id,i,sl,ctx){
@@ -636,7 +635,7 @@ function escaladoNoPeriodo(sl){
   return false;
 }
 /* ---- editor da playlist (ADM): músicas + hinos com busca, ordem, tom e link do YouTube ---- */
-let _ed=null; window.__edAtual=()=>_ed;
+let _ed=null;
 const semAc = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 function proxSemana(){ const d=new Date(); const w=(d.getDay()+6)%7; const s=new Date(d); s.setDate(d.getDate()-w+7); const f=new Date(s); f.setDate(s.getDate()+6);
   const iso=x=>x.getFullYear()+'-'+pad2(x.getMonth()+1)+'-'+pad2(x.getDate()); return [iso(s),iso(f)]; }
@@ -653,7 +652,6 @@ window.modalPlaylist=function(qual){
   if(!evs){ const outro=setlist(prox?'':'prox'); if(outro&&outro.eventos) evs=seedEventos(outro.eventos,ini,fim); }
   if(!evs && sl.itens.length) evs=[{id:evtUid(),nome:'CULTO',data:'',itens:sl.itens.slice(),concluido:false}];
   if(!evs) evs=[];
-  if(!ehExtra && typeof window.__slSemanaPadrao==='function'){ try{ evs=window.__slSemanaPadrao(evs,prox,sl); }catch(_){} }
   _ed={qual:ehExtra?qual:(prox?'prox':''),nome:String(sl.nome||'').slice(0,60),inicio:ini,fim:fim,evs,tons:Object.assign({},sl.tons),youtube:sl.youtube||'',tema:sl.tema||'',textoBase:sl.textoBase||'',chave:sl.chave||(prox?'setlist_prox':'setlist'),
     aberto: evs.length? evs[0].id : null, trocando:null};
   abrirModal('<h3>'+(ehExtra? '📌 '+e(String(sl.nome||'SETLIST')) : (prox?'🗓️ SETLIST da próxima semana':'📅 SETLIST desta semana'))+'</h3>'+

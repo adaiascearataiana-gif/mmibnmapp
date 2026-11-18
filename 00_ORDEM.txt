@@ -1,0 +1,65 @@
+==============================================
+ TUDO PELO ANDROID (navegador) — ORDEM
+==============================================
+
+PARTE 1 — SQL (Supabase → SQL Editor), NESTA ordem:
+
+  1) sql/lote8_a_duplicatas.sql   -> Run
+  2) sql/lote8_b_fora_padrao.sql  -> Run
+  3) sql/lote9_tema.sql           -> Run
+
+  Conferência: SELECT count(*) FROM musicas;
+
+---------------------------------------------
+PARTE 2 — CÓDIGO (GitHub pelo navegador)
+---------------------------------------------
+Pasta: codigo_pra_subir_github/  (9 arquivos)
+
+No celular: abra github.com → seu repositório →
+Add file (+) → Upload files → selecione OS 9 →
+Commit direto na main.
+
+Arquivos (todos na RAIZ do repositório):
+  1. index.html      (com zoom da partitura)
+  2. melhorias.js
+  3. cantor.js
+  4. culto.js
+  5. temp-acervo.js
+  6. avisos.js
+  7. cantadas.js
+  8. sw.js           (v41 — força o app novo a entrar)
+  9. hinos.js         (581 hinos com as letras OK —
+                       as27 corrompidas já reconstruídas)
+
+Mensagem do commit sugerida:
+  "Lote 8+9+10: mobile/UI, histórico, WhatsApp,
+   abas, letras e zoom"
+
+---------------------------------------------
+ATUALIZAÇÃO — VOCÊ JÁ SUBIU TUDO?
+---------------------------------------------
+Suba só os4 arquivos alterados no lote12
+(mesmo jeito: Add file → Upload files):
+  1. index.html      (zoom livre + YouTube na home)
+  2. culto.js        (▶ Playlist no YouTube no card)
+  3. temp-acervo.js  (excluir sem pular pro topo)
+  4. sw.js           (v41 — limpa o cache antigo)
+
+Mensagem do commit sugerida:
+  "Lote 12: zoom livre, YouTube na home e scroll fix"
+
+---------------------------------------------
+PARTE 3 — DEPOIS DO PUSH
+---------------------------------------------
+Abra o app → puxe a página pra atualizar (2x) →
+teste o checklist no README.md
+(inclui: zoom na partitura + letras dos hinos).
+
+---------------------------------------------
+QUANDO VOCÊ ESTIVER NO LINUX
+---------------------------------------------
+Aí sim: python3 lote8_ui.py → lote9_features.py →
+lote10_zoom.py → lote11_letras.py → lote12_home_yt.py
+→ testes → git push (eu mando os comandos).
+No Android NÃO precisa rodar Python — o código já
+está pronto na pasta codigo_pra_subir_github/.

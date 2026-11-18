@@ -1,5 +1,5 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v146';
+const CACHE = 'mmibnm-v112';
 const CORE = [
   './',
   './index.html',
@@ -26,7 +26,6 @@ const CORE = [
   './tour.js',
   './ajustes.js',
   './extras.js',
-  './seguranca.js',
   './sync.js',
   './financeiro.js',
   './inventario.js',
@@ -34,9 +33,7 @@ const CORE = [
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',
-  './favicon-32.png',
-  './badge-96.png',
-  './notif-icon-192.png'
+  './favicon-32.png'
 ];
 
 self.addEventListener('install', function (e) {
@@ -79,7 +76,7 @@ self.addEventListener('fetch', function (e) {
     e.respondWith(
       fetch(req, { cache: 'no-cache' }).then(function (r) {
         const cp = r.clone();
-        if (/\/(index\.html)?$/.test(url.pathname)) caches.open(CACHE).then(function (c) { c.put('./index.html', cp); });   /* só a tela do app (não a do Drive) */
+        caches.open(CACHE).then(function (c) { c.put('./index.html', cp); });
         return r;
       }).catch(function () { return caches.match('./index.html'); })
     );
@@ -132,7 +129,7 @@ self.addEventListener('push', function (e) {
     // app aberto na tela: ele mesmo mostra o aviso (som/janela)
     if (cs.some(function (c) { return c.visibilityState === 'visible'; })) return;
     return self.registration.showNotification(d.title || 'Ministério de Música IBNM', {
-      body: d.body || '', icon: 'notif-icon-192.png', badge: 'badge-96.png',
+      body: d.body || '', icon: 'icon-192.png', badge: 'favicon-32.png',
       tag: d.id ? 'ibnm-' + d.id : undefined, renotify: true, vibrate: [80, 40, 80],
       data: { link: d.link || '' }
     });

@@ -250,7 +250,6 @@ const F={q:'',filtro:'todos',ord:'nome',asc:true};
 const fmtNasc = n => { if(!n) return ''; const p=String(n).slice(0,10).split('-'); return p.length===3? p[2]+'/'+p[1]+'/'+p[0] : n; };
 const soDig = t => String(t||'').replace(/\D/g,'');
 const aniversMes = u => u.nasc && (+String(u.nasc).slice(5,7))===(new Date().getMonth()+1);
-const aniversHoje = u => { if(!u.nasc) return false; const d=new Date(); return String(u.nasc).slice(5,10)===String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 function lista(){
   let us=(DB.usuarios||[]).slice();
   const q=sem(F.q).trim();
@@ -276,7 +275,7 @@ function tabela(){
     us.map(u=>{ const f=camposFaltando(u); const id=idade(u.nasc); const t=soDig(u.tel);
       const foto=u.foto?'<img src="'+e(u.foto)+'" alt="" loading="lazy">':'<span class="ini">'+e((u.nome||'?').trim().charAt(0).toUpperCase())+'</span>';
       return '<tr class="'+(f.length?'inc':'')+'">'+
-        '<td class="nm"><div class="mb-pes">'+foto+'<div><b>'+e(u.nome||'(sem nome)')+'</b>'+(u.admin?' <span class="admin-tag">ADM</span>':'')+(aniversHoje(u)?' <span title="Aniversário hoje">🎂</span>':'')+'<small>'+(u.origem==='google'?'Google':'E-mail')+'</small></div></div></td>'+
+        '<td class="nm"><div class="mb-pes">'+foto+'<div><b>'+e(u.nome||'(sem nome)')+'</b>'+(u.admin?' <span class="admin-tag">ADM</span>':'')+(aniversMes(u)?' <span title="Aniversariante do mês">🎂</span>':'')+'<small>'+(u.origem==='google'?'Google':'E-mail')+'</small></div></div></td>'+
         '<td>'+(f.length?'<span class="mb-st no" title="'+e(f.join(', '))+'">Falta: '+e(f.join(', '))+'</span>':'<span class="mb-st ok">Completo</span>')+'</td>'+
         '<td>'+(u.nasc?fmtNasc(u.nasc)+(id!=null?'<small>'+id+' anos</small>':''):'<span class="mb-x">—</span>')+'</td>'+
         '<td class="tel">'+(t?e(u.tel)+(u.wpp?' <a class="wa" href="https://wa.me/55'+t+'" target="_blank" rel="noopener" title="Abrir WhatsApp">WhatsApp</a>':' <a class="lg" href="tel:'+t+'">ligar</a>'+(soDig(u.wpp_num)?'<small>WhatsApp: '+e(u.wpp_num)+' <a class="wa" href="https://wa.me/55'+soDig(u.wpp_num)+'" target="_blank" rel="noopener">abrir</a></small>':(u.wpp_num==='nao'?'<small>não tem WhatsApp</small>':'<small>WhatsApp não informado</small>'))):'<span class="mb-x">—</span>')+'</td>'+

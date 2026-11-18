@@ -37,12 +37,9 @@ function acharColunas(cols){
 function datasDasLinhas(E){
   const C=acharColunas(E.colunas); const col=E.colunas[C.data];
   const hoje=new Date(); let ano=hoje.getFullYear(), ultimo=null;
-  const brutas=E.linhas.map(l=>{   /* v1.32: data real do culto (coluna Data) vem primeiro */
-    const c=lerData((l.celulas||{})[col]);
-    const x=l.periodoInicio? new Date(l.periodoInicio) : null; const xo=x&&!isNaN(x);
-    if(c){ if(c.a==null && xo){ let a=x.getFullYear(); if(c.m-x.getMonth()>6) a--; else if(x.getMonth()-c.m>6) a++; c.a=a; } return c; }
-    if(xo) return {d:x.getDate(),m:x.getMonth(),a:x.getFullYear()};
-    return null;
+  const brutas=E.linhas.map(l=>{
+    if(l.periodoInicio){ const x=new Date(l.periodoInicio); if(!isNaN(x)) return {d:x.getDate(),m:x.getMonth(),a:x.getFullYear()}; }
+    return lerData(l.celulas[col]);
   });
   /* escolhe o ano inicial para a escala ficar perto de hoje */
   const prim=brutas.find(Boolean);
