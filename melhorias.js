@@ -494,7 +494,7 @@ function cardAudios(m){
       '<button class="au-b rec" id="auRecBt" onclick="gravarAudio(\''+m.id+'\')">🎙️ Gravar</button>'+
       '<button class="au-b" onclick="escolherArquivoAudio()">📁 Enviar arquivo</button><input id="auArq" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" hidden onchange="enviarArquivoAudio(\''+m.id+'\',this)">'+
       '<button class="au-b" onclick="linkAudio(\''+m.id+'\')">🔗 Colar link</button>'+
-      '<button class="au-b" onclick="abrirFerramentaTom({tipo:\'musica\',id:\''+m.id+'\'})">🎼 Detectar/Alterar tom</button>'+
+      (typeof window.abrirFerramentaTom==='function'?'<button class="au-b" onclick="abrirFerramentaTom({tipo:\'musica\',id:\''+m.id+'\'})">🎼 Detectar/Alterar tom</button>':'')+
     '</div><div id="auRec"></div>'+
     (migraveis(m)?'<button class="au-b mig" onclick="moverParaDrive(\''+m.id+'\')">☁️ Mover '+migraveis(m)+' áudio(s) antigo(s) para o Drive</button>':'')+
     '<p class="au-dica">Gravações e arquivos vão direto para o Google Drive (pasta "MM IBNM - Áudios"), sem gastar a cota do Supabase.</p></div>';
@@ -558,7 +558,8 @@ window.excluirAudio=async function(id,i){
 };
 window.tocarAudioAdm=function(id,i,bt){
   const m=DB.musicas.find(x=>x.id===id); if(!m) return; const a=m.audios[i];
-  if(typeof tocar==='function'){ tocar(a.url,a.nome,id,m.titulo); scrollTo({top:0,behavior:'smooth'}); }
+  const pl=$i('plAudio'); if(pl){ pl.src=a.url; pl.play().catch(()=>{}); const n=$i('plNome'); if(n) n.textContent=a.nome; scrollTo({top:0,behavior:'smooth'}); }
+  else redesenha();
 };
 
 /* ---- áudios antigos guardados no Supabase → Drive ---- */

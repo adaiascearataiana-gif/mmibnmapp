@@ -67,10 +67,10 @@ function pixCRC16(s){ let crc=0xFFFF; for(let i=0;i<s.length;i++){ crc^=s.charCo
   for(let j=0;j<8;j++){ crc=(crc&0x8000)?(((crc<<1)^0x1021)&0xFFFF):((crc<<1)&0xFFFF); } }
   return crc.toString(16).toUpperCase().padStart(4,'0'); }
 function pixAscii(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9 .@-]/g,''); }
-function ehCopiaCola(v){ const s=String(v||'').replace(/\s+/g,''); return s.length>50&&(/^000201/.test(s)||s.indexOf('br.gov.bcb.pix')>=0); }
+function ehCopiaCola(v){ const s=String(v||'').replace(/[\r\n]+/g,'').trim(); return s.length>50&&(/^000201/.test(s)||s.indexOf('br.gov.bcb.pix')>=0); }
 function pixChaveDe(p){
   try{
-    const s=String(p||'').replace(/\s+/g,''); let i=0;
+    const s=String(p||'').replace(/[\r\n]+/g,'').trim(); let i=0;
     while(i+4<=s.length){
       const id=s.substr(i,2), L=parseInt(s.substr(i+2,2),10);
       if(!(L>=0)||i+4+L>s.length) return '';
@@ -91,7 +91,7 @@ function pixChaveDe(p){
 function pixComValor(p,v){
   try{
     const amt=Number(v).toFixed(2);
-    const s=String(p||'').replace(/\s+/g,'').replace(/6304[0-9A-Fa-f]{4}$/,'').replace(/6304$/,'');
+    const s=String(p||'').replace(/[\r\n]+/g,'').trim().replace(/6304[0-9A-Fa-f]{4}$/,'').replace(/6304$/,'');
     const campos=[]; let i=0;
     while(i+4<=s.length){
       const id=s.substr(i,2); if(!/^[0-9][0-9]$/.test(id)) return '';
@@ -217,7 +217,7 @@ function finHTMLLanc(pode){
     h+='<div class="info-row"><span class="v" style="text-align:left">'+
       '<span style="font-weight:700">'+(ent?'▲':'▼')+' '+e(r.descricao)+'</span><br>'+
       '<span style="font-weight:400;font-size:12px;color:#789">'+dtBR(r.data)+' • '+e(r.criado_por_nome||'')+
-      (r.anexo_url?' • <a href="javascript:void(0)" onclick="finVerAnexo(\''+e(r.anexo_url)+'\')" style="color:#1c7a4e;font-weight:700">ver comprovante</a>':'')+'</span></span>'+
+      (r.anexo_url?' • <a href="javascript:void(0)" data-u="'+e(r.anexo_url)+'" onclick="finVerAnexo(this.dataset.u)" style="color:#1c7a4e;font-weight:700">ver comprovante</a>':'')+'</span></span>'+
       '<span style="white-space:nowrap"><b style="color:'+(ent?'#1c7a4e':'#b33')+'">'+(ent?'+':'−')+brl(r.valor)+'</b>'+
       (pode?' <button class="mini-btn sec" onclick="finForm(\''+r.id+'\')">✏</button> <button class="mini-btn sec" onclick="finExcluir(\''+r.id+'\')">🗑</button>':'')+
       '</span></div>';
@@ -235,7 +235,7 @@ function finHTMLDoacoes(){
     h+='<div class="info-row"><span class="v" style="text-align:left;flex:1;min-width:0">'+
       '<span style="font-weight:700">'+e(d.nome||'Membro')+' — '+brl(d.valor)+'</span><br>'+
       '<span style="font-weight:400;font-size:12px;color:#789">'+new Date(d.criado_em).toLocaleString('pt-BR')+' • '+badge+
-      (d.comprovante_url?' • <a href="javascript:void(0)" onclick="finVerAnexo(\''+e(d.comprovante_url)+'\')" style="color:#1c7a4e;font-weight:700">comprovante</a>':'')+
+      (d.comprovante_url?' • <a href="javascript:void(0)" data-u="'+e(d.comprovante_url)+'" onclick="finVerAnexo(this.dataset.u)" style="color:#1c7a4e;font-weight:700">comprovante</a>':'')+
       '</span></span><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;flex:none;max-width:100%">'+
       (d.status==='pendente'?'<button class="mini-btn" onclick="doaConf(\''+d.id+'\')" style="background:#1c7a4e;color:#fff">✓</button> <button class="mini-btn sec" onclick="doaRej(\''+d.id+'\')">✗</button> ':'')+
       '<button class="mini-btn" style="background:#b33;color:#fff" onclick="doaExcluir(\''+d.id+'\')">🗑 Excluir</button>'+
@@ -254,7 +254,7 @@ function finHTMLMinhas(){
                 '<span style="color:#b8860b;font-weight:800">⏳ aguardando confirmação</span>';
     h+='<div class="info-row"><span class="v" style="text-align:left"><b>'+brl(d.valor)+'</b><br>'+
       '<span style="font-weight:400;font-size:12px;color:#789">'+new Date(d.criado_em).toLocaleString('pt-BR')+' • '+badge+
-      (d.comprovante_url?' • <a href="javascript:void(0)" onclick="finVerAnexo(\''+e(d.comprovante_url)+'\')" style="color:#1c7a4e">comprovante</a>':'')+
+      (d.comprovante_url?' • <a href="javascript:void(0)" data-u="'+e(d.comprovante_url)+'" onclick="finVerAnexo(this.dataset.u)" style="color:#1c7a4e">comprovante</a>':'')+
       '</span></span><span>'+(d.status==='pendente'?(d.comprovante_url?'':'<button class="mini-btn" onclick="doaAnexarDepois(\''+d.id+'\')" style="background:#1c7a4e;color:#fff">📷 Anexar</button> ')+'<button class="mini-btn sec" onclick="doaApagar(\''+d.id+'\')">Cancelar</button>':'')+'</span></div>';
   });
   return h+'</div>';
