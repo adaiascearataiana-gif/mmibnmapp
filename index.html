@@ -364,9 +364,10 @@ body.ao-vivo #appShell{padding-top:var(--ibnm-vivo,34px)}
 /* barra de tom e rolagem das músicas */
 .zoom-bar .mm-tom{display:inline-flex;align-items:center;gap:2px;height:34px;padding:0 4px;border:1px solid var(--dourado-esc);background:#fffbea;border-radius:8px;font-size:13px;color:var(--verde-escuro)}
 .zoom-bar .mm-tom button{border:0;background:none;min-width:30px;height:30px;font-size:17px}
+.zoom-bar .mm-tom .tom-lbl{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .zoom-bar .mm-tom b{color:#8a6a00}
 .zoom-bar .mm-tom small{color:#789}
-.zoom-bar .mm-tom .tom-edit{min-width:22px;height:22px;font-size:12px;opacity:.75;vertical-align:middle}
+.zoom-bar .mm-tom .tom-edit{min-width:22px;height:22px;font-size:12px;opacity:.75;vertical-align:middle;flex:none}
 .zoom-bar .mm-tom .tom-edit:hover{opacity:1}
 .zoom-bar .mm-rol{background:var(--verde-med)!important;color:#fff!important;border-color:var(--verde-med)!important;font-size:13px!important}
 .cc-scrollbar .pp{width:auto!important;padding:0 14px!important;font-size:14px!important}
@@ -1263,7 +1264,8 @@ function renderMusica(){
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px">
       ${adm?`<button class="mini-btn" style="margin:0" onclick="enviarPraPlaylist('${m.id}')">➕ Enviar para o SETLIST</button>`:''}
       <button class="mini-btn" style="margin:0" onclick="projetar('${m.id}')">📺 Projetar</button>
-      <button class="mini-btn" style="margin:0" onclick="musWhats('${m.id}')">📱 WhatsApp</button></div>
+      <button class="mini-btn" style="margin:0" onclick="musWhats('${m.id}')">📱 WhatsApp</button>
+      ${(typeof window.abrirEstatisticasMusica==='function')?`<button class="mini-btn" style="margin:0" onclick="abrirEstatisticasMusica('${esc(m.titulo).replace(/'/g,"\\'")}')">📊 Estatísticas</button>`:''}</div>
     ${corpo}</div>`;
 }
 function realcaCifra(txt){ // realca acordes (linhas com padrao de acordes)
@@ -1387,6 +1389,7 @@ function editorCifra(id){ if(!ehAdmin()) return; musicaAberta=id;
         <div class="cor-pop" id="corPop"></div>
       </div>
       <div class="editor-rich" id="edCifra" contenteditable="true" data-ph="Digite ou cole a cifra aqui. Ex.: [Intro] C  G  Am  F">${cifraInicialHtml(m.cifra)}</div>
+      <div style="text-align:center;margin-top:10px"><button type="button" class="mini-btn" onclick="criarLetraDaCifra()">📝 Criar letra a partir da cifra</button></div>
     </div>
     <div class="card"><h3>Letra</h3>
       <textarea class="editor-area" id="edLetra" style="min-height:180px;font-family:inherit" placeholder="Letra da música...">${esc(m.letra||'')}</textarea></div>
@@ -1406,6 +1409,31 @@ const NOTAS=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const CORES=['#000000','#434343','#666666','#999999','#b7b7b7','#ffffff','#c0392b','#e74c3c','#e67e22','#f1c40f','#2ecc71','#27ae60','#1abc9c','#3498db','#2980b9','#8e44ad','#9b59b6','#145c43','#0b3d2e','#c9a200','#d35400','#16a085','#2c3e50','#7f8c8d'];
 let _edUndo=[], _edRedo=[], _edCur='', _edTimer=null;
 function edEl(){ return document.getElementById('edCifra'); }
+/* Extrai só a letra a partir da cifra que o ADM está editando: tira linhas só de
+   acordes, tira [Acorde]/[Seção] no meio do texto, preserva as quebras entre
+   estrofes. O campo Letra continua um textarea normal, editável depois. */
+function criarLetraDaCifra(){
+  const el=edEl(); if(!el) return;
+  const ehLinhaCh=s=>/^\s*([A-G][#b]?(m|maj|min|sus|dim|aug|add)?[0-9]?(\/[A-G][#b]?)?\s*)+$/.test(s)&&!!s.trim();
+  const txt=(el.innerText||el.textContent||'');
+  if(!txt.trim()) return toast('Não há cifra para extrair a letra.');
+  const linhas=txt.split('\n').map(l=>{
+    if(!l.trim()) return ''; /* linha já vazia: mantém como separador de estrofe */
+    const semColchetes=l.replace(/\[[^\]\n]{1,20}\]/g,'').replace(/[ \t]{2,}/g,' ').replace(/[ \t]+$/,'');
+    if(!semColchetes.trim()) return null; /* só tinha [acorde]/[seção]: descarta a linha */
+    if(ehLinhaCh(semColchetes)) return null; /* sobrou só acorde solto: descarta a linha */
+    return semColchetes;
+  }).filter(l=>l!==null);
+  const letra=linhas.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+  if(!letra) return toast('Não encontrei letra na cifra (só havia acordes/seções).');
+  const campo=document.getElementById('edLetra'); if(!campo) return;
+  if(campo.value.trim() && campo.value.trim()!==letra){
+    if(!window.confirm('O campo Letra já tem texto. Substituir pela letra extraída da cifra?')) return;
+  }
+  campo.value=letra;
+  toast('Letra extraída da cifra ✓ revise e ajuste se precisar.');
+}
+window.criarLetraDaCifra=criarLetraDaCifra;
 function cifraInicialHtml(c){ if(!c) return ''; if(/<[a-z!/][\s\S]*>/i.test(c)) return limparCifraHtml(c); return esc(c).replace(/\n/g,'<br>'); }
 function limparCifraHtml(html){
   const box=document.createElement('div'); box.innerHTML=html||'';
@@ -2408,7 +2436,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v146';
+window.APP_V='v147';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */

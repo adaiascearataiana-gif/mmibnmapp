@@ -1,49 +1,59 @@
-LEIA_ME — atualização v79 (06/11/2026)
+LEIA_ME — atualização v147 (10/11/2026)
 
-1) 📷 BOTÃO "ANEXAR E ENVIAR" NÃO SOME MAIS SOZINHO
-   • causa raiz: o realtime do financeiro repintava a tela e o
-     "go()" fechava o modal automático ~¼ de segundo depois —
-     corrigido: a repintura ESPERA o modal fechar;
-   • modal TRAVADO: só fecha nos botões (Agora não/Cancelar) —
-     toque fora não derruba mais;
-   • o modal do comprovante agora ABRE NA HORA do "Já paguei"
-     (o registro roda em paralelo — sem espera nem "sumiço").
-   O botão some somente depois: 1) anexar a foto; 2) você acionar
-   "Anexar e enviar".
+1) 🎼 HCC agora pode ser enviado ao SETLIST
+   • antes só Cantor Cristão e Harpa Cristã podiam ser adicionados ao
+     SETLIST do culto — agora o HCC também pode;
+   • corrigido também o culto.js: a função que confere se um item do
+     SETLIST "existe" não reconhecia hinos do HCC (ids "hcc:...") e
+     podia tratá-los como inválidos — corrigido.
 
-2) 🗑️ EXCLUIR/CANCELAR DOAÇÃO = IMEDIATO
-   • a linha some da tela NA HORA (remoção otimista) e o servidor
-     é avisado em segundo plano — fim dos ~2s de espera.
+2) 📊 Botão "Estatísticas" nos três hinários
+   • Cantor Cristão, Harpa Cristã e HCC agora têm o mesmo botão de
+     estatísticas que as músicas comuns já tinham.
 
-3) 💰 DOAÇÃO CONFIRMADA JÁ VIRA ENTRADA NO RELATÓRIO
-   • ao tocar em ✓ Confirmar, a doação entra AUTOMATICAMENTE como
-     ▲ Entrada no saldo (descricao "Doação — nome", comprovante
-     vinculado) — era assim e segue assim, agora testado;
-   • REMOVIDO o botão manual "＋ Entrada" (sobra "－ Saída",
-     CSV e 🎁 Doar) — a própria doação confirmada é a entrada;
-   • se o ADM EXCLUIR uma doação confirmada, a entrada vinculada
-     é apagada junto (sem fantasma no saldo).
+3) 🛠️ Correção no histórico de músicas cantadas
+   • Harpa e HCC não estavam registrando corretamente certas execuções
+     no histórico (função linhaCantada) — corrigido; a tela de
+     Estatísticas volta a cruzar certo com a Escala.
 
-ARQUIVOS: index.html, financeiro.js, membros.js, escala.js,
-          inventario.js, sw.js, LEIA_ME.txt
-VERSÃO: v79 (APP_V) / v1.4.8 (VERSION) / mmibnm-v79 (SW)
+4) 📝 Novo botão "Criar letra a partir da cifra" (editor de música)
+   • no editor de cifra, abaixo da caixa de cifra, tem um botão novo:
+     ao clicar, extrai só a letra (sem acordes/colchetes) e preenche
+     o campo Letra automaticamente;
+   • o campo Letra continua um campo de texto normal, 100% editável
+     depois — é só um preenchimento de conveniência, não trava nada;
+   • se já tiver algo escrito na Letra, pergunta antes de substituir.
 
-COMANDOS NO TERMUX (um por vez — o PRIMEIRO baixa atualizações):
-ls -l ~/storage/downloads | grep v79
+OBS: Harpa e HCC já tinham (antes desta atualização) paridade completa
+com Cantor Cristão/músicas: Cifra, Letra, Áudio e um botão exclusivo de
+Partitura em PDF — isso já existia e foi só confirmado nesta rodada,
+não alterado.
+
+NÃO FOI PRECISO MEXER NO SQL/Supabase para nada disso (nenhuma tabela
+ou coluna nova — tudo usa a estrutura que já existia). Também foi feita
+uma checagem geral de saúde do projeto Supabase (RLS, policies, buckets,
+Auth) — tudo certo, com uma única observação: a tabela
+"respostas_disponibilidade" está com RLS ativo mas sem nenhuma policy
+(bloqueada para leitura/escrita). Não é usada pelo mmibnmapp — ficou
+para o ADM decidir depois se outro app usa essa tabela.
+
+ARQUIVOS DESTA ATUALIZAÇÃO: index.html, culto.js, cantadas.js,
+                            cantor.js, harpa.js, extras.js, sw.js,
+                            LEIA_ME.txt
+VERSÃO: v147 (APP_V) / mmibnm-v147 (SW)
+
+COMANDOS NO TERMUX (um por vez — o PRIMEIRO baixa a atualização):
+ls -l ~/storage/downloads | grep v147
 cd ~/mmibnmapp
 git pull
-unzip -o ~/storage/downloads/atualizacao_v79.zip
-grep -c "APP_V='v79'" index.html
-grep -c 'mmibnm-v79' sw.js
-grep -c 'dataset.trava' index.html
-grep -c 'setTimeout(finPinta,600)' financeiro.js
-grep -c 'DOA=DOA.filter(x=>x.id!==id)' financeiro.js
-grep -c '_doaInsertP' financeiro.js
-grep -c 'd.lancamento_id' financeiro.js
-grep -c "VERSION = 'v1.4.8'" index.html
-git add index.html financeiro.js membros.js escala.js inventario.js sw.js
-git commit -m "v79: modal de comprovante estavel, exclusao imediata e doacao confirmada vira entrada"
+unzip -o ~/storage/downloads/atualizacao_v147.zip
+grep -c "APP_V='v147'" index.html
+grep -c "mmibnm-v147" sw.js
+grep -c "criarLetraDaCifra" index.html
+grep -c "hcc:" culto.js
+git add index.html culto.js cantadas.js cantor.js harpa.js extras.js sw.js LEIA_ME.txt
+git commit -m "v147: HCC no SETLIST, estatisticas nos 3 hinarios, correcao historico e botao Criar Letra a partir da cifra"
 git push
-(esperado dos greps: 1, 1, 3, 1, 2, 4, 1, 1)
+(esperado dos greps: 1, 1, 1 ou mais, 1 ou mais)
 
 LEMBRETE: downloads do Termux = ~/storage/downloads (NÃO ~/Downloads).

@@ -320,6 +320,7 @@ function abrirHino(n, keepScroll){
     missingBox +
     '<div class="cc-tools">'+
       (adm?'<button class="tog cc-setlist" onclick="enviarPraPlaylist(\'hr:'+n+'\')">➕ Enviar para o SETLIST</button>':'')+
+      ((typeof window.abrirEstatisticasMusica==='function')?'<button class="tog" onclick="abrirEstatisticasMusica(\''+esc(h.titulo).replace(/'/g,"\\'")+'\',\'Harpa\')">📊 Estatísticas</button>':'')+
       '<button class="tog" id="tc" aria-pressed="'+prefs.cifras+'" onclick="harpaCifras('+n+')">Cifras</button>'+
       '<button class="tog cc-part" onclick="harpaPartitura('+n+')">📜 PARTITURA</button>'+
       '<span class="chip" '+(prefs.cifras?'':'hidden')+'><button onclick="harpaTransp('+n+',-1)" aria-label="Baixar meio tom">−</button><span class="lbl">Tom <b>'+esc(key)+'</b></span><button onclick="harpaTransp('+n+',1)" aria-label="Subir meio tom">+</button></span>'+

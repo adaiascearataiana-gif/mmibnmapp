@@ -480,6 +480,7 @@ function abrirHino(n, keepScroll){
     introImg + missingBox +
     '<div class="cc-tools">'+
       (adm?'<button class="tog cc-setlist" onclick="enviarPraPlaylist(\'cc:'+n+'\')">➕ Enviar para o SETLIST</button>':'')+
+      ((typeof window.abrirEstatisticasMusica==='function')?'<button class="tog" onclick="abrirEstatisticasMusica(\''+esc(h.titulo).replace(/'/g,"\\'")+'\',\'Cantor Cristão\')">📊 Estatísticas</button>':'')+
       '<button class="tog" id="tc" aria-pressed="'+prefs.cifras+'" onclick="cantorCifras('+n+')">Cifras</button>'+
       '<button class="tog cc-part" onclick="cantorPartitura('+n+')">📜 PARTITURA</button>'+
       '<span class="chip" '+(prefs.cifras?'':'hidden')+'><button onclick="cantorTransp('+n+',-1)" aria-label="Baixar meio tom">−</button><span class="lbl">Tom <b>'+esc(key)+'</b></span><button onclick="cantorTransp('+n+',1)" aria-label="Subir meio tom">+</button></span>'+

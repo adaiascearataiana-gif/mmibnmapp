@@ -237,18 +237,20 @@ function listaDe(id){
   if(tem(px)) return px;
   return null;
 }
-function existe(id){ id=String(id); if(id.indexOf('cc:')===0) return !!hino(id.slice(3)); if(id.indexOf('hr:')===0) return !!(window.HARPA||[]).find(h=>h.n===+id.slice(3)); return !!(DB.musicas||[]).find(m=>m.id===id); }
+function existe(id){ id=String(id); if(id.indexOf('cc:')===0) return !!hino(id.slice(3)); if(id.indexOf('hr:')===0) return !!(window.HARPA||[]).find(h=>h.n===+id.slice(3)); if(id.indexOf('hcc:')===0) return typeof hccHino==='function'; return !!(DB.musicas||[]).find(m=>m.id===id); }
 function info(id){
   id=String(id);
   if(id.indexOf('cc:')===0){ const h=hino(id.slice(3)); return {hino:true,ic:'📖',t:h?h.n+' · '+h.titulo:'Hino '+id.slice(3),s:'Cantor Cristão'+(h&&h.ritmo?' · '+h.ritmo:''),tom:h?h.tom:''}; }
   if(id.indexOf('hr:')===0){ const n=+id.slice(3); const h=(window.HARPA||[]).find(x=>x.n===n); return {hino:true,ic:'🎼',t:h?(h.n+' · '+h.titulo):('Hino Harpa '+n),s:'Harpa Cristã',tom:h&&h.tom?h.tom:''}; }
+  if(id.indexOf('hcc:')===0){ const n=+id.slice(4); const h=(typeof hccHino==='function')?hccHino(n):null; return {hino:true,ic:'📕',t:h?(h.n+' · '+h.titulo):('HCC '+n),s:'HCC',tom:h&&h.tom?h.tom:''}; }
   const m=(DB.musicas||[]).find(x=>x.id===id)||{}; return {hino:false,ic:'🎵',t:m.titulo||'(música removida)',s:m.artista||'',tom:''};
 }
-window.abrirItem=function(id,ctx){ id=String(id); if(ctx!==undefined) window.__slCtx=ctx; if(id.indexOf('cc:')===0){ if(window.cantorAbrir) cantorAbrir(+id.slice(3)); } else if(id.indexOf('hr:')===0){ if(window.harpaAbrir) harpaAbrir(+id.slice(3)); } else abrirMusica(id,'cifra'); };
+window.abrirItem=function(id,ctx){ id=String(id); if(ctx!==undefined) window.__slCtx=ctx; if(id.indexOf('cc:')===0){ if(window.cantorAbrir) cantorAbrir(+id.slice(3)); } else if(id.indexOf('hr:')===0){ if(window.harpaAbrir) harpaAbrir(+id.slice(3)); } else if(id.indexOf('hcc:')===0){ if(window.hccAbrir) hccAbrir(+id.slice(4)); } else abrirMusica(id,'cifra'); };
 function rotuloSemitom(v){ return v? (v>0?'+':'')+v : ''; }
 function disponivel(id){
   if(String(id).indexOf('hr:')===0) return '<span class="sl-ok">cifra · partitura</span>';
   if(String(id).indexOf('cc:')===0) return '<span class="sl-ok">letra · cifra</span>';
+  if(String(id).indexOf('hcc:')===0){ const n=+String(id).slice(4); const h=(typeof hccHino==='function')?hccHino(n):null; return (h&&h.texto)? '<span class="sl-ok">cifra · letra</span>' : ''; }
   const m=(DB.musicas||[]).find(x=>x.id===id)||{}; const t=[];
   if(m.cifra) t.push('cifra'); if(m.letra) t.push('letra'); if(m.audios&&m.audios.length) t.push('áudio'); if(m.youtube) t.push('youtube');
   return t.length? '<span class="sl-ok">'+t.join(' · ')+'</span>' : '';
@@ -301,10 +303,19 @@ function linhaCantada(id,ev,sl){
   const data=dataBRAno(ev.data)||dataBRAno(sl.inicio);
   const dia=diaSemana(ev.data)||diaSemana(sl.inicio);
   const evento=String(ev.nome||'EVENTO').trim()||'EVENTO';
-  if(String(id).indexOf('cc:')===0){
-    const h=hino(id.slice(3)); let tom='';
+  const sid=String(id);
+  if(sid.indexOf('cc:')===0){
+    const n=sid.slice(3); const h=hino(n); let tom='';
     if(v&&h&&window.Cantor){ try{ tom=Cantor.keyInfo(h,v).key; }catch(_){} }
-    return {data,dia,evento,musica:(h?h.titulo:'Hino '+id.slice(3))+' - '+id.slice(3),artista:'Cantor Cristão',tom,web:''};
+    return {data,dia,evento,musica:n+' - '+(h?h.titulo:'Hino '+n),artista:'Cantor Cristão',tom,web:''};
+  }
+  if(sid.indexOf('hr:')===0){
+    const n=+sid.slice(3); const h=(window.HARPA||[]).find(x=>x.n===n);
+    return {data,dia,evento,musica:n+' - '+(h?h.titulo:'Hino Harpa '+n),artista:'Harpa Cristã',tom:v?rotuloSemitom(v):'',web:''};
+  }
+  if(sid.indexOf('hcc:')===0){
+    const n=+sid.slice(4); const h=(typeof hccHino==='function')?hccHino(n):null;
+    return {data,dia,evento,musica:n+' - '+(h?h.titulo:'HCC '+n),artista:'HCC',tom:v?rotuloSemitom(v):'',web:''};
   }
   const m=(DB.musicas||[]).find(x=>x.id===id)||{};
   return {data,dia,evento,musica:m.titulo||'',artista:m.artista||'',tom:v?rotuloSemitom(v):'',web:m.youtube||''};
@@ -1286,8 +1297,13 @@ window.compartilharSetlist=function(){
     /* ---------- EVENTOS / MÚSICAS ---------- */
     const addEv=(hdr,ids,tons)=>{
       ctx.font='bold 34px '+F; const lH=wrap(hdr,W-PAD*2-80);
-      const itens=(ids||[]).map(id=>{ const f=IM(id)||{}; const v=(tons||{})[id]||0;
-        const label=(f.ic==='🎵'?'':(f.ic||'')+' ')+(f.t||'Música')+(v?(v>0?' +'+v:' '+v):'');
+      const itens=(ids||[]).map(id=>{ const f=IM(id)||{}; const v=(tons||{})[id]||0; const sid=String(id);
+        let fonte='';
+        if(sid.indexOf('cc:')===0) fonte=' - Cantor Cristão';
+        else if(sid.indexOf('hr:')===0) fonte=' - Harpa';
+        else if(sid.indexOf('hcc:')===0) fonte=' - HCC';
+        else if(f.s && !/^x+$/i.test(String(f.s).trim())) fonte=' - '+f.s;
+        const label=(f.ic==='🎵'?'':(f.ic||'')+' ')+(f.t||'Música')+fonte+(v?(v>0?' +'+v:' '+v):'');
         ctx.font='31px '+F; const ls=wrap(label,W-PAD*2-150);
         return {label:label,lines:ls.length}; });
       const h=22+(lH.length*46+26)+itens.reduce((s,it)=>s+it.lines*42+18,0)+18;

@@ -976,6 +976,7 @@ async function hccCarrega(forca){
 }
 function hccHino(n){ const r=(HCC_DB||{})[n]||{}, si=HCC_SITE[n]; const tx=r.texto||'';
   return {n, titulo:r.titulo||(si?si[0].t:'Hino '+n), tom:normTom(r.tom)||(tx?detectarTom(tx):''), partes:[], texto:tx, site:!!si, hcc:true, youtube:r.youtube||''}; }
+window.hccHino=hccHino;
 function hccTodos(){ const ns=new Set([...Object.keys(HCC_SITE),...Object.keys(HCC_DB||{})].map(Number)); return [...ns].sort((a,b)=>a-b).map(hccHino); }
 const hccFavs=()=>{ try{ return new Set(JSON.parse(localStorage.getItem('ibnm_hcc_fav')||'[]')); }catch(_){ return new Set(); } };
 window.hccFav=function(n,ev){ if(ev) ev.stopPropagation(); const f=hccFavs(); f.has(n)?f.delete(n):f.add(n); localStorage.setItem('ibnm_hcc_fav',JSON.stringify([...f])); const pg=document.querySelector('.hcc-page[data-n]'); if(pg) hccAbrir(n,true); else hccBuscar(_hccQ); };
@@ -1019,6 +1020,8 @@ window.hccAbrir=function(n,manter){
       '<div class="cc-meta">'+(key?'<span>Tom <b>'+e(key)+'</b>'+(st?' (original '+e(h.tom)+')':'')+'</span>':'')+'<span>HCC</span></div></div>'+
     '<div class="cc-tools">'+
 
+      (adm?'<button class="tog cc-setlist" onclick="enviarPraPlaylist(\'hcc:'+n+'\')">➕ Enviar para o SETLIST</button>':'')+
+      ((typeof window.abrirEstatisticasMusica==='function')?'<button class="tog" onclick="abrirEstatisticasMusica(\''+e(h.titulo).replace(/'/g,"\\'")+'\',\'HCC\')">📊 Estatísticas</button>':'')+
       (h.texto&&key?'<span class="chip"><button onclick="hccTransp('+n+',-1)" aria-label="Baixar meio tom">−</button><span class="lbl">Tom <b>'+e(key)+'</b></span><button onclick="hccTransp('+n+',1)" aria-label="Subir meio tom">+</button></span>':'')+
       (h.texto?'<button class="tog" id="tsc" aria-pressed="'+(_hccScroll?'true':'false')+'" onclick="hccScroll()">'+(_hccScroll?'⏸ Pausar rolagem':'▶ Rolagem')+'</button>':'')+
       '<button class="tog cc-part">📜 PARTITURA</button>'+

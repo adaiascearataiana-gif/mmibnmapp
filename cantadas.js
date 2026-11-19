@@ -37,15 +37,15 @@ function temaDe(tit){
 function dados(){
   if(CACHE && CACHE_REF===MUSICAS_CANTADAS) return CACHE;
   CACHE_REF=MUSICAS_CANTADAS;
-  CACHE=(MUSICAS_CANTADAS||[]).map((m,i)=>{ const dt=dataDe(m); return {m,i,dt,data:fmt(dt),mes:chaveMes(dt),letra:letra(m),artista:artista(m),culto:culto(m),evento:evento(m),tema:temaDe(m.m),cantor:String(m.cantor||''),dia:tit(String(m.di||'').replace(/\n/g,' ')),busca:sem([m.m,m.a,m.e,m.d,m.di,m.t,m.cantor].join(' '))}; });
+  CACHE=(MUSICAS_CANTADAS||[]).map((m,i)=>{ const dt=dataDe(m); return {m,i,dt,data:fmt(dt),mes:chaveMes(dt),ano:dt?String(dt.getFullYear()):'',letra:letra(m),artista:artista(m),culto:culto(m),evento:evento(m),tema:temaDe(m.m),cantor:String(m.cantor||''),dia:tit(String(m.di||'').replace(/\n/g,' ')),busca:sem([m.m,m.a,m.e,m.d,m.di,m.t,m.cantor].join(' '))}; });
   return CACHE;
 }
 
 /* ---- estado dos filtros ---- */
-const F={q:'',letra:'',artista:'',culto:'',evento:'',mes:'',data:'',dia:'',tema:'',ord:(function(){ try{ return localStorage.getItem('ibnm_ct_ord')||'recentes'; }catch(e){ return 'recentes'; } })()};
+const F={q:'',letra:'',artista:'',culto:'',evento:'',mes:'',ano:'',data:'',dia:'',tema:'',ord:(function(){ try{ return localStorage.getItem('ibnm_ct_ord')||'recentes'; }catch(e){ return 'recentes'; } })()};
 function filtrar(){
   const q=sem(F.q).split(/\s+/).filter(Boolean);
-  let r=dados().filter(x=>(!F.letra||x.letra===F.letra)&&(!F.artista||x.artista===F.artista)&&(!F.culto||x.culto===F.culto)&&(!F.evento||x.evento===F.evento)&&(!F.mes||x.mes===F.mes)&&(!F.data||x.data===F.data)&&(!F.dia||x.dia===F.dia)&&(!F.tema||x.tema===F.tema)&&q.every(t=>x.busca.includes(t)));
+  let r=dados().filter(x=>(!F.letra||x.letra===F.letra)&&(!F.artista||x.artista===F.artista)&&(!F.culto||x.culto===F.culto)&&(!F.evento||x.evento===F.evento)&&(!F.mes||x.mes===F.mes)&&(!F.ano||x.ano===F.ano)&&(!F.data||x.data===F.data)&&(!F.dia||x.dia===F.dia)&&(!F.tema||x.tema===F.tema)&&q.every(t=>x.busca.includes(t)));
   const porData=(a,b)=>((b.dt?b.dt.getTime():0)-(a.dt?a.dt.getTime():0))||(a.i-b.i);
   if(F.ord==='recentes') r.sort(porData);
   else if(F.ord==='antigas') r.sort((a,b)=>-porData(a,b));
@@ -66,10 +66,11 @@ function item(x){
   const mm2=idMus?DB.musicas.find(y=>y.id===idMus):null;
   const yt=m.w?'<a class="fc-yt" href="'+e(m.w)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">▶ YouTube</a>':'';
   const badge=(mm2&&mm2.cifra)?'<span class="fc-badge">cifra ✓</span>':(hinoN?'<span class="fc-badge">📖 hino</span>':(mm2?'<span class="fc-badge">sem cifra</span>':''));
+  const stBtn='<button type="button" class="fc-stats" data-n="'+e(m.m)+'" onclick="event.stopPropagation();abrirEstatisticasMusica(this.dataset.n)">📊 Estatísticas</button>';
   return '<div class="fc-item" data-n="'+e(m.m)+'" data-a="'+e(m.a||'')+'" onclick="abrirPorTitulo(this.dataset.n,this.dataset.a)" style="cursor:pointer"><div class="fc-main"><div class="fc-t">'+e(m.m)+'</div>'+
     '<div class="fc-a">'+e(x.artista)+(x.cantor?' · 🎤 '+e(x.cantor):'')+(m.t&&!/^x+$/i.test(String(m.t).trim())?' · Tom '+e(m.t):'')+'</div>'+
     (F.ord==='recentes'||F.ord==='antigas'?'':'<div class="fc-meta">'+e(x.data)+' · '+e(x.culto)+(x.evento!=='Culto regular'?' · '+e(x.evento):'')+'</div>')+
-    '</div><div class="fc-side">'+badge+yt+'</div></div>';
+    '</div><div class="fc-side">'+badge+yt+stBtn+'</div></div>';
 }
 function listaHTML(){
   const r=filtrar();
@@ -81,16 +82,16 @@ function listaHTML(){
   }
   return r.map(item).join('');
 }
-function ativos(){ return ['letra','artista','culto','evento','mes','data','dia','tema'].filter(k=>F[k]).length+(F.q?1:0); }
+function ativos(){ return ['letra','artista','culto','evento','mes','ano','data','dia','tema'].filter(k=>F[k]).length+(F.q?1:0); }
 function atualiza(){
   const l=document.getElementById('fcLista'); if(l) l.innerHTML=listaHTML();
   const c=document.getElementById('ctCont'); if(c) c.textContent=filtrar().length+' de '+dados().length+' registros';
   const b=document.getElementById('ctLimpa'); if(b) b.style.display=ativos()?'':'none';
 }
-window.ctFiltro=function(k,v){ F[k]=v; if(k==='mes') F.data=''; if(k==='ord'){ try{ localStorage.setItem('ibnm_ct_ord',v); }catch(e){} } if(['letra','mes','ord'].includes(k)) { go('cantadas'); return; } atualiza(); };
+window.ctFiltro=function(k,v){ F[k]=v; if(k==='mes'||k==='ano') F.data=''; if(k==='ord'){ try{ localStorage.setItem('ibnm_ct_ord',v); }catch(e){} } if(['letra','mes','ano','ord'].includes(k)) { go('cantadas'); return; } atualiza(); };
 window.ctOrdem=function(){ F.ord=(F.ord==='recentes')?'antigas':'recentes'; try{ localStorage.setItem('ibnm_ct_ord',F.ord); }catch(e){} go('cantadas'); };
 window.ctBusca=function(v){ F.q=v; atualiza(); };
-window.ctLimpar=function(){ Object.assign(F,{q:'',letra:'',artista:'',culto:'',evento:'',mes:'',data:'',dia:'',tema:''}); go('cantadas'); };
+window.ctLimpar=function(){ Object.assign(F,{q:'',letra:'',artista:'',culto:'',evento:'',mes:'',ano:'',data:'',dia:'',tema:''}); go('cantadas'); };
 window.ctCSV=function(){ try{
   const rows=filtrar(); if(!rows.length) return toast('Nada para exportar.');
   const q=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';
@@ -107,7 +108,7 @@ if(typeof ROTAS!=='undefined'){
   ROTAS.cantadas=function(){
     const D=dados();
     const letras=[...new Set(D.map(x=>x.letra))]; const LS='ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
-    const datas=[...new Set(D.filter(x=>!F.mes||x.mes===F.mes).map(x=>x.data))].sort((a,b)=>{ const p=s=>s.split('/').reverse().join(''); return p(b).localeCompare(p(a)); });
+    const datas=[...new Set(D.filter(x=>(!F.mes||x.mes===F.mes)&&(!F.ano||x.ano===F.ano)).map(x=>x.data))].sort((a,b)=>{ const p=s=>s.split('/').reverse().join(''); return p(b).localeCompare(p(a)); });
     const aberto=localStorage.getItem('ibnm_ct_abertos')==='1'||ativos()>0;
     return '<div class="page ct-page"><div class="page-ttl">🎶 Histórico de músicas</div>'+
       '<button id="fcStatsBtn" class="st-btn" onclick="toggleStatsCantadas()">📊 Ver estatísticas</button><div id="fcStats" class="st-wrap" style="display:none"></div>'+
@@ -120,6 +121,7 @@ if(typeof ROTAS!=='undefined'){
       ((typeof ehAdmin==='function'&&ehAdmin())?'<button class="ct-ord" onclick="ctCSV()">⬇ CSV</button>':'')+'</div>'+
       '<div id="ctMais" class="ct-mais '+(aberto?'show':'')+'">'+
         '<label>🎤 Cantor / artista<select onchange="ctFiltro(\'artista\',this.value)">'+opcoes('artista',F.artista,'Todos')+'</select></label>'+
+        '<label>📅 Ano<select onchange="ctFiltro(\'ano\',this.value)">'+opcoes('ano',F.ano,'Todos',(a,b)=>b.localeCompare(a))+'</select></label>'+
         '<label>⛪ Culto<select onchange="ctFiltro(\'culto\',this.value)">'+opcoes('culto',F.culto,'Todos')+'</select></label>'+
         '<label>🎪 Evento<select onchange="ctFiltro(\'evento\',this.value)">'+opcoes('evento',F.evento,'Todos')+'</select></label>'+
         '<label>📆 Mês<select onchange="ctFiltro(\'mes\',this.value)">'+opcoes('mes',F.mes,'Todos',(a,b)=>b.localeCompare(a))+'</select></label>'+
@@ -154,6 +156,40 @@ window.toggleStatsCantadas=function(){
   w.innerHTML=h;
 };
 
+/* ---- estatísticas de UMA música: quantas vezes, última vez e a formação (escala) de cada execução ---- */
+const COL_FIXAS_EST=/^(data|dia|evento|culto|hor[aá]rio|obs)/i;
+window.abrirEstatisticasMusica=function(nomeMusica,hinario){
+  try{
+    const chave=sem(tituloLimpo(nomeMusica));
+    const chaveHin=hinario? sem(hinario) : '';
+    const todas=dados().filter(x=>sem(tituloLimpo(x.m.m))===chave && (!chaveHin || sem(x.m.a||'').indexOf(chaveHin)>=0));
+    if(!todas.length){ if(typeof toast==='function') toast('Sem histórico para esta música.'); return; }
+    const ordenadas=todas.slice().sort((a,b)=>(b.dt?b.dt.getTime():0)-(a.dt?a.dt.getTime():0)||(b.i-a.i));
+    const total=ordenadas.length;
+    const comData=ordenadas.find(x=>x.dt);
+    const linhasHTML=ordenadas.map(x=>{
+      const cultoNome=x.culto+(x.evento&&x.evento!=='Culto regular'?' · '+x.evento:'');
+      let formacao;
+      const achado=x.dt&&(typeof window.__escLinhaPorData==='function')? window.__escLinhaPorData(x.dt) : null;
+      if(achado){
+        const cols=(achado.colunas||[]).filter(c=>!COL_FIXAS_EST.test(c));
+        const cel=achado.linha.celulas||{};
+        const partes=cols.map(c=>{ const v=String(cel[c]||'').trim(); return v? '<div class="est-fn"><b>'+e(c)+':</b> '+e(v)+'</div>' : ''; }).filter(Boolean);
+        formacao=partes.length? partes.join('') : '<div class="est-vz">Escala encontrada, mas sem equipe preenchida nesta semana.</div>';
+      } else {
+        formacao='<div class="est-vz">'+(x.dt? 'Sem escala correspondente para esta data.' : 'Data não identificada no histórico.')+'</div>';
+      }
+      return '<div class="est-oc"><div class="est-oc-h"><b>'+e(x.data)+'</b> · '+e(cultoNome)+'</div>'+formacao+'</div>';
+    }).join('');
+    const corpo='<div class="est-sum"><div class="est-sum-c"><div class="est-sum-n">'+total+'</div><div class="est-sum-l">vez(es) cantada'+(total>1?'s':'')+'</div></div>'+
+      '<div class="est-sum-c"><div class="est-sum-n" style="font-size:20px">'+(comData?e(comData.data):'—')+'</div><div class="est-sum-l">última vez</div></div></div>'+
+      '<div class="est-lista">'+linhasHTML+'</div>'+
+      '<div class="modal-acts"><button class="btn btn-dark" onclick="fecharModal()">Fechar</button></div>';
+    abrirModal('<h3>📊 '+e(tituloLimpo(nomeMusica))+'</h3>'+corpo);
+    const mb=document.getElementById('modalBox'); if(mb) mb.classList.add('mx-grande');
+  }catch(err){ if(typeof toast==='function') toast('Não foi possível carregar as estatísticas.'); }
+};
+
 const css=`
 .ct-bar{position:sticky;top:var(--ibnm-topbar,64px);z-index:30;background:var(--cinza,#eef4f1);margin:0 -14px 6px;padding:8px 14px 6px;box-shadow:0 6px 10px -8px rgba(0,0,0,.25)}
 .ct-page{display:flex;flex-direction:column;height:calc(100dvh - var(--ibnm-topbar,64px));overflow:hidden}
@@ -185,6 +221,16 @@ const css=`
 .st-wrap .st-bar span{width:74px;flex:none;color:#567}
 .st-wrap .st-bar i{display:block;height:12px;background:var(--verde-med);border-radius:6px;min-width:2px}
 .st-wrap .st-bar b{width:26px;text-align:right}
+.fc-stats{display:block;margin-top:6px;height:28px;border-radius:8px;border:1px solid #cfdad4;background:#fff;font-weight:700;font-size:11.5px;color:var(--verde-escuro);padding:0 8px;white-space:nowrap}
+.est-sum{display:flex;gap:10px;margin-bottom:12px}
+.est-sum-c{flex:1;background:#eef4f1;border-radius:12px;padding:10px;text-align:center}
+.est-sum-n{font-size:26px;font-weight:900;color:var(--verde-escuro,#145c43)}
+.est-sum-l{font-size:11.5px;color:#5d7c6e;font-weight:700}
+.est-lista{max-height:50vh;overflow-y:auto}
+.est-oc{border:1px solid #e3ebe7;border-radius:12px;padding:8px 10px;margin-bottom:8px}
+.est-oc-h{font-size:13.5px;color:var(--verde-escuro);margin-bottom:4px}
+.est-fn{font-size:12.5px;color:#334;padding:2px 0}
+.est-vz{font-size:12.5px;color:#9ab;font-style:italic}
 `;
 const st=document.createElement('style'); st.id='ibnmCantadas'; st.textContent=css; document.head.appendChild(st);
 })();
