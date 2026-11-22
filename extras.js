@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.43)
+   MM IBNM — Extras (v1.44)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1905,7 +1905,7 @@ function audioFontes(id){
 function auAviso(a,html){ let d=a.nextElementSibling; if(!d||!d.classList.contains('au-erro')){ a.insertAdjacentHTML('afterend','<div class="au-erro"></div>'); d=a.nextElementSibling; } if(d.innerHTML!==html) d.innerHTML=html; }
 function auLimpaAviso(a){ const d=a.nextElementSibling; if(d&&d.classList.contains('au-erro')&&!/Tocando pela/.test(d.textContent)) d.remove(); }
 function auQuer(a){ return a.dataset.quer==='1' || a.autoplay; }
-function auPoe(a,f){ a.dataset.fm=f.m; a.src=f.u; auVigia(a); if(auQuer(a)) a.play().catch(()=>{}); }
+function auPoe(a,f){ a.dataset.fm=f.m; auCors(a,f.m); a.src=f.u; auVigia(a); if(auQuer(a)) a.play().catch(()=>{}); }
 /* se o Google segurar o pedido, não fica esperando: passa para o próximo caminho */
 function auVigia(a){
   clearTimeout(a._auT); if(!auQuer(a)) return; const s=a.getAttribute('src'), m=a.dataset.fm;
@@ -2261,6 +2261,150 @@ function auPreBaixa(){
   }catch(_){}
 }
 setTimeout(auPreBaixa,8000);
+
+/* ======================= 48) 🎼 TOM DO ÁUDIO: o app descobre o tom e o ADM escolhe em que tom tocar ======================= */
+/* • Ao abrir um áudio sem tom conhecido, o celular do ADM analisa as notas e descobre o tom (ex.: Sol maior).
+   • O ADM escolhe "Tocar em: Lá" e TODOS passam a ouvir esse áudio em Lá, na mesma velocidade.
+     O arquivo original não muda (dá para voltar ao original a qualquer momento).
+   • A mudança de tom é feita no próprio aparelho, enquanto toca. */
+const TOM_BEMOL=new Set([5,10,3,8,1]);
+const tomMod=n=>((n%12)+12)%12;
+function tomNome(pc,modo){ try{ const p=tomMod(pc); return DSP.formatarTom(p, modo||'maior', TOM_BEMOL.has(p)); }catch(_){ return {pt:'?',letra:'?'}; } }
+function tomDaCifra(t){ const m=String(t||'').trim().match(/^([A-G])([#b]?)/); if(!m) return null; return tomMod({C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1]]+(m[2]==='#'?1:m[2]==='b'?-1:0)); }
+function tomPodeEditar(){ try{ return !!(window.ehAdmin&&ehAdmin()) && (typeof podeSetor!=='function' || podeSetor('musicas')); }catch(_){ return false; } }
+let _tomMus=null; const _tomTentou=new Set(); let _tomDetectando=false;
+function tomAtual(){
+  const a=document.getElementById('plAudio'), m=_tomMus; if(!a||!m||!Array.isArray(m.audios)||!document.getElementById('tomBar')) return null;
+  const id=a.dataset.drv||DRV_ID(a.getAttribute('src')||''); let i=-1;
+  if(id) i=m.audios.findIndex(x=>DRV_ID(x.url)===id);
+  if(i<0){ const nm=((document.getElementById('plNome')||{}).textContent||'').trim(); i=m.audios.findIndex(x=>String(x.nome||'').trim()===nm); }
+  return i>=0? {m,i,au:m.audios[i],el:a} : null;
+}
+/* endereço que deixa o aparelho "mexer" no som: chave do Google ou arquivo guardado no aparelho */
+function auCors(a,m){ if(m==='key'){ if(a.crossOrigin!=='anonymous') a.crossOrigin='anonymous'; } else if(m!=='blob' && a.hasAttribute('crossorigin')) a.removeAttribute('crossorigin'); }
+function tomPodeProcessar(a){ const s=a.currentSrc||a.getAttribute('src')||''; return s.startsWith('blob:') || s.startsWith(location.origin) || (a.crossOrigin==='anonymous' && /googleapis\.com\/drive/.test(s)); }
+
+/* processador que muda o tom em tempo real (phase vocoder) */
+const TOM_WK="/* Processador de \u00e1udio: muda o tom em tempo real sem mudar a velocidade (phase vocoder, S. M. Bernsee) */\nclass IbnmTom extends AudioWorkletProcessor{\n  constructor(){\n    super(); this.r=1; this.port.onmessage=e=>{ const v=+e.data.ratio; if(v>0) this.r=v; };\n    const N=2048; this.N=N; this.OS=4; this.ST=N/4; this.LAT=N-N/4; this.ch=[];\n    this.win=new Float32Array(N); for(let k=0;k<N;k++) this.win[k]=-.5*Math.cos(2*Math.PI*k/N)+.5;\n    this.rev=new Uint32Array(2*N); for(let i=2;i<2*N-2;i+=2){ let j=0; for(let b=2;b<2*N;b<<=1){ if(i&b) j++; j<<=1; } this.rev[i]=j; }\n  }\n  estado(){ const N=this.N, H=N/2+1; return {inF:new Float32Array(N),outF:new Float32Array(N),w:new Float32Array(2*N),lp:new Float32Array(H),sp:new Float32Array(H),acc:new Float32Array(2*N),am:new Float32Array(N),af:new Float32Array(N),sm:new Float32Array(N),sf:new Float32Array(N),ro:this.LAT}; }\n  fft(b,sign){ const N=this.N, n2=2*N, rv=this.rev;\n    for(let i=2;i<n2-2;i+=2){ const j=rv[i]; if(i<j){ let t=b[i]; b[i]=b[j]; b[j]=t; t=b[i+1]; b[i+1]=b[j+1]; b[j+1]=t; } }\n    for(let le=4; le<=n2; le<<=1){ const le2=le>>1; let ur=1, ui=0; const arg=Math.PI/(le2>>1), wr=Math.cos(arg), wi=sign*Math.sin(arg);\n      for(let j=0;j<le2;j+=2){ for(let i=j;i<n2;i+=le){ const p2=i+le2; const tr=b[p2]*ur-b[p2+1]*ui, ti=b[p2]*ui+b[p2+1]*ur; b[p2]=b[i]-tr; b[p2+1]=b[i+1]-ti; b[i]+=tr; b[i+1]+=ti; }\n        const t=ur*wr-ui*wi; ui=ur*wi+ui*wr; ur=t; } } }\n  quadro(s,p){ const N=this.N, H=N/2, OS=this.OS, ST=this.ST, PI=Math.PI, fpb=sampleRate/N, ex=2*PI*ST/N, w=s.w, win=this.win;\n    for(let k=0;k<N;k++){ w[2*k]=s.inF[k]*win[k]; w[2*k+1]=0; }\n    this.fft(w,-1);\n    for(let k=0;k<=H;k++){ const re=w[2*k], im=w[2*k+1]; const mg=2*Math.sqrt(re*re+im*im), ph=Math.atan2(im,re);\n      let t=ph-s.lp[k]; s.lp[k]=ph; t-=k*ex; let q=(t/PI)|0; if(q>=0) q+=q&1; else q-=q&1; t-=PI*q; t=OS*t/(2*PI); s.am[k]=mg; s.af[k]=k*fpb+t*fpb; }\n    s.sm.fill(0); s.sf.fill(0);\n    for(let k=0;k<=H;k++){ const ix=(k*p)|0; if(ix<=H){ s.sm[ix]+=s.am[k]; s.sf[ix]=s.af[k]*p; } }\n    for(let k=0;k<=H;k++){ let t=s.sf[k]; t-=k*fpb; t/=fpb; t=2*PI*t/OS; t+=k*ex; s.sp[k]+=t; const ph=s.sp[k], mg=s.sm[k]; w[2*k]=mg*Math.cos(ph); w[2*k+1]=mg*Math.sin(ph); }\n    for(let k=N+2;k<2*N;k++) w[k]=0;\n    this.fft(w,1);\n    const g=1.52/(H*OS); for(let k=0;k<N;k++) s.acc[k]+=g*win[k]*w[2*k];\n    for(let k=0;k<ST;k++) s.outF[k]=s.acc[k];\n    s.acc.copyWithin(0,ST,ST+N); s.acc.fill(0,N);\n    s.inF.copyWithin(0,ST,N); }\n  process(ins,outs){\n    const inp=ins[0], out=outs[0]; if(!out||!out.length) return true;\n    const p=this.r;\n    for(let c=0;c<out.length;c++){\n      const x=inp&&inp.length? inp[Math.min(c,inp.length-1)] : null, y=out[c];\n      if(!x){ y.fill(0); continue; }\n      if(Math.abs(p-1)<1e-4){ y.set(x); this.ch[c]=null; continue; }\n      const s=this.ch[c]||(this.ch[c]=this.estado()); const L=this.LAT, N=this.N;\n      for(let i=0;i<x.length;i++){ s.inF[s.ro]=x[i]; y[i]=s.outF[s.ro-L]; s.ro++; if(s.ro>=N){ s.ro=L; this.quadro(s,p); } }\n    }\n    return true;\n  }\n}\nregisterProcessor('ibnm-tom', IbnmTom);\n";
+let _tomCtx=null, _tomCtxP=null;
+function tomCtx(){
+  if(_tomCtxP) return _tomCtxP;
+  _tomCtxP=(async()=>{ const C=window.AudioContext||window.webkitAudioContext; if(!C) throw new Error('sem áudio'); const c=new C();
+    if(!c.audioWorklet) throw new Error('sem worklet'); await c.audioWorklet.addModule(URL.createObjectURL(new Blob([TOM_WK],{type:'text/javascript'}))); _tomCtx=c; return c; })();
+  _tomCtxP.catch(()=>{ _tomCtxP=null; });
+  return _tomCtxP;
+}
+async function tomAplica(){
+  const a=document.getElementById('plAudio'); if(!a) return;
+  const t=tomAtual(); const semi=t? (+t.au.tom_semi||0) : 0; const ratio=Math.pow(2,semi/12);
+  if(a._pv){ a._pv.node.port.postMessage({ratio}); if(_tomCtx && _tomCtx.state!=='running' && !a.paused) _tomCtx.resume().catch(()=>{}); a._tomSem=0; tomBar(); return; }
+  if(!semi){ a._tomSem=0; tomBar(); return; }
+  if(!tomPodeProcessar(a)){ a._tomSem=1; tomBar(); return; }
+  try{ const ctx=await tomCtx(); if(a._pv) return tomAplica();
+    const src=ctx.createMediaElementSource(a); const node=new AudioWorkletNode(ctx,'ibnm-tom',{outputChannelCount:[2]});
+    src.connect(node).connect(ctx.destination); a._pv={src,node}; node.port.postMessage({ratio}); a._tomSem=0;
+    if(ctx.state!=='running') ctx.resume().catch(()=>{});
+  }catch(_){ a._tomSem=1; }
+  tomBar();
+}
+document.addEventListener('play',e=>{ const a=e.target; if(a&&a.id==='plAudio'){ if(_tomCtx&&_tomCtx.state!=='running') _tomCtx.resume().catch(()=>{}); tomAplica(); } },true);
+
+/* barra do tom, logo abaixo do player */
+function tomBar(){
+  const bar=document.getElementById('tomBar'); if(!bar) return;
+  const t=tomAtual(), adm=tomPodeEditar(); let h='';
+  if(t){
+    const au=t.au, a=t.el;
+    if(au.tom_pc==null){
+      if(adm) h= _tomDetectando? '<div class="tb-l">🔎 Descobrindo o tom deste áudio…</div>'
+                : '<button class="mini-btn" onclick="tomDetectar()">🎼 Descobrir o tom deste áudio</button>'+(au.tom_erro?'<div class="small">'+escA(au.tom_erro)+'</div>':'');
+    } else {
+      const semi=+au.tom_semi||0, orig=tomNome(au.tom_pc,au.tom_modo), at=tomNome(au.tom_pc+semi,au.tom_modo);
+      h='<div class="tb-l">🎼 Tom: <b>'+escA(at.pt)+' ('+escA(at.letra)+')</b>'+(semi? ' <span class="tb-o">· original '+escA(orig.letra)+'</span>' : '')+'</div>';
+      if(semi && a._tomSem) h+='<div class="small">⚠️ Neste aparelho está tocando no tom original'+(drvChaveApi()?'':' (falta a 🔑 chave do Google no Painel → Conectividade)')+'.</div>';
+      if(adm){
+        let op=''; for(let s=-6;s<=5;s++){ const n=tomNome(au.tom_pc+s,au.tom_modo); op+='<option value="'+s+'"'+(s===semi?' selected':'')+'>'+escA(n.pt)+' ('+escA(n.letra)+')'+(s? ' · '+(s>0?'+':'')+s+' semitom'+(Math.abs(s)>1?'s':'') : ' · original')+(Math.abs(s)>3?' ⚠️':'')+'</option>'; }
+        h+='<div class="tb-r"><label>Tocar em</label><select onchange="tomEscolher(this.value)">'+op+'</select><button class="mini-btn sec" onclick="tomDetectar(1)" title="Analisar de novo">🔎</button></div>';
+        if(Math.abs(semi)>3) h+='<div class="small">⚠️ Mudanças grandes deixam a voz com som artificial.</div>';
+        if(au.tom_conf!=null && au.tom_conf<55 && au.tom_alt) h+='<div class="small">O app não tem certeza: pode ser também <b>'+escA(au.tom_alt)+'</b>. Ouça e confirme.</div>';
+        const pc=tomDaCifra(t.m.tom); if(pc!=null && pc!==tomMod(au.tom_pc) && !semi) h+='<div class="small">A cifra está em <b>'+escA(t.m.tom)+'</b>.</div>';
+      }
+    }
+  }
+  if(bar.dataset.h!==h){ bar.dataset.h=h; bar.innerHTML=h; }
+}
+
+/* descobrir o tom (analisa o arquivo no próprio aparelho) */
+async function tomBytes(au){
+  const id=DRV_ID(au.url);
+  if(id){
+    const b=AU_BLOB.get(id)||await auDoCache(id); if(b){ AU_BLOB.set(id,b); return await (await fetch(b)).arrayBuffer(); }
+    const k=drvChaveApi(); if(k){ try{ const r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media&key='+encodeURIComponent(k)); if(r.ok) return await r.arrayBuffer(); }catch(_){} }
+    const tok=auTok(); if(tok){ const r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media',{headers:{Authorization:'Bearer '+tok}}); if(r.ok){ const ab=await r.arrayBuffer(); try{ auGuarda(id,new Blob([ab])); }catch(_){} return ab; } }
+    throw new Error('Não consegui ler o arquivo do Drive (cadastre a 🔑 chave ou conecte o Drive).');
+  }
+  const r=await fetch(au.url); if(!r.ok) throw new Error('Não consegui baixar o áudio.'); return await r.arrayBuffer();
+}
+let _tomW=null; const _tomP={}; let _tomN=0;
+function tomWorker(cmd,payload,tr){ return new Promise((ok,ko)=>{ if(!_tomW){ _tomW=new Worker('tom-worker.js'); _tomW.onmessage=ev=>{ const d=ev.data||{}, p=_tomP[d.id]; if(!p) return; delete _tomP[d.id]; d.ok? p.ok(d) : p.ko(new Error(d.erro||'falha')); };
+    _tomW.onerror=()=>{ Object.keys(_tomP).forEach(k=>{ _tomP[k].ko(new Error('falha na análise')); delete _tomP[k]; }); }; }
+  const id=++_tomN; _tomP[id]={ok,ko}; _tomW.postMessage(Object.assign({id,cmd},payload),tr||[]); }); }
+window.tomDetectar=async function(forcar){
+  const t=tomAtual(); if(!t || _tomDetectando) return; if(!tomPodeEditar()) return;
+  const au=t.au; _tomDetectando=true; delete au.tom_erro; tomBar();
+  try{
+    const ab=await tomBytes(au);
+    const C=window.AudioContext||window.webkitAudioContext; const c=new C(); let buf; try{ buf=await c.decodeAudioData(ab); }finally{ try{ c.close(); }catch(_){} }
+    const n=buf.length, ch=buf.numberOfChannels, mono=new Float32Array(n);
+    for(let k=0;k<ch;k++){ const d=buf.getChannelData(k); for(let i=0;i<n;i++) mono[i]+=d[i]/ch; }
+    const r=await tomWorker('detectar',{samples:mono.buffer,sr:buf.sampleRate},[mono.buffer]);
+    const det=r.resultado; if(!det) throw new Error('Não deu para identificar o tom deste áudio.');
+    au.tom_pc=det.tonica; au.tom_modo=det.modo; au.tom_conf=det.confianca; au.tom_alt=(det.alternativa&&det.alternativa.letra)||'';
+    if(au.tom_semi==null) au.tom_semi=0;
+    await tomSalva(t.m);
+    if(forcar) toast('🎼 Tom deste áudio: '+tomNome(det.tonica,det.modo).pt);
+  }catch(err){ au.tom_erro='⚠️ '+(err&&err.message||err); }
+  _tomDetectando=false; tomBar();
+};
+async function tomSalva(m){
+  const audios=(m.audios||[]).map(x=>{ const y=Object.assign({},x); delete y.tom_erro; return y; });
+  if(typeof sb!=='undefined'&&sb){ const {error}=await sb.from('musicas').update({audios}).eq('id',m.id); if(error) throw new Error('não salvou: '+error.message); }
+  else if(typeof saveDB==='function') saveDB();
+}
+window.tomEscolher=async function(v){
+  const t=tomAtual(); if(!t) return; const s=Math.max(-6,Math.min(6,parseInt(v,10)||0)); const antes=t.au.tom_semi;
+  t.au.tom_semi=s; tomAplica();
+  try{ await tomSalva(t.m); const n=tomNome(t.au.tom_pc+s,t.au.tom_modo); toast(s? '🎼 Agora este áudio toca em '+n.pt+' para todos' : '🎼 Voltou ao tom original'); }
+  catch(err){ t.au.tom_semi=antes; tomAplica(); toast('Não foi possível salvar o tom: '+(err.message||err)); }
+};
+
+/* liga tudo ao player */
+if(typeof renderPlayer==='function'){ const _rp48=renderPlayer;
+  window.renderPlayer=renderPlayer=function(m){ _tomMus=m||null; let h=_rp48.apply(this,arguments);
+    try{ if(/<audio id="plAudio"/.test(h)){
+      if(/data-fm="key"/.test(h)) h=h.replace('<audio id="plAudio"','<audio id="plAudio" crossorigin="anonymous"');
+      const i=h.lastIndexOf('</div>'); h=h.slice(0,i)+'<div id="tomBar" class="tom-bar"></div>'+h.slice(i); } }catch(_){}
+    return h; }; }
+{ const _t48=window.tocar;
+  if(typeof _t48==='function') window.tocar=tocar=function(url,btn,nome){
+    if(!btn || typeof btn!=='object' || !btn.classList){ if(typeof btn==='string' && nome===undefined) nome=btn; btn=document.createElement('button'); }
+    const r=_t48.call(this,url,btn,nome); setTimeout(()=>{ tomBar(); tomAplica(); },0); return r; }; }
+aoMudar(function(){
+  const bar=document.getElementById('tomBar'); if(!bar) return;
+  tomBar();
+  const t=tomAtual(); if(!t || t.au.tom_pc!=null || _tomDetectando || !tomPodeEditar()) return;
+  const k=t.m.id+'|'+t.i; if(_tomTentou.has(k)) return; _tomTentou.add(k);
+  setTimeout(()=>tomDetectar(),600);      /* ADM: descobre sozinho o tom de áudios novos */
+});
+{ const st48=document.createElement('style'); st48.textContent=`
+.tom-bar{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.tom-bar:empty{display:none}
+.tom-bar .tb-l{font-size:15px;font-weight:700}
+.tom-bar .tb-o{font-weight:500;opacity:.75;font-size:13px}
+.tom-bar .tb-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tom-bar .tb-r label{font-size:13px;font-weight:700}
+.tom-bar .tb-r select{flex:1;min-width:0;max-width:100%;padding:8px 10px;border-radius:10px;font-size:14.5px}
+`; document.head.appendChild(st48); }
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
