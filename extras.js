@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.45)
+   MM IBNM — Extras (v1.46)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -2296,7 +2296,7 @@ function tomCtx(){
 }
 async function tomAplica(){
   const a=document.getElementById('plAudio'); if(!a) return;
-  const t=tomAtual(); const semi=t? (+t.au.tom_semi||0) : 0; const ratio=Math.pow(2,semi/12);
+  const t=tomAtual(); const semi=t? tomEfetivo(t) : 0; const ratio=Math.pow(2,semi/12);
   if(a._pv){ a._pv.node.port.postMessage({ratio}); if(_tomCtx && _tomCtx.state!=='running' && !a.paused) _tomCtx.resume().catch(()=>{}); a._tomSem=0; tomBar(); return; }
   if(!semi){ a._tomSem=0; tomBar(); return; }
   if(!tomPodeProcessar(a)){ a._tomSem=1; tomBar(); return; }
@@ -2310,6 +2310,9 @@ async function tomAplica(){
 document.addEventListener('play',e=>{ const a=e.target; if(a&&a.id==='plAudio'){ if(_tomCtx&&_tomCtx.state!=='running') _tomCtx.resume().catch(()=>{}); tomAplica(); } },true);
 
 /* barra do tom, logo abaixo do player */
+let _tomPrev=null;   /* prévia do ADM antes de salvar: {k, semi} */
+function tomChave(t){ return t.m.id+'|'+t.i; }
+function tomEfetivo(t){ return (_tomPrev && _tomPrev.k===tomChave(t))? _tomPrev.semi : (+t.au.tom_semi||0); }
 function tomBar(){
   const bar=document.getElementById('tomBar'); if(!bar) return;
   const t=tomAtual(), adm=tomPodeEditar(); let h='';
@@ -2319,12 +2322,15 @@ function tomBar(){
       if(adm) h= _tomDetectando? '<div class="tb-l">🔎 Descobrindo o tom deste áudio…</div>'
                 : '<button class="mini-btn" onclick="tomDetectar()">🎼 Descobrir o tom deste áudio</button>'+(au.tom_erro?'<div class="small">'+escA(au.tom_erro)+'</div>':'');
     } else {
-      const semi=+au.tom_semi||0, orig=tomNome(au.tom_pc,au.tom_modo), at=tomNome(au.tom_pc+semi,au.tom_modo);
+      const salvo=+au.tom_semi||0, semi=tomEfetivo(t), mudou=semi!==salvo, orig=tomNome(au.tom_pc,au.tom_modo), at=tomNome(au.tom_pc+semi,au.tom_modo), ats=tomNome(au.tom_pc+salvo,au.tom_modo);
       h='<div class="tb-l">🎼 Tom: <b>'+escA(at.pt)+' ('+escA(at.letra)+')</b>'+(semi? ' <span class="tb-o">· original '+escA(orig.letra)+'</span>' : '')+'</div>';
       if(semi && a._tomSem) h+='<div class="small">⚠️ Neste aparelho está tocando no tom original'+(drvChaveApi()?'':' (falta a 🔑 chave do Google no Painel → Conectividade)')+'.</div>';
       if(adm){
         let op=''; for(let s=-6;s<=5;s++){ const n=tomNome(au.tom_pc+s,au.tom_modo); op+='<option value="'+s+'"'+(s===semi?' selected':'')+'>'+escA(n.pt)+' ('+escA(n.letra)+')'+(s? ' · '+(s>0?'+':'')+s+' semitom'+(Math.abs(s)>1?'s':'') : ' · original')+(Math.abs(s)>3?' ⚠️':'')+'</option>'; }
         h+='<div class="tb-r"><label>Tocar em</label><select onchange="tomEscolher(this.value)">'+op+'</select><button class="mini-btn sec" onclick="tomDetectar(1)" title="Analisar de novo">🔎</button></div>';
+        if(mudou) h+='<div class="tb-salvar tb-sv"><div class="small">🎧 Ouvindo a prévia em <b>'+escA(at.letra)+'</b> — só você está ouvindo. Os membros continuam em <b>'+escA(ats.letra)+'</b> até você salvar.</div>'+
+          '<div class="tb-bts"><button class="btn btn-primary" onclick="tomSalvarTom()">💾 SALVAR em '+escA(at.letra)+'</button><button class="btn btn-dark" onclick="tomCancelar()">Cancelar</button></div></div>';
+        else if(salvo) h+='<div class="small">✅ Salvo: todos ouvem em <b>'+escA(ats.letra)+'</b>.</div>';
         if(Math.abs(semi)>3) h+='<div class="small">⚠️ Mudanças grandes deixam a voz com som artificial.</div>';
         if(au.tom_conf!=null && au.tom_conf<55 && au.tom_alt) h+='<div class="small">O app não tem certeza: pode ser também <b>'+escA(au.tom_alt)+'</b>. Ouça e confirme.</div>';
         const pc=tomDaCifra(t.m.tom); if(pc!=null && pc!==tomMod(au.tom_pc) && !semi) h+='<div class="small">A cifra está em <b>'+escA(t.m.tom)+'</b>.</div>';
@@ -2392,16 +2398,24 @@ async function tomSalva(m){
   if(typeof sb!=='undefined'&&sb){ const {error}=await sb.from('musicas').update({audios}).eq('id',m.id); if(error) throw new Error('não salvou: '+error.message); }
   else if(typeof saveDB==='function') saveDB();
 }
-window.tomEscolher=async function(v){
-  const t=tomAtual(); if(!t) return; const s=Math.max(-6,Math.min(6,parseInt(v,10)||0)); const antes=t.au.tom_semi;
-  t.au.tom_semi=s; tomAplica();
-  try{ await tomSalva(t.m); const n=tomNome(t.au.tom_pc+s,t.au.tom_modo); toast(s? '🎼 Agora este áudio toca em '+n.pt+' para todos' : '🎼 Voltou ao tom original'); }
-  catch(err){ t.au.tom_semi=antes; tomAplica(); toast('Não foi possível salvar o tom: '+(err.message||err)); }
+window.tomEscolher=function(v){
+  const t=tomAtual(); if(!t) return; const s=Math.max(-6,Math.min(6,parseInt(v,10)||0));
+  _tomPrev = (s===(+t.au.tom_semi||0))? null : {k:tomChave(t), semi:s};
+  tomAplica();                    /* prévia: só no aparelho do ADM, ainda não salva */
+};
+window.tomCancelar=function(){ _tomPrev=null; tomAplica(); };
+window.tomSalvarTom=async function(){
+  const t=tomAtual(); if(!t||!_tomPrev||_tomPrev.k!==tomChave(t)) return; const s=_tomPrev.semi, antes=t.au.tom_semi;
+  const bt=document.querySelector('.tb-salvar .btn-primary'); if(bt){ bt.disabled=true; bt.textContent='Salvando…'; }
+  t.au.tom_semi=s;
+  try{ await tomSalva(t.m); _tomPrev=null; const n=tomNome(t.au.tom_pc+s,t.au.tom_modo); toast(s? '✅ Salvo! Todos vão ouvir este áudio em '+n.pt+'.' : '✅ Salvo! Todos vão ouvir no tom original.'); }
+  catch(err){ t.au.tom_semi=antes; toast('Não foi possível salvar o tom: '+(err.message||err)); }
+  tomAplica();
 };
 
 /* liga tudo ao player */
 if(typeof renderPlayer==='function'){ const _rp48=renderPlayer;
-  window.renderPlayer=renderPlayer=function(m){ _tomMus=m||null; let h=_rp48.apply(this,arguments);
+  window.renderPlayer=renderPlayer=function(m){ _tomMus=m||null; _tomPrev=null; let h=_rp48.apply(this,arguments);
     try{ if(/<audio id="plAudio"/.test(h)){
       if(/data-fm="key"/.test(h)) h=h.replace('<audio id="plAudio"','<audio id="plAudio" crossorigin="anonymous"');
       const i=h.lastIndexOf('</div>'); h=h.slice(0,i)+'<div id="tomBar" class="tom-bar"></div>'+h.slice(i); } }catch(_){}
@@ -2424,6 +2438,9 @@ aoMudar(function(){
 .tom-bar .tb-o{font-weight:500;opacity:.75;font-size:13px}
 .tom-bar .tb-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tom-bar .tb-r label{font-size:13px;font-weight:700}
+.tom-bar .tb-salvar{background:rgba(255,255,255,.12);border:1.5px solid #ffd60a;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.tom-bar .tb-bts{display:flex;gap:8px;flex-wrap:wrap}
+.tom-bar .tb-bts .btn{flex:1;min-width:120px}
 .tom-bar .tb-r select{flex:1;min-width:0;max-width:100%;padding:8px 10px;border-radius:10px;font-size:14.5px}
 `; document.head.appendChild(st48); }
 
