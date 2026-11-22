@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.44)
+   MM IBNM — Extras (v1.45)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -2335,15 +2335,37 @@ function tomBar(){
 }
 
 /* descobrir o tom (analisa o arquivo no próprio aparelho) */
-async function tomBytes(au){
-  const id=DRV_ID(au.url);
+function tomPorque(ab,st){
+  if(st===404||st===400||st===410) return 'o arquivo não existe mais nesse endereço (foi apagado ou movido)';
+  if(st===403||st===401) return 'sem permissão para ler o arquivo (no Drive, compartilhe como "Qualquer pessoa com o link")';
+  if(st) return 'o servidor respondeu com erro '+st;
+  if(!ab||!ab.byteLength) return 'o arquivo veio vazio';
+  let t=''; try{ t=String.fromCharCode.apply(null,new Uint8Array(ab.slice(0,80))).trim(); }catch(_){}
+  if(/^</.test(t)) return 'o endereço abre uma página, não o arquivo de áudio';
+  if(/^[{[]/.test(t)) return 'o arquivo não existe mais nesse endereço (link quebrado)';
+  return 'o arquivo está num formato que o celular não consegue ler';
+}
+function tomFontes(au){
+  const url=String(au.url||''), id=DRV_ID(url), L=[];
+  if(/youtu\.?be/i.test(url)) throw new Error('este áudio é um link do YouTube, e o YouTube não libera o som. Suba o arquivo MP3 ou M4A.');
+  const baixa=async(u,op)=>{ const r=await fetch(u,op); if(!r.ok){ const e=new Error(tomPorque(null,r.status)); e.st=r.status; throw e; } return await r.arrayBuffer(); };
   if(id){
-    const b=AU_BLOB.get(id)||await auDoCache(id); if(b){ AU_BLOB.set(id,b); return await (await fetch(b)).arrayBuffer(); }
-    const k=drvChaveApi(); if(k){ try{ const r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media&key='+encodeURIComponent(k)); if(r.ok) return await r.arrayBuffer(); }catch(_){} }
-    const tok=auTok(); if(tok){ const r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media',{headers:{Authorization:'Bearer '+tok}}); if(r.ok){ const ab=await r.arrayBuffer(); try{ auGuarda(id,new Blob([ab])); }catch(_){} return ab; } }
-    throw new Error('Não consegui ler o arquivo do Drive (cadastre a 🔑 chave ou conecte o Drive).');
+    L.push(['guardado no aparelho', async()=>{ const b=AU_BLOB.get(id)||await auDoCache(id); return b? await (await fetch(b)).arrayBuffer() : null; }]);
+    const k=drvChaveApi(); if(k) L.push(['chave do Google', ()=>baixa('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media&key='+encodeURIComponent(k))]);
+    const tok=auTok(); if(tok) L.push(['conexão do Drive', async()=>{ const ab=await baixa('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media',{headers:{Authorization:'Bearer '+tok}}); return ab; }]);
+    if(!k && !tok) throw new Error('para ler o arquivo do Drive, cadastre a 🔑 chave do Google (Painel → Conectividade) ou conecte o Drive.');
+  } else L.push(['link do áudio', ()=>baixa(url)]);
+  return L;
+}
+async function tomDecodifica(au){
+  const motivos=[]; const C=window.AudioContext||window.webkitAudioContext;
+  for(const [nome,fn] of tomFontes(au)){
+    let ab=null;
+    try{ ab=await fn(); if(!ab) continue;
+      const c=new C(); try{ const buf=await c.decodeAudioData(ab.slice(0)); return buf; } finally{ try{ c.close(); }catch(_){} }
+    }catch(err){ motivos.push(nome+': '+(ab? tomPorque(ab,0) : (err&&err.message||'falhou'))); }
   }
-  const r=await fetch(au.url); if(!r.ok) throw new Error('Não consegui baixar o áudio.'); return await r.arrayBuffer();
+  throw new Error('Não consegui ler este áudio — '+(motivos.join(' · ')||'nenhum caminho disponível')+'. Se o player também não toca, remova este áudio e envie o arquivo de novo.');
 }
 let _tomW=null; const _tomP={}; let _tomN=0;
 function tomWorker(cmd,payload,tr){ return new Promise((ok,ko)=>{ if(!_tomW){ _tomW=new Worker('tom-worker.js'); _tomW.onmessage=ev=>{ const d=ev.data||{}, p=_tomP[d.id]; if(!p) return; delete _tomP[d.id]; d.ok? p.ok(d) : p.ko(new Error(d.erro||'falha')); };
@@ -2353,8 +2375,7 @@ window.tomDetectar=async function(forcar){
   const t=tomAtual(); if(!t || _tomDetectando) return; if(!tomPodeEditar()) return;
   const au=t.au; _tomDetectando=true; delete au.tom_erro; tomBar();
   try{
-    const ab=await tomBytes(au);
-    const C=window.AudioContext||window.webkitAudioContext; const c=new C(); let buf; try{ buf=await c.decodeAudioData(ab); }finally{ try{ c.close(); }catch(_){} }
+    const buf=await tomDecodifica(au);
     const n=buf.length, ch=buf.numberOfChannels, mono=new Float32Array(n);
     for(let k=0;k<ch;k++){ const d=buf.getChannelData(k); for(let i=0;i<n;i++) mono[i]+=d[i]/ch; }
     const r=await tomWorker('detectar',{samples:mono.buffer,sr:buf.sampleRate},[mono.buffer]);
