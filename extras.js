@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.46)
+   MM IBNM — Extras (v1.47)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -520,7 +520,17 @@ function lerAcorde(txt,baixo){
 }
 /* ----- violão: procura posições tocáveis ----- */
 const AFIN=[40,45,50,55,59,64];  /* E A D G B E */
+const _PV_MEMO=new Map(); let _PV_LS=null;
 function posicoesViolao(A){
+  const k=A.nome+'|'+(A.baixo==null?'':A.baixo);
+  if(_PV_MEMO.has(k)) return _PV_MEMO.get(k).map(x=>({f:x.f.slice(),nota:x.nota}));
+  if(_PV_LS===null){ try{ _PV_LS=JSON.parse(localStorage.getItem('ibnm_ac_pos_v2')||'{}'); }catch(_){ _PV_LS={}; } }
+  if(_PV_LS[k]){ _PV_MEMO.set(k,_PV_LS[k]); return posicoesViolao(A); }
+  const r=posicoesViolaoCalc(A); _PV_MEMO.set(k,r);
+  try{ _PV_LS[k]=r; const ks=Object.keys(_PV_LS); if(ks.length>400) delete _PV_LS[ks[0]]; localStorage.setItem('ibnm_ac_pos_v2',JSON.stringify(_PV_LS)); }catch(_){}
+  return r.map(x=>({f:x.f.slice(),nota:x.nota}));
+}
+function posicoesViolaoCalc(A){
   const obrig=new Set(A.pcs); const ints=A.ints;
   if(ints.length>=4 && ints.includes(7)) obrig.delete((A.r+7)%12);           /* a 5ª pode faltar */
   if(A.tipo==='13'||A.tipo==='11'||A.tipo==='m11'){ obrig.delete((A.r+14)%12); obrig.delete((A.r+17)%12); }
@@ -554,7 +564,7 @@ function posicoesViolao(A){
         achados.set(key,{f:atual.slice(),nota});
         return;
       }
-      for(const f of op){ atual[i]=f; rec(i+1); }
+      for(const f of op){ if(f>=0 && !permit.has((AFIN[i]+f)%12)) continue; atual[i]=f; rec(i+1); }   /* poda: só notas do acorde */
     })(0);
   }
   const mnDe=x=>{ const v=x.f.filter(f=>f>0); return v.length?Math.min(...v):0; };
@@ -1609,7 +1619,7 @@ function arrumaMusica(){
   /* Cifra em PDF: na grade (no lugar do Projetar) só na aba Cifra; some na Letra */
   const pdfM=document.getElementById('btPdfCifra');
   if(pdfM && pg.contains(pdfM)){ if(ehCifra){ if(pdfM.classList.contains('mx-oculto')) pdfM.classList.remove('mx-oculto'); mxPoe(pdfM,ac,'pdf',2,'📄 Cifra em PDF'); } else mxAdd(pdfM,'mx-oculto'); }
-  const ptM=document.getElementById('btPartMus'); if(ptM && pg.contains(ptM)) mxPoe(ptM,ac,'pt',3,'📜 Partitura');
+  const ptM=document.getElementById('btPartMus'); if(ptM && pg.contains(ptM)) mxPoe(ptM,ac,'pt',8,'📜 Partitura');   /* chega depois (busca na internet): vai pro fim para não empurrar os outros botões */
   pg.querySelectorAll(':scope > button.mini-btn[onclick^="abrirPartitura"]').forEach(b=>mxAdd(b,'mx-oculto'));
   mxOrdena(ac); mxCols(ac);
   const zb=pg.querySelector(':scope > .zoom-bar'); let ult=ac;
@@ -2443,6 +2453,23 @@ aoMudar(function(){
 .tom-bar .tb-bts .btn{flex:1;min-width:120px}
 .tom-bar .tb-r select{flex:1;min-width:0;max-width:100%;padding:8px 10px;border-radius:10px;font-size:14.5px}
 `; document.head.appendChild(st48); }
+
+/* ======================= 49) 👆 TOQUE CERTO: a tela mudou no meio do toque? o toque não vale ======================= */
+/* Alguns botões chegam um pouco depois (ex.: Partitura) e a grade se reorganiza. Se isso acontecer
+   enquanto o dedo está na tela, o toque cairia em OUTRO botão (ex.: YouTube → WhatsApp).
+   Agora: se o botão do começo do toque não é o mesmo do fim, o toque é ignorado. */
+{ const ALVO='button,a[href],[onclick],[role="button"],summary,label';
+  const sig=el=>{ if(!el) return ''; const oc=el.getAttribute('onclick')||'', hr=el.getAttribute('href')||'', id=el.id||'';
+    return el.tagName+'|'+oc+'|'+hr+'|'+id+'|'+((oc||hr||id)? '' : (el.textContent||'').replace(/[\d\s:.,]+/g,' ').trim().slice(0,60)); };
+  let ini=null;
+  document.addEventListener('pointerdown',ev=>{ if(ev.button>0) return; const el=ev.target&&ev.target.closest&&ev.target.closest(ALVO); ini= el? {el, s:sig(el), t:Date.now()} : null; },true);
+  document.addEventListener('click',ev=>{
+    const g=ini; ini=null; if(!g || ev.detail===0 || Date.now()-g.t>2000) return;      /* clique do teclado/programa ou toque longo: deixa */
+    const el=ev.target&&ev.target.closest&&ev.target.closest(ALVO); if(!el || el===g.el || g.el.contains(el) || el.contains(g.el)) return;
+    if(sig(el)===g.s) return;                                                      /* mesmo botão redesenhado */
+    ev.preventDefault(); ev.stopImmediatePropagation();
+  },true);
+}
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
