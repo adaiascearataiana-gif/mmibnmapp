@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.47)
+   MM IBNM — Extras (v1.48)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -1947,8 +1947,9 @@ async function auProxima(a){
   if(auModo()==='tok' && !a.dataset.retry){ a.dataset.retry='1'; try{ localStorage.removeItem(AU_MODO_K); }catch(_){}   /* a conexão falhou: volta a tentar os caminhos públicos */
     const g=audioFontes(id); if(g.length){ a.dataset.fi='0'; auPoe(a,g[0]); return; } }
   const adm=(typeof ehAdmin==='function')&&ehAdmin();
-  auAviso(a,'⚠️ Este áudio não abriu aqui. <a href="https://drive.google.com/file/d/'+id+'/view" target="_blank" rel="noopener">Ouvir no Google Drive ↗</a>'+
-    (adm&&!drvChaveApi()? '<br><small>ADM: cadastre a <b>chave do Google</b> em Painel → Conectividade para os áudios tocarem aqui para todos.</small>' : ''));
+  auAviso(a, adm
+    ? '⚠️ Este áudio está <b>privado</b> no Google Drive (por isso não abre ou demora).<br><button class="mini-btn" onclick="drvLiberarUm(\''+id+'\',this)">🔧 Liberar para todos</button> <a class="mini-btn" href="https://drive.google.com/file/d/'+id+'/view" target="_blank" rel="noopener">Abrir no Drive ↗</a>'+(drvChaveApi()?'':'<br><small>Cadastre também a <b>🔑 chave do Google</b> em Painel → Conectividade.</small>')
+    : '⚠️ Este áudio ainda não foi liberado pelo ADM. <a href="https://drive.google.com/file/d/'+id+'/view" target="_blank" rel="noopener">Ouvir no Google Drive ↗</a>');
 }
 /* acompanha troca de arquivo no mesmo player (Principal / Back 1 / Back 2) */
 function auAjusta(a){
@@ -2470,6 +2471,100 @@ aoMudar(function(){
     ev.preventDefault(); ev.stopImmediatePropagation();
   },true);
 }
+
+/* ======================= 50) 🩺 ÁUDIOS: verificar e LIBERAR todos para tocar em qualquer celular ======================= */
+/* Por que alguns áudios demoram ou não abrem: o arquivo no Google Drive está PRIVADO.
+   Aí só o celular do ADM conectado consegue tocar (baixando o arquivo inteiro = demora) e os membros
+   veem "Ouvir no Google Drive". Este bloco:
+   • verifica todos os áudios (músicas, vozes e hinos) e LIBERA ("qualquer pessoa com o link pode ouvir")
+     os que o app consegue liberar;
+   • lista os que precisam ser liberados à mão no Drive (enviados fora do app ou por outra conta);
+   • roda sozinho 1x por dia no celular do ADM conectado ao Drive;
+   • confere a liberação logo depois de cada envio de áudio. */
+function drvTodosAudios(){
+  const L=[], visto=new Set();
+  const poe=(url,nome,onde)=>{ const id=DRV_ID(url); if(!id||visto.has(id)) return; visto.add(id); L.push({id,nome:nome||'áudio',onde}); };
+  (DB.musicas||[]).forEach(m=>(m.audios||[]).forEach(a=>poe(a.url,(a.nome||a.slot||'áudio'),m.titulo||'Música')));
+  try{ Object.keys(HAUDIOS||{}).forEach(k=>{ const [lv,n]=k.split(':'); (HAUDIOS[k]||[]).forEach(a=>poe(a.url,a.nome,({cc:'Cantor Cristão',hr:'Harpa',harpa:'Harpa',hcc:'HCC'}[lv]||lv)+' '+n)); }); }catch(_){}
+  return L;
+}
+/* o arquivo abre para qualquer pessoa? (precisa da chave) → 'ok' | 'privado' | 'chave' (problema na chave) | 'erro' */
+async function drvPublico(id){
+  const k=drvChaveApi(); if(!k) return 'semchave';
+  try{ const r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+'?fields=id&supportsAllDrives=true&key='+encodeURIComponent(k));
+    if(r.ok) return 'ok'; if(r.status===404) return 'privado'; if(r.status===400||r.status===403) return 'chave'; return 'erro'; }catch(_){ return 'erro'; }
+}
+/* libera ("qualquer pessoa com o link: leitor") — só funciona para arquivos que o app enviou com a conta conectada */
+async function drvLiberar(id){
+  const tok=auTok(); if(!tok) return 'semdrive';
+  try{ const r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+'/permissions?supportsAllDrives=true',{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({role:'reader',type:'anyone'})});
+    if(r.ok) return 'liberado'; if(r.status===401) return 'semdrive'; if(r.status===404) return 'semacesso'; if(r.status===403) return 'semacesso'; return 'erro'; }catch(_){ return 'erro'; }
+}
+window.drvLiberarUm=async function(id,bt){
+  if(bt){ bt.disabled=true; bt.textContent='Liberando…'; }
+  const r=await drvLiberar(id);
+  if(r==='liberado'){ toast('✅ Áudio liberado para todos.'); AU_BLOB.delete(id); document.querySelectorAll('audio').forEach(a=>{ if(a.dataset.drv===id){ a.dataset.fi='0'; delete a.dataset.oauth; delete a.dataset.retry; auLimpaAviso(a); const f=audioFontes(id); if(f[0]) auPoe(a,f[0]); } }); }
+  else if(r==='semdrive') toast('Conecte o Google Drive (Painel → Conectividade) e tente de novo.');
+  else toast('Este arquivo foi enviado por fora do app ou por outra conta: abra no Drive → Compartilhar → "Qualquer pessoa com o link".');
+  if(bt){ bt.disabled=false; bt.textContent='🔧 Liberar para todos'; }
+};
+window.__drvTodos=()=>drvTodosAudios();
+let _drvVerif=false;
+async function drvVerificarTodos(mostrar){
+  if(_drvVerif) return null; _drvVerif=true;
+  const L=drvTodosAudios(), res={ok:[],liberados:[],manual:[],total:L.length,erro:''};
+  const prog=t=>{ const p=document.getElementById('drvVerProg'); if(p) p.textContent=t; };
+  try{
+    if(!drvChaveApi()){ res.erro='Cadastre primeiro a 🔑 chave do Google (Painel → Conectividade). Sem ela não dá para conferir.'; return res; }
+    let i=0; const fila=L.slice();
+    const trab=async()=>{ while(fila.length){ const x=fila.shift(); i++; if(mostrar) prog('Conferindo '+i+' de '+L.length+'…');
+      let st=await drvPublico(x.id);
+      if(st==='chave'){ res.erro='A chave do Google foi recusada. Confira em Google Cloud → Credenciais se a "Google Drive API" está ativada e se o site do app está liberado na chave.'; fila.length=0; return; }
+      if(st==='privado'){ const lib=await drvLiberar(x.id); if(lib==='liberado'){ st=await drvPublico(x.id); if(st==='ok'){ res.liberados.push(x); continue; } } x.motivo=lib==='semdrive'?'conecte o Drive neste celular para o app liberar':'enviado fora do app ou por outra conta'; res.manual.push(x); continue; }
+      if(st==='ok') res.ok.push(x); else { x.motivo='não consegui conferir agora'; res.manual.push(x); } } };
+    await Promise.all([trab(),trab(),trab(),trab()]);
+  } finally { _drvVerif=false; try{ localStorage.setItem('ibnm_drv_verif',JSON.stringify({t:Date.now(),ok:res.ok.length,lib:res.liberados.length,man:res.manual.length})); }catch(_){} }
+  return res;
+}
+window.drvVerificarTela=async function(){
+  abrirModal('<h3>🩺 Verificar áudios</h3><p class="small">Confere se cada áudio do app abre para qualquer pessoa e libera os que estiverem privados.</p><div id="drvVerProg" class="small">Começando…</div><div id="drvVerRes"></div>');
+  const r=await drvVerificarTodos(true); const box=document.getElementById('drvVerRes'), pr=document.getElementById('drvVerProg'); if(!box||!r) return;
+  if(r.erro){ pr.textContent=''; box.innerHTML='<p>⚠️ '+escA(r.erro)+'</p>'; return; }
+  pr.textContent='';
+  let h='<p><b>'+r.total+'</b> áudios conferidos.</p><p>✅ '+r.ok.length+' já abriam para todos</p>';
+  if(r.liberados.length) h+='<p>🔧 <b>'+r.liberados.length+'</b> estavam privados e foram <b>liberados agora</b>.</p>';
+  if(r.manual.length){
+    h+='<p>⚠️ <b>'+r.manual.length+'</b> precisam ser liberados à mão no Google Drive (toque em cada um → <b>Compartilhar</b> → <b>Qualquer pessoa com o link</b>), ou envie o arquivo de novo pelo app:</p><div class="drv-lista">'+
+      r.manual.map(x=>'<div class="drv-it"><div><b>'+escA(x.onde)+'</b> · '+escA(x.nome)+'<br><small>'+escA(x.motivo||'')+'</small></div><a class="mini-btn" href="https://drive.google.com/file/d/'+x.id+'/view" target="_blank" rel="noopener">Abrir no Drive ↗</a></div>').join('')+'</div>';
+  } else h+='<p>🎉 Todos os áudios abrem rápido para todos.</p>';
+  box.innerHTML=h;
+};
+/* botão no Painel → Conectividade */
+aoMudar(function(){
+  const d=document.getElementById('auDiag')||document.getElementById('btDrvChave'); if(!d || document.getElementById('btDrvVerif')) return;
+  if(!(window.ehAdmin&&ehAdmin())) return;
+  d.insertAdjacentHTML('afterend','<button id="btDrvVerif" class="mini-btn" style="margin:8px 0 0 8px" onclick="drvVerificarTela()">🩺 Verificar todos os áudios</button>');
+});
+/* ADM conectado: confere e libera sozinho 1x por dia */
+setTimeout(async()=>{
+  try{ if(!(window.ehAdmin&&ehAdmin()) || !auTok() || !drvChaveApi()) return;
+    const u=JSON.parse(localStorage.getItem('ibnm_drv_verif')||'null'); if(u && Date.now()-u.t<20*3600*1000) return;
+    const r=await drvVerificarTodos(false); if(!r||r.erro) return;
+    if(r.liberados.length) toast('🔧 '+r.liberados.length+' áudio(s) estavam privados e foram liberados para todos.');
+    if(r.manual.length) setTimeout(()=>toast('⚠️ '+r.manual.length+' áudio(s) não abrem para os membros. Painel → Conectividade → 🩺 Verificar.'),3500);
+  }catch(_){}
+},15000);
+/* depois de cada envio de áudio ao Drive: confere se ficou liberado */
+function drvConfereDepois(fid){ setTimeout(async()=>{ if(!fid||!drvChaveApi()) return; let st=await drvPublico(fid); if(st==='privado'){ await drvLiberar(fid); st=await drvPublico(fid); }
+  if(st==='privado') toast('⚠️ O áudio foi enviado, mas ficou PRIVADO no Drive. Abra no Drive → Compartilhar → "Qualquer pessoa com o link".'); },1500); }
+if(window.__drive && typeof window.__drive.sobe==='function'){ const _s50=window.__drive.sobe; window.__drive.sobe=async function(){ const fid=await _s50.apply(this,arguments); drvConfereDepois(fid); return fid; }; }
+if(typeof window.uploadParaDrive==='function'){ const _u50=window.uploadParaDrive; window.uploadParaDrive=async function(){ const fid=await _u50.apply(this,arguments); drvConfereDepois(fid); return fid; }; }
+{ const st50=document.createElement('style'); st50.textContent=`
+.drv-lista{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow:auto}
+.drv-it{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border:1px solid #e3e8e5;border-radius:10px}
+.drv-it small{opacity:.75}
+.au-erro .mini-btn{margin-top:6px}
+`; document.head.appendChild(st50); }
 
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
