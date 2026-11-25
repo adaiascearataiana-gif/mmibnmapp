@@ -988,6 +988,7 @@ function hccHino(n){ const r=(HCC_DB||{})[n]||{}, si=HCC_SITE[n]; const tx=r.tex
   return {n, titulo:r.titulo||(si?si[0].t:'Hino '+n), tom:normTom(r.tom)||(tx?detectarTom(tx):''), partes:[], texto:tx, site:!!si, hcc:true, youtube:r.youtube||''}; }
 window.hccHino=hccHino;
 function hccTodos(){ const ns=new Set([...Object.keys(HCC_SITE),...Object.keys(HCC_DB||{})].map(Number)); return [...ns].sort((a,b)=>a-b).map(hccHino); }
+window.hccTodos=hccTodos;
 const hccFavs=()=>{ try{ return new Set(JSON.parse(localStorage.getItem('ibnm_hcc_fav')||'[]')); }catch(_){ return new Set(); } };
 window.hccFav=function(n,ev){ if(ev) ev.stopPropagation(); const f=hccFavs(); f.has(n)?f.delete(n):f.add(n); localStorage.setItem('ibnm_hcc_fav',JSON.stringify([...f])); const pg=document.querySelector('.hcc-page[data-n]'); if(pg) hccAbrir(n,true); else hccBuscar(_hccQ); };
 const hccFsVal=()=> +(localStorage.getItem('ibnm_hcc_fs')||20);

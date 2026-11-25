@@ -702,7 +702,7 @@ function renderEvts(){ syncEdDatas();
       (on? '<div class="pl-ev-body">'+
         '<div class="pl-ed" id="plLista"></div>'+
         '<div class="field pl-busca"><label>🎵 Músicas do ministério</label><input id="plMusQ" type="search" autocomplete="off" placeholder="Digite o nome da música ou do artista" oninput="plSugMus()" onkeydown="plEnter(event,\'mus\')" onblur="setTimeout(()=>{const b=document.getElementById(\'plMusSug\'); if(b) b.innerHTML=\'\';},200)"><div class="pl-sug" id="plMusSug"></div></div>'+
-        '<div class="field pl-busca"><label>📖 Hinos do Cantor Cristão</label><input id="plHinoQ" type="search" autocomplete="off" placeholder="Digite o número ou o nome do hino" oninput="plSugHino()" onkeydown="plEnter(event,\'hino\')" onblur="setTimeout(()=>{const b=document.getElementById(\'plHinoSug\'); if(b) b.innerHTML=\'\';},200)"><div class="pl-sug" id="plHinoSug"></div></div>'+
+        '<div class="field pl-busca"><label>📖 Hinos</label><input id="plHinoQ" type="search" autocomplete="off" placeholder="Número ou nome · Cantor Cristão, Harpa ou HCC" oninput="plSugHino()" onkeydown="plEnter(event,\'hino\')" onblur="setTimeout(()=>{const b=document.getElementById(\'plHinoSug\'); if(b) b.innerHTML=\'\';},200)"><div class="pl-sug" id="plHinoSug"></div></div>'+
       '</div>' : '')+
     '</div>';
   }).join('');
@@ -775,15 +775,19 @@ function achaMus(q){
   return (DB.musicas||[]).filter(m=>{ const t=semAc(m.titulo+' '+(m.artista||'')); return ts.every(x=>t.includes(x)); })
     .sort((a,b)=>(semAc(a.titulo).startsWith(q)?0:1)-(semAc(b.titulo).startsWith(q)?0:1)||a.titulo.localeCompare(b.titulo,'pt')).slice(0,8);
 }
-/* busca de hinos (número ou título) */
-function achaHino(q){
+/* busca de hinos (número ou título) em TODOS os livros: Cantor Cristão, Harpa e HCC */
+function achaHinoTodos(q){
   q=String(q||'').trim(); if(!q) return [];
-  const H=(window.HINOS||[]).filter(h=>!h.missing);
-  if(/^\d+$/.test(q)){ const ex=H.filter(h=>String(h.n)===q), ini=H.filter(h=>String(h.n).startsWith(q)&&String(h.n)!==q); return ex.concat(ini).slice(0,8); }
+  const L=[];
+  (window.HINOS||[]).filter(h=>!h.missing).forEach(h=>L.push({id:'cc:'+h.n,n:h.n,titulo:h.titulo,tom:h.tom,ritmo:h.ritmo,liv:'Cantor Cristão',ic:'📖',o:0}));
+  (window.HARPA||[]).forEach(h=>L.push({id:'hr:'+h.n,n:h.n,titulo:h.titulo,tom:h.tom,liv:'Harpa Cristã',ic:'🎼',o:1}));
+  try{ (typeof window.hccTodos==='function'?window.hccTodos():[]).forEach(h=>L.push({id:'hcc:'+h.n,n:h.n,titulo:h.titulo,tom:h.tom,liv:'HCC',ic:'📕',o:2})); }catch(_){}
+  if(/^\d+$/.test(q)){ const ex=L.filter(h=>String(h.n)===q), ini=L.filter(h=>String(h.n).startsWith(q)&&String(h.n)!==q).sort((a,b)=>a.n-b.n||a.o-b.o); return ex.concat(ini).slice(0,12); }
   const n=semAc(q), ts=n.split(/\s+/);
-  return H.filter(h=>{ const t=semAc(h.titulo); return ts.every(x=>t.includes(x)); })
-    .sort((a,b)=>(semAc(a.titulo).startsWith(n)?0:1)-(semAc(b.titulo).startsWith(n)?0:1)||a.n-b.n).slice(0,8);
+  return L.filter(h=>{ const t=semAc(h.titulo||''); return ts.every(x=>t.includes(x)); })
+    .sort((a,b)=>(semAc(a.titulo).startsWith(n)?0:1)-(semAc(b.titulo).startsWith(n)?0:1)||a.o-b.o||a.n-b.n).slice(0,12);
 }
+function achaHino(q){ return achaHinoTodos(q); }
 let _sug={mus:[],hino:[]};
 window.plSugMus=function(){
   const q=document.getElementById('plMusQ').value, box=document.getElementById('plMusSug'); _sug.mus=achaMus(q);
@@ -791,11 +795,11 @@ window.plSugMus=function(){
 };
 window.plSugHino=function(){
   const q=document.getElementById('plHinoQ').value, box=document.getElementById('plHinoSug'); _sug.hino=achaHino(q);
-  box.innerHTML=!q.trim()?'':(_sug.hino.length? _sug.hino.map((h,i)=>{ const id='cc:'+h.n; return '<button type="button" onmousedown="event.preventDefault()" class="'+(jaNoEv(id)?'ja':'')+'" onclick="plEscolhe(\'hino\','+i+')"><span class="nmh">'+h.n+'</span><span class="tx"><b>'+e(h.titulo)+'</b><small>Tom '+e(h.tom||'—')+(h.ritmo?' · '+e(h.ritmo):'')+'</small></span>'+(jaNoEv(id)?'<i>na lista</i>':'<i>+ adicionar</i>')+'</button>'; }).join('') : '<div class="nada">Nenhum hino encontrado.</div>');
+  box.innerHTML=!q.trim()?'':(_sug.hino.length? _sug.hino.map((h,i)=>{ const id=h.id; return '<button type="button" onmousedown="event.preventDefault()" class="'+(jaNoEv(id)?'ja':'')+'" onclick="plEscolhe(\'hino\','+i+')"><span class="nmh">'+h.n+'</span><span class="tx"><b>'+e(h.titulo)+'</b><small>'+h.ic+' '+e(h.liv)+' · Tom '+e(h.tom||'—')+(h.ritmo?' · '+e(h.ritmo):'')+'</small></span>'+(jaNoEv(id)?'<i>na lista</i>':'<i>+ adicionar</i>')+'</button>'; }).join('') : '<div class="nada">Nenhum hino encontrado no Cantor Cristão, Harpa ou HCC.</div>');
 };
 window.plEscolhe=function(tipo,i){
   if(tipo==='mus'){ const m=_sug.mus[i]; if(!m) return; plAdd(m.id); const q=document.getElementById('plMusQ'); q.value=''; plSugMus(); q.focus(); }
-  else { const h=_sug.hino[i]; if(!h) return; plAdd('cc:'+h.n); const q=document.getElementById('plHinoQ'); q.value=''; plSugHino(); q.focus(); }
+  else { const h=_sug.hino[i]; if(!h) return; plAdd(h.id); const q=document.getElementById('plHinoQ'); q.value=''; plSugHino(); q.focus(); }
 };
 window.plEnter=function(ev,tipo){ if(ev.key==='Enter'){ ev.preventDefault(); if((_sug[tipo]||[]).length) plEscolhe(tipo,0); } };
 /* compatibilidade com chamadas antigas */
@@ -889,7 +893,7 @@ window.publicarPlaylist=async function(){
     toast(!avisar? 'SETLIST publicado. (nenhum aviso enviado — marque 🔔 se quiser avisar)' : (alvos.length? 'Publicada! '+alvos.length+' escalado(s) avisado(s).' : (todos?'Publicada e todos avisados.':'Publicada. Ninguém da escala encontrado nessas datas.')));
     go('playlist','prox'); return;
   }
-  const mus=itens.filter(id=>{ const s=String(id); return s.indexOf('cc:')!==0 && s.indexOf('hr:')!==0; });
+  const mus=itens.filter(id=>{ const s=String(id); return s.indexOf('cc:')!==0 && s.indexOf('hr:')!==0 && s.indexOf('hcc:')!==0; });
   const reg={inicio:_ed.inicio,fim:_ed.fim,musicas:mus,publicada:true,tema:_tema,textoBase:_texto,updated_at:new Date().toISOString()};
   /* grava sem criar linha nova (evita o erro "duplicate key ... playlist_pkey") */
   let error=null;
