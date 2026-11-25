@@ -1044,6 +1044,7 @@ window.hccAbrir=function(n,manter){
     '<nav class="cc-nav">'+(prev?'<a href="javascript:void(0)" onclick="hccAbrir('+prev.n+')"><small>Anterior</small>'+prev.n+' · '+e(prev.titulo)+'</a>':'<span></span>')+(next?'<a class="r" href="javascript:void(0)" onclick="hccAbrir('+next.n+')"><small>Próximo</small>'+next.n+' · '+e(next.titulo)+'</a>':'<span></span>')+'</nav></main>';
   c.innerHTML='<div class="page cc-page hcc-page" data-n="'+n+'">'+html+'</div>';
   if(!manter) window.scrollTo(0,0);
+  try{ if(window.ccPosHino) window.ccPosHino(n,'hcc'); }catch(_){}
 };
 function ytLink(v){ v=String(v||'').trim(); const m=v.match(/(?:youtu\.be\/|v=|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/); if(m) return 'https://www.youtube.com/watch?v='+m[1]; if(/^[A-Za-z0-9_-]{11}$/.test(v)) return 'https://www.youtube.com/watch?v='+v; return /^https?:\/\//.test(v)? v : ''; }
 window.hccYt=function(n){ const h=hccHino(n);

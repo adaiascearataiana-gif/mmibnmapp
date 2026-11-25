@@ -245,7 +245,7 @@ function info(id){
   if(id.indexOf('hcc:')===0){ const n=+id.slice(4); const h=(typeof hccHino==='function')?hccHino(n):null; return {hino:true,ic:'📕',t:h?(h.n+' · '+h.titulo):('HCC '+n),s:'HCC',tom:h&&h.tom?h.tom:''}; }
   const m=(DB.musicas||[]).find(x=>x.id===id)||{}; return {hino:false,ic:'🎵',t:m.titulo||'(música removida)',s:m.artista||'',tom:''};
 }
-window.abrirItem=function(id,ctx){ id=String(id); if(ctx!==undefined) window.__slCtx=ctx; if(id.indexOf('cc:')===0){ if(window.cantorAbrir) cantorAbrir(+id.slice(3)); } else if(id.indexOf('hr:')===0){ if(window.harpaAbrir) harpaAbrir(+id.slice(3)); } else if(id.indexOf('hcc:')===0){ if(window.hccAbrir) hccAbrir(+id.slice(4)); } else abrirMusica(id,'cifra'); };
+window.abrirItem=function(id,ctx){ id=String(id); if(ctx!==undefined) window.__slCtx=ctx; window.__slAbre=id; if(id.indexOf('cc:')===0){ if(window.cantorAbrir) cantorAbrir(+id.slice(3)); } else if(id.indexOf('hr:')===0){ if(window.harpaAbrir) harpaAbrir(+id.slice(3)); } else if(id.indexOf('hcc:')===0){ if(window.hccAbrir) hccAbrir(+id.slice(4)); } else abrirMusica(id,'cifra'); };
 function rotuloSemitom(v){ return v? (v>0?'+':'')+v : ''; }
 function disponivel(id){
   if(String(id).indexOf('hr:')===0) return '<span class="sl-ok">cifra · partitura</span>';
@@ -1003,11 +1003,21 @@ function posMusica(){
   head.insertAdjacentHTML('afterend',blocoCulto(musicaAberta));
 }
 /* hino (chamado pelo cantor.js ao abrir) */
-window.ccPosHino=function(n){
+window.ccPosHino=function(n,livro){
   const c=document.getElementById('content'); if(!c) return;
+  const id=(livro==='hr'?'hr:':livro==='hcc'?'hcc:':'cc:')+n;
   const tools=c.querySelector('.cc-tools'); if(!tools||c.querySelector('.sl-acts')) return;
-  tools.insertAdjacentHTML('beforebegin',blocoCulto('cc:'+n));
+  tools.insertAdjacentHTML('beforebegin',blocoCulto(id));
+  /* aberto pelo SETLIST: o "Anterior/Próxima" de baixo também segue a ordem do culto (não o número do hino) */
+  const sl=listaDe(id); const nav=c.querySelector('.cc-nav');
+  if(sl && nav && window.__slAbre===id){ const i=sl.itens.indexOf(id), p=sl.itens[i-1], nx=sl.itens[i+1];
+    const cx=sl.chave==='setlist_prox'&&setlist('prox')?'prox':(window.__slCtx||'');
+    const lk=(x,r)=>'<a'+(r?' class="r"':'')+' href="javascript:void(0)" onclick="abrirItem(\''+x+'\',\''+cx+'\')"><small>'+(r?'Próxima do culto':'Anterior do culto')+'</small>'+e(info(x).t)+'</a>';
+    nav.innerHTML=(p?lk(p,false):'<span></span>')+(nx?lk(nx,true):'<span></span>'); nav.classList.add('sl-seq'); }
 };
+/* abriu outra coisa pelo menu/busca: volta a navegar pelo número do hino */
+document.addEventListener('click',ev=>{ const a=ev.target.closest&&ev.target.closest('a,button'); if(!a) return; const oc=a.getAttribute('onclick')||'';
+  if(/abrirItem\(/.test(oc)) return; if(/cantorAbrir|harpaAbrir|hccAbrir|go\(|abrirMusica/.test(oc)) window.__slAbre=''; },true);
 
 /* ================= 3) MODO PROJETOR ================= */
 const ehLinhaAcordes=l=>{ const t=l.trim().split(/\s+/).filter(Boolean); return t.length>0 && t.every(x=>/^\(?[A-G](#|b)?[a-zA-Z0-9º°+#()\-]*(\/[A-G](#|b)?)?\)?$/.test(x)||/^[|/.\-x]+$/.test(x)); };

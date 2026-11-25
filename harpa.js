@@ -341,7 +341,7 @@ function abrirHino(n, keepScroll){
   if(!keepScroll) window.scrollTo(0,0);
   fixGaps();
   if(editMode) bindEdicao(h,st,flats,()=>abrirHino(n,true));
-  try{ if(window.ccPosHino) window.ccPosHino(n); }catch(e){}
+  try{ if(window.ccPosHino) window.ccPosHino(n,'hr'); }catch(e){}
 }
 function bindEdicao(h,st,flats,redraw){
   const song=document.querySelector('.cc-song'); if(!song) return;
