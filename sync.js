@@ -201,7 +201,7 @@ if(typeof _booted!=='undefined' && _booted) ligarEco();
 let _oculto=0;
 document.addEventListener('visibilitychange',async()=>{
   if(document.visibilityState==='hidden'){ _oculto=Date.now(); return; }
-  if(!_oculto || Date.now()-_oculto<90*1000) return; _oculto=0;
+  if(!_oculto || Date.now()-_oculto<5*60*1000) return; _oculto=0;
   try{ await Promise.all([cloudMusicasEco(),cloudEscalaEco(),cloudNotifEco(false),cloudPerfis(),cloudPlaylist(),cloudConfig(),cloudPresencas(),cloudAoVivo()]); atualizaTela(); }catch(_){}
 });
 

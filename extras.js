@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.48)
+   MM IBNM — Extras (v1.50)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -455,7 +455,7 @@ async function hrBaixa(){
     if(JSON.stringify(nuvem)!==JSON.stringify(local)){ _hrSync=true; try{ localStorage.setItem(HK,JSON.stringify(nuvem)); }finally{ _hrSync=false; } }
   }catch(_){}
 }
-setTimeout(hrBaixa,6000); setInterval(()=>{ if(document.visibilityState==='visible') hrBaixa(); },15*60*1000);
+setTimeout(hrBaixa,6000); setInterval(()=>{ if(document.visibilityState==='visible') hrBaixa(); },60*60*1000);   /* economia: 1x por hora (antes 15 min) */
 /* sincronização IMEDIATA: assim que o ADM corrige um hino da Harpa em qualquer
    aparelho, todos os outros atualizam na hora (sem esperar o ciclo de 15 min) */
 (function ligarRtHarpa(){
@@ -838,7 +838,7 @@ function transpTom(tom,d){ const n=normTom(tom); if(!n) return ''; const menor=/
 let TONS={}; try{ TONS=JSON.parse(localStorage.getItem('ibnm_tons')||'{}')||{}; }catch(_){}
 async function carregaTons(){ try{ if(typeof sb==='undefined') return; const {data,error}=await sb.from('musicas').select('id,dados'); if(error) return;
   const n={}; (data||[]).forEach(r=>{ if(r.dados&&r.dados.tom) n[r.id]=r.dados.tom; }); TONS=n; localStorage.setItem('ibnm_tons',JSON.stringify(n)); tomNaTela(); }catch(_){} }
-setTimeout(carregaTons,5000); setInterval(()=>{ if(document.visibilityState==='visible') carregaTons(); },30*60*1000);
+setTimeout(carregaTons,5000); setInterval(()=>{ if(document.visibilityState==='visible') carregaTons(); },60*60*1000);
 async function salvarTom(id,tom){
   tom=normTom(tom); if(!id) return;
   try{ const {data}=await sb.from('musicas').select('dados').eq('id',id).single();
@@ -2568,6 +2568,221 @@ if(typeof window.uploadParaDrive==='function'){ const _u50=window.uploadParaDriv
 .au-erro .mini-btn{margin-top:6px}
 `; document.head.appendChild(st50); }
 
+/* ======================= 51) 🔐 LOGIN COM GOOGLE MAIS FIRME ======================= */
+/* • escolhe a conta Google certa (já sugere a última usada neste aparelho)
+   • entra sozinho quando a pessoa volta do Google (mesmo se o celular abriu o login em outra janela)
+   • mostra na tela o motivo quando o Google/servidor recusa (antes sumia num aviso rápido)
+   • avisa quando o app foi aberto por dentro do WhatsApp/Instagram/Facebook (o Google bloqueia ali)
+   • acha o perfil da pessoa pelo código da conta, mesmo se o e-mail do perfil estiver diferente */
+(function(){
+  const LS='ibnm_login_erro', ULT='ibnm_ult_email', MANUAL='ibnm_saiu_manual';
+  const ls={ get:k=>{ try{ return localStorage.getItem(k); }catch(_){ return null; } }, set:(k,v)=>{ try{ localStorage.setItem(k,v); }catch(_){} }, del:k=>{ try{ localStorage.removeItem(k); }catch(_){} } };
+  const salva=o=>ls.set(LS,JSON.stringify(Object.assign({t:Date.now()},o)));
+  const le=()=>{ try{ const o=JSON.parse(ls.get(LS)||'null'); return o&&Date.now()-o.t<6*3600e3? o : null; }catch(_){ return null; } };
+  const UA=navigator.userAgent||'';
+  const android=/Android/i.test(UA), ios=/iPhone|iPad|iPod/i.test(UA);
+  const embutido=/; wv\)|FBAN|FBAV|FB_IAB|Instagram|Line\/|TikTok|musical_ly|Snapchat|Twitter|Pinterest|LinkedInApp/i.test(UA);
+  /* 1) voltou do Google com erro: guarda o motivo antes do app limpar o endereço */
+  try{ if(/[#&?]error(_code|_description)?=/.test(location.href)){
+    const p=new URLSearchParams((location.hash||'').replace(/^#/,'')+'&'+(location.search||'').replace(/^\?/,''));
+    salva({tipo:'google',cod:p.get('error_code')||p.get('error')||'',msg:(p.get('error_description')||'').replace(/\+/g,' ')}); } }catch(_){}
+  /* 2) login com Google: escolhe a conta; dentro de outro app, manda abrir no navegador */
+  window.loginAbrirNavegador=function(){
+    const url=location.origin+location.pathname;
+    if(android) location.href='intent://'+url.replace(/^https?:\/\//,'')+'#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url='+encodeURIComponent(url)+';end';
+    else { try{ navigator.clipboard.writeText(url); }catch(_){} toast('Link copiado. Abra o Safari, cole na barra de endereço e entre por lá.'); }
+  };
+  window.loginGoogle=async function(){
+    if(embutido){ salva({tipo:'embutido'}); loginAviso(true); return; }
+    ls.del(LS); ls.del(MANUAL);
+    try{ if(typeof _limpaErroAuth==='function') _limpaErroAuth(); }catch(_){}
+    if(typeof sb==='undefined'||!sb||!sb.auth){ toast('Sem conexão com o servidor. Confira a internet e tente de novo.'); return; }
+    toast('Abrindo o login com Google...');
+    const qp={prompt:'select_account'}; const ult=ls.get(ULT); if(ult) qp.login_hint=ult;
+    try{
+      const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname,queryParams:qp}});
+      if(error){ salva({tipo:'google',cod:error.code||error.status||'',msg:error.message||String(error)}); loginAviso(true); }
+    }catch(e){ salva({tipo:'google',cod:'rede',msg:(e&&e.message)||String(e)}); loginAviso(true); }
+  };
+  /* 3) voltou para o app já logado (o login abriu em outra janela/aba): entra sozinho */
+  let _conf=0;
+  async function confere(){
+    if(typeof _booted==='undefined'||_booted||typeof sb==='undefined'||!sb||!sb.auth) return;
+    if(Date.now()-_conf<800) return; _conf=Date.now();
+    try{ const {data:{session}}=await sb.auth.getSession(); if(session && !_booted && typeof bootSessao==='function'){ ls.del(LS); bootSessao(); } }catch(_){}
+  }
+  ['focus','pageshow'].forEach(ev=>window.addEventListener(ev,()=>setTimeout(confere,250)));
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') setTimeout(confere,250); });
+  window.addEventListener('storage',ev=>{ if(ev.key && /^sb-.*-auth-token/.test(ev.key) && ev.newValue) setTimeout(confere,150); });
+  setInterval(()=>{ if(document.querySelector('.scr-login') && document.visibilityState==='visible') confere(); },4000);
+  /* 4) lembra a conta usada e por que a pessoa saiu */
+  const _lo=window.logout; if(typeof _lo==='function') window.logout=function(){ ls.set(MANUAL,'1'); return _lo.apply(this,arguments); };
+  let _ouv=false;
+  const iv=setInterval(()=>{ if(_ouv||typeof sb==='undefined'||!sb||!sb.auth) return; _ouv=true; clearInterval(iv);
+    try{ sb.auth.onAuthStateChange((ev,s)=>{
+      if(s&&s.user&&s.user.email){ ls.set(ULT,String(s.user.email).toLowerCase()); }
+      if(ev==='SIGNED_OUT' && !ls.get(MANUAL)) salva({tipo:'saiu'});
+    }); }catch(_){} },300);
+  /* 6) aviso na tela de login */
+  const mascara=e=>{ const m=String(e||'').match(/^(.{1,2})[^@]*(@.*)$/); return m? m[1]+'•••'+m[2] : ''; };
+  function texto(o){
+    if(!o) return '';
+    if(o.tipo==='embutido') return '<b>Você abriu o app por dentro de outro aplicativo</b> (WhatsApp, Instagram, Facebook…). O Google não deixa entrar por aí.<br><button class="btn btn-primary lg-bt" onclick="loginAbrirNavegador()">🌐 Abrir no '+(ios?'Safari':'Chrome')+'</button>';
+    if(o.tipo==='saiu') return '<b>Sua sessão terminou neste aparelho.</b> Entre de novo — use a mesma conta de antes.';
+    const raw=(o.cod?o.cod+': ':'')+(o.msg||''); let amigo='O login com Google não foi concluído.';
+    if(/access_denied|cancel/i.test(raw)) amigo='O login foi cancelado na tela do Google. Toque em <b>Continuar com Google</b> e escolha a sua conta.';
+    else if(/exchange|external code|invalid_client|unauthorized_client|redirect_uri/i.test(raw)) amigo='O Google recusou a entrada por uma <b>configuração do servidor</b>. Avise o ADM e, enquanto isso, entre por <b>e-mail e senha</b> ou pelo <b>link mágico</b>.';
+    else if(/database|saving new user|unexpected_failure/i.test(raw)) amigo='O servidor não conseguiu criar/abrir a sua conta. Avise o ADM e mande um print desta tela.';
+    else if(/rede|network|fetch|failed to fetch/i.test(raw)) amigo='Sem internet ou o servidor não respondeu. Confira a conexão e tente de novo.';
+    else if(/banned|bloque/i.test(raw)) amigo='Esta conta está bloqueada. Fale com um ADM do Ministério.';
+    return '<b>'+amigo+'</b>'+(raw.trim()?'<small class="lg-raw">Detalhe: '+escA(raw)+'</small>':'')+'<br><small>Se continuar, use <b>🔑 Entrar por link mágico</b> (com o seu e-mail) — funciona sempre.</small>';
+  }
+  function loginAviso(forca){
+    const card=document.querySelector('.scr-login .auth-card'); if(!card) return;
+    let box=document.getElementById('lgAviso'); const o=le()||(embutido?{tipo:'embutido'}:null); const ult=ls.get(ULT);
+    const h=texto(o)+(ult&&(!o||o.tipo!=='embutido')?'<div class="lg-ult">Última conta usada neste aparelho: <b>'+escA(mascara(ult))+'</b></div>':'');
+    if(!h){ if(box) box.remove(); return; }
+    if(!box){ card.insertAdjacentHTML('afterbegin','<div id="lgAviso" class="lg-aviso" role="status"></div>'); box=document.getElementById('lgAviso'); }
+    if(forca||box.dataset.h!==h){ box.innerHTML=h; box.dataset.h=h; box.classList.toggle('so-info',!o); }
+  }
+  aoMudar(()=>loginAviso(false));
+  /* 7) conta nova aguardando aprovação: pode ser a conta Google errada */
+  aoMudar(()=>{ const g=document.querySelector('#aprovGate .ap-card'); if(!g||g.querySelector('.ap-errada')) return;
+    const b=g.querySelector('#apSair'); if(!b) return;
+    b.insertAdjacentHTML('beforebegin','<p class="ap-dica ap-errada">Já tinha cadastro no app? Talvez você tenha escolhido <b>outra conta Google</b>. Toque em <b>Sair desta conta</b> e entre com a conta de sempre.</p>'); });
+  { const st51=document.createElement('style'); st51.textContent=`
+.lg-aviso{background:#fff6e5;border:1px solid #f0c674;color:#5b4300;border-radius:12px;padding:10px 12px;margin:0 0 12px;font-size:13.5px;line-height:1.45;text-align:left}
+.lg-aviso.so-info{background:#eef6f2;border-color:#cfe3d9;color:#0b3d2e}
+.lg-aviso .lg-raw{display:block;margin-top:6px;opacity:.75;word-break:break-word}
+.lg-aviso .lg-bt{margin-top:8px;width:100%}
+.lg-aviso .lg-ult{margin-top:6px;font-size:12.5px}
+.lg-aviso.so-info .lg-ult{margin-top:0}
+`; document.head.appendChild(st51); }
+})();
+
+/* ======================= 52) 🧭 NUNCA TRAVAR SEM O PERFIL (voltar, Início e músicas do SETLIST) ======================= */
+/* Quando o app perdia o perfil da pessoa (sessão vencida, internet ruim ou conta Google diferente),
+   a barra mostrava só "Olá!", o Início quebrava, o VOLTAR e o menu não saíam do hino e as músicas
+   do SETLIST não abriam (a tela subia e travava). Agora:
+   • o perfil é achado pelo e-mail, pelo código da conta ou pela última cópia guardada neste aparelho;
+   • nenhuma tela trava: se algo falhar, a tela muda mesmo assim e o app recarrega os dados;
+   • o VOLTAR sempre leva para a tela anterior (ou para o Início);
+   • se a sessão venceu, o app volta para a tela de entrar explicando o motivo. */
+(function(){
+  const EU='ibnm_eu';
+  const sid=()=>{ try{ return (typeof _sessaoId!=='undefined'&&_sessaoId)||''; }catch(_){ return ''; } };
+  const sem=()=>{ try{ return (typeof _sessaoEmail!=='undefined'&&_sessaoEmail)||''; }catch(_){ return ''; } };
+  let _guardado=null; try{ _guardado=JSON.parse(localStorage.getItem(EU)||'null'); }catch(_){}
+  let _semPerfil=false;
+  /* 1) quem sou eu: e-mail → código da conta → cópia guardada deste aparelho */
+  if(typeof window.usuarioAtual==='function'){
+    const _ua=window.usuarioAtual;
+    window.usuarioAtual=function(){
+      let u=null; try{ u=_ua.apply(this,arguments); }catch(_){}
+      const id=sid();
+      if(!u && id){ try{ u=(DB.usuarios||[]).find(x=>x.id===id)||null; }catch(_){} }
+      if(u){ _semPerfil=false;
+        if(id && u.id===id && (!_guardado || _guardado.id!==u.id || _guardado.nome!==u.nome || _guardado.admin!==u.admin || _guardado.email!==u.email)){
+          _guardado={id:u.id,email:u.email,nome:u.nome,admin:!!u.admin,vocal:u.vocal||[],instr:u.instr||[],foto:u.foto||'',tel:u.tel||'',wpp:!!u.wpp,nasc:u.nasc||'',origem:u.origem||''};
+          try{ localStorage.setItem(EU,JSON.stringify(_guardado)); }catch(_){} }
+        return u; }
+      if(id && _guardado && _guardado.id===id){ _semPerfil=true; return _guardado; }
+      if(id && sem()){ _semPerfil=true; return null; }
+      return null;
+    };
+  }
+  /* 2) nenhuma tela trava: se a montagem der erro, mostra um aviso no lugar (e a tela muda) */
+  function protegeRotas(){
+    if(typeof ROTAS==='undefined') return;
+    Object.keys(ROTAS).forEach(k=>{ const f=ROTAS[k]; if(typeof f!=='function'||f.__prot) return;
+      const g=function(){ try{ return f.apply(this,arguments); }catch(err){ try{ console.error('[tela '+k+']',err); }catch(_){}
+        recarregaPerfis();
+        return CARREG; } };
+      g.__prot=1; ROTAS[k]=g; });
+  }
+  protegeRotas(); setTimeout(protegeRotas,1500); setTimeout(protegeRotas,6000);
+  /* trocar de tela sem o perfil carregado: antes não fazia NADA (o Início e o VOLTAR "não saíam" do hino) */
+  const CARREG='<div class="page"><div class="card" style="text-align:center;padding:22px"><div style="font-size:40px">⏳</div><h3 style="margin:8px 0">Carregando seus dados…</h3><p style="font-size:13.5px;color:#567">Se esta mensagem não sumir, toque em <b>Recarregar</b>.</p><button class="btn btn-primary" onclick="location.reload()">🔄 Recarregar</button></div></div>';
+  if(typeof window.go==='function'){ const _g=window.go;
+    window.go=function(page,arg){
+      let semU=false; try{ semU=(typeof _booted!=='undefined'&&_booted) && !usuarioAtual(); }catch(_){}
+      if(semU && page!=='ajuda'){ try{ toggleMenu(false); }catch(_){} const c=document.getElementById('content'); if(c) c.innerHTML=CARREG;
+        try{ _g.apply(this,arguments); }catch(_){}
+        try{ if(typeof window.__setPag==='function') __setPag(page); _viewAtual=function(){ window.go(page,arg); }; }catch(_){}
+        window.scrollTo(0,0); recarregaPerfis(); return; }
+      return _g.apply(this,arguments); };
+    try{ go=window.go; }catch(_){} }
+  /* música que não abre: avisa e não deixa a tela "subir e travar" */
+  ['abrirMusica'].forEach(nome=>{ const f=window[nome]; if(typeof f!=='function'||f.__prot) return;
+    const g=function(id){ try{ return f.apply(this,arguments); }catch(err){ try{ console.error('[abrirMusica]',err); }catch(_){}
+      recarregaPerfis(); toast('⏳ Carregando os dados… toque na música de novo em instantes.'); } };
+    g.__prot=1; window[nome]=g; });
+  /* 3) perfil sumiu: busca de novo e, se a sessão venceu, volta para a tela de entrar */
+  let _rp=0;
+  async function recarregaPerfis(){
+    if(Date.now()-_rp<5000) return; _rp=Date.now();
+    try{ if(typeof cloudPerfis==='function') await cloudPerfis(); }catch(_){}
+    let achou=false; try{ achou=!!(DB.usuarios||[]).find(x=>x.id===sid()||x.email===sem()); }catch(_){}
+    if(achou){ try{ montaMenu(); if(typeof _viewAtual==='function'&&!document.querySelector('.modal-bg.show')) _viewAtual(); }catch(_){} return; }
+    confereSessao();
+  }
+  window.__recarregaPerfis=recarregaPerfis;
+  let _cs=0;
+  async function confereSessao(){
+    if(typeof sb==='undefined'||!sb||!sb.auth||typeof _booted==='undefined'||!_booted) return;
+    if(!navigator.onLine || Date.now()-_cs<20000) return; _cs=Date.now();
+    try{
+      const {data,error}=await sb.auth.getUser();
+      if(error){ const m=String(error.message||error.name||''); const st=error.status||0;
+        if(st===401||st===403||/jwt|expired|invalid|not found|session/i.test(m)){
+          try{ localStorage.setItem('ibnm_login_erro',JSON.stringify({t:Date.now(),tipo:'saiu'})); }catch(_){}
+          try{ await sb.auth.signOut({scope:'local'}); }catch(_){} location.reload(); }
+        return; }
+      const u=data&&data.user; if(!u) return;
+      const {data:p,error:e2}=await sb.from('perfis').select('id').eq('id',u.id).maybeSingle();
+      if(!e2 && !p) contaSemCadastro(u.email||'');
+    }catch(_){}
+  }
+  function contaSemCadastro(email){
+    if(document.getElementById('semCad')) return;
+    document.body.insertAdjacentHTML('beforeend','<div id="semCad" class="sc-bg"><div class="sc-card"><div style="font-size:42px">🔎</div><h3>Não achei o seu cadastro</h3>'+
+      '<p>Você entrou com a conta <b>'+escA(email)+'</b>, mas ela não tem cadastro no app do Ministério.</p>'+
+      '<p class="sc-dica">Talvez você tenha escolhido <b>outra conta Google</b>. Saia e entre com a conta de sempre.</p>'+
+      '<button class="btn btn-primary" onclick="try{logout()}catch(_){location.reload()}">Sair e entrar com a conta certa</button>'+
+      '<button class="btn btn-dark" style="margin-top:8px" onclick="document.getElementById(\'semCad\').remove()">Fechar</button></div></div>');
+  }
+  /* confere logo depois de entrar, ao voltar para o app e sempre que o perfil faltar */
+  setTimeout(()=>{ if(_semPerfil || !usuarioAtual()) recarregaPerfis(); },7000);
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && (typeof _booted!=='undefined'&&_booted)){ if(_semPerfil) recarregaPerfis(); else setTimeout(confereSessao,1500); } });
+  /* sessão encerrada pelo servidor enquanto o app estava aberto: volta para a tela de entrar */
+  const iv=setInterval(()=>{ if(typeof sb==='undefined'||!sb||!sb.auth) return; clearInterval(iv);
+    try{ sb.auth.onAuthStateChange(ev=>{ if(ev==='SIGNED_OUT' && typeof _booted!=='undefined' && _booted && !localStorage.getItem('ibnm_saiu_manual')){ setTimeout(()=>location.reload(),300); } }); }catch(_){} },300);
+  /* 4) VOLTAR: se a pilha acabou mas a tela não é o Início, vai para o Início (nunca "Deseja sair?" em cima de um hino) */
+  if(typeof window.__voltar==='function'){ const _v=window.__voltar;
+    window.__voltar=function(){ const r=_v.apply(this,arguments); if(r) return r;
+      try{ const naHome=(typeof _pagAtual!=='undefined' && _pagAtual==='inicio') && !document.querySelector('#content .cc-page,#content .song-head');
+        const naAuth=!!document.querySelector('#authScreens .scr-auth');
+        if(!naHome && !naAuth){ go('inicio'); return true; } }catch(_){}
+      return false; }; }
+  { const st52=document.createElement('style'); st52.textContent=`
+.sc-bg{position:fixed;inset:0;z-index:13500;background:rgba(8,40,30,.72);display:flex;align-items:center;justify-content:center;padding:18px}
+.sc-card{background:#fff;border-radius:20px;max-width:400px;width:100%;padding:22px 20px;text-align:center;box-shadow:0 16px 44px rgba(0,0,0,.3)}
+.sc-card h3{margin:6px 0 8px;color:#0f3d2e}.sc-card p{font-size:14px;color:#3e5a4d;margin:0 0 8px}.sc-card .sc-dica{font-size:13px;color:#6b5a1e;background:#fff6e0;border-radius:10px;padding:8px}
+.sc-card .btn{width:100%}
+`; document.head.appendChild(st52); }
+})();
+
+/* ======================= 53) 📶 ECONOMIA DE DADOS (cota do Supabase) ======================= */
+/* Áudio guardado no Supabase só é baixado quando a pessoa aperta ▶ (antes baixava ao abrir a aba Áudio).
+   Partituras, áudios, anexos e fotos do Supabase ficam guardados no celular (service worker): baixam 1 vez só. */
+(function(){
+  const ehSb=u=>/supabase\.co\/storage\/v1\/object\//.test(String(u||''));
+  aoMudar(()=>{ document.querySelectorAll('audio').forEach(a=>{ const s=a.currentSrc||a.getAttribute('src')||'';
+    if(ehSb(s) && a.paused && a.preload!=='none' && !a.dataset.sbPre){ a.dataset.sbPre='1'; a.preload='none'; a.removeAttribute('autoplay'); } }); });
+  /* uma vez: pede para o celular guardar os arquivos (não apagar quando faltar espaço) */
+  try{ if(navigator.storage && navigator.storage.persist && !localStorage.getItem('ibnm_persist')){ localStorage.setItem('ibnm_persist','1'); navigator.storage.persist().catch(()=>{}); } }catch(_){}
+})();
+
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
    saem do próprio código e são preenchidos sozinhos. Ao salvar, mostra o erro real se o banco recusar. */
@@ -2631,8 +2846,8 @@ let _saldo=null; try{ const v=localStorage.getItem('ibnm_saldo'); if(v!=null) _s
 async function buscaSaldo(){ try{ if(typeof sb==='undefined' || !(typeof usuarioAtual==='function' && usuarioAtual())) return;
   const {data:r,error}=await sb.rpc('fin_resumo',{p_mes:new Date().toISOString().slice(0,7)}); if(error||!r) return;
   _saldo=Number(r.total)||0; localStorage.setItem('ibnm_saldo',String(_saldo)); barraTopo(true); }catch(_){} }
-setTimeout(buscaSaldo,4000); setInterval(()=>{ if(document.visibilityState==='visible') buscaSaldo(); },10*60*1000);
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') buscaSaldo(); });
+setTimeout(buscaSaldo,4000); setInterval(()=>{ if(document.visibilityState==='visible') buscaSaldo(); },30*60*1000);
+let _sdUlt=Date.now(); document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && Date.now()-_sdUlt>10*60*1000){ _sdUlt=Date.now(); buscaSaldo(); } });
 setInterval(barraTopo,1000); setTimeout(barraTopo,300);
 setTimeout(buscaClima,2500); setInterval(()=>{ if(document.visibilityState==='visible') buscaClima(); },20*60*1000);
 
@@ -2750,8 +2965,8 @@ async function carregaLinksHinos(){
     if(a.error && b.error) return;
     LINKS_HINOS=novo; localStorage.setItem('ibnm_links_hinos',JSON.stringify(novo)); atualizaEtiquetas(); }catch(_){}
 }
-setTimeout(carregaLinksHinos,3000); setInterval(()=>{ if(document.visibilityState==='visible') carregaLinksHinos(); },5*60*1000);
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') carregaLinksHinos(); });
+setTimeout(carregaLinksHinos,3000); setInterval(()=>{ if(document.visibilityState==='visible') carregaLinksHinos(); },60*60*1000);   /* economia: 1x por hora (antes 5 min) */
+let _lkUlt=Date.now(); document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && Date.now()-_lkUlt>30*60*1000){ _lkUlt=Date.now(); carregaLinksHinos(); } });
 setTimeout(()=>{ try{ if(typeof sb==='undefined'||!sb.channel) return; sb.channel('ibnm-links-hinos')
   .on('postgres_changes',{event:'*',schema:'public',table:'cantor_links'},()=>carregaLinksHinos())
   .on('postgres_changes',{event:'*',schema:'public',table:'harpa_links'},()=>carregaLinksHinos()).subscribe(); }catch(_){} },5500);
