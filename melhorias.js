@@ -680,7 +680,7 @@ if(typeof cardDriveCfg==='function'){
 'use strict';
 if(typeof editorCifra!=='function') return;
 const e = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const RE_INTRO=/^\s*intro(?:du[cç][aã]o)?\s*[:\-–]\s*/i;
+const RE_INTRO=/^\s*(?:\[\s*intro(?:du[cç][aã]o)?\s*\]\s*[:\-–]?|intro(?:du[cç][aã]o)?\s*(?:\([^)]*\))?\s*[:\-–])\s*/i;
 /* separa a introdução (1ª linha "Intro: ...") do resto da cifra */
 function tirarIntro(el){
   let intro='';
@@ -690,15 +690,15 @@ function tirarIntro(el){
     if(!t.trim()){ if(n.nodeType===3 || !n.querySelector('img')) { n.remove(); continue; } }
     const prim=t.split('\n')[0];
     if(RE_INTRO.test(prim)){
-      intro=prim.replace(RE_INTRO,'').trim();
+      intro=prim.replace(RE_INTRO,'').trim(); const soCab=!intro;   /* "[Intro]" sozinho: os acordes vêm nas linhas de baixo */
       if(n.nodeType===3 && t.indexOf('\n')>=0) n.textContent=t.slice(t.indexOf('\n')+1);
       else n.remove();
       /* introdução com mais de uma linha: as linhas de acordes logo abaixo também são da intro */
       while(el.firstChild && el.firstChild.nodeType===1 && /^(DIV|P)$/.test(el.firstChild.tagName)){
         const tx=(el.firstChild.textContent||'').replace(/\u00a0/g,' ');
-        if(!tx.trim() || !(window.__ehLinhaCifra && window.__ehLinhaCifra(tx)) || !/^\s{4,}/.test(tx)) break;
+        if(!tx.trim() || !(window.__ehLinhaCifra && window.__ehLinhaCifra(tx)) || (!soCab && !/^\s{4,}/.test(tx))) break;
         { const nx=el.firstChild.nextSibling; const nt=nx? (nx.textContent||'').replace(/\u00a0/g,' ') : ''; if(nt.trim() && !(window.__ehLinhaCifra && window.__ehLinhaCifra(nt))) break; }   /* acorde em cima de uma frase = é da estrofe */
-        intro+='\n'+tx.replace(/^ {0,7}/,'').replace(/\s+$/,''); el.firstChild.remove();
+        { const lt=tx.replace(soCab?/^\s+/:/^ {0,7}/,'').replace(/\s+$/,''); intro=intro? intro+'\n'+lt : lt; } el.firstChild.remove();
       }
       while(el.firstChild && ((el.firstChild.nodeType===1&&el.firstChild.tagName==='BR') || (!(el.firstChild.textContent||'').trim() && !(el.firstChild.querySelector&&el.firstChild.querySelector('img'))))) el.firstChild.remove();
     }
@@ -711,7 +711,12 @@ window.editorCifra=editorCifra=function(id){
   const r=_ed.apply(this,arguments);
   try{
     const el=document.getElementById('edCifra'); if(!el || document.getElementById('edIntro')) return r;
-    const intro=tirarIntro(el);
+    let intro=tirarIntro(el);
+    /* a cifra tinha DUAS introduções (ex.: "Intro:" do campo + "[Intro]" colada do site): junta numa só */
+    try{ const cl=el.cloneNode(true), ex=tirarIntro(cl);
+      if(ex){ const a=introNorm(intro), b=introNorm(ex);
+        if(!a || a===b || a.indexOf(b)>=0 || b.indexOf(a)>=0){ el.innerHTML=cl.innerHTML; if(b.length>a.length || (b.length===a.length && ex.trim().length>intro.trim().length)) intro=ex; setTimeout(()=>toast('A introdução estava repetida na cifra — ficou só uma. Toque em Salvar para gravar.'),400); }
+        else setTimeout(()=>toast('⚠️ Esta cifra tem 2 introduções diferentes. A 2ª ficou no começo da cifra: apague a que não serve.'),400); } }catch(_){}
     const tb=document.getElementById('edTb');
     const campo='<div class="field ed-intro"><label>🎼 Introdução <small>(campo do ADM — os músicos veem a introdução no início da cifra)</small></label>'+
       '<textarea id="edIntro" rows="'+Math.max(2,intro.split('\n').length+1)+'" enterkeyhint="enter" placeholder="Ex.: G  D/F#  Em  C  (2x)  — Enter abre outra linha" autocomplete="off" autocapitalize="characters" spellcheck="false">'+e(intro)+'</textarea></div>';
@@ -743,6 +748,37 @@ if(typeof transpor==='function'){
     _t.apply(this,arguments);
     try{ const i=document.getElementById('edIntro'); if(i && i.value.trim() && window.__transpTexto) i.value=window.__transpTexto(i.value,passo); }catch(_){}
   };
+}
+/* ---- conferir TODAS as músicas: introdução repetida ---- */
+function introNorm(s){ return String(s||'').replace(/\([^)]*\)/g,' ').split(/\s+/).filter(t=>t && window.__ehAcorde && window.__ehAcorde(t.replace(/[,.;]+$/,''))).join(' '); }
+function caixaCifra(c){ const b=document.createElement('div'); c=String(c||'');
+  b.innerHTML=/<[a-z][\s\S]*>/i.test(c)? c : c.split('\n').map(l=>'<div>'+(l? e(l) : '<br>')+'</div>').join(''); return b; }
+function introHtml(v){ const ls=String(v).split('\n'); return '<p><b style="color:#b8860b">Intro:</b> '+e(ls[0])+'</p>'+ls.slice(1).map(l=>'<div>'+(l.trim()? '       '+e(l) : '<br>')+'</div>').join(''); }
+function introsDuplicadas(){
+  const ok=[], dif=[];
+  (DB.musicas||[]).forEach(m=>{ if(!m.cifra) return; try{
+    const bx=caixaCifra(m.cifra); const a=tirarIntro(bx); if(!a) return; const b=tirarIntro(bx); if(!b) return;
+    const na=introNorm(a), nb=introNorm(b);
+    if(!na||!nb||na===nb||na.indexOf(nb)>=0||nb.indexOf(na)>=0){ const fica=nb.length>na.length? b : na.length>nb.length? a : (b.trim().length>a.trim().length? b : a); let h=introHtml(fica)+bx.innerHTML; if(window.padronizaCifra) h=window.padronizaCifra(h); ok.push({m,h}); }
+    else dif.push({m,a,b});
+  }catch(_){} });
+  return {ok,dif};
+}
+window.__introsDuplicadas=introsDuplicadas;
+async function corrigeIntros(lista){ let n=0; for(const x of lista){ try{ const {error}=await sb.from('musicas').update({cifra:x.h}).eq('id',x.m.id); if(!error){ x.m.cifra=x.h; n++; } }catch(_){} } return n; }
+window.introsCorrigir=async function(){ const r=introsDuplicadas(); if(!r.ok.length) return toast('Nenhuma introdução repetida.'); const n=await corrigeIntros(r.ok); toast('✅ '+n+' música(s) corrigida(s): ficou só uma introdução.'); try{ go('admin'); }catch(_){} };
+/* no celular do ADM: corrige sozinho as que estão repetidas IGUAIS (as diferentes ficam na lista do Painel) */
+setTimeout(async()=>{ try{ if(!(window.ehAdmin&&ehAdmin())||typeof sb==='undefined') return; const k='ibnm_intro_dup_v1'; if(localStorage.getItem(k)) return;
+  const r=introsDuplicadas(); const n=r.ok.length? await corrigeIntros(r.ok) : 0; localStorage.setItem(k,'1'); if(n) toast('🎼 '+n+' música(s) estavam com a introdução repetida — corrigido.'); }catch(_){} },9000);
+if(typeof ROTAS!=='undefined' && ROTAS.admin){
+  const _adI=ROTAS.admin;
+  ROTAS.admin=function(){ const h=_adI.apply(this,arguments); if(!ehAdmin()) return h; let r={ok:[],dif:[]}; try{ r=introsDuplicadas(); }catch(_){}
+    const card='<div class="card" id="cardIntros"><h3>🎼 Introduções das cifras</h3><p style="font-size:13px;color:#556;margin-bottom:10px">'+
+      (!r.ok.length&&!r.dif.length? '✅ Nenhuma música com a introdução repetida.' :
+       (r.ok.length? r.ok.length+' música(s) com a introdução repetida (iguais). ' : '')+(r.dif.length? r.dif.length+' música(s) com 2 introduções diferentes — abra e apague a que não serve:' : ''))+'</p>'+
+      (r.ok.length?'<button class="mini-btn" onclick="introsCorrigir()">Corrigir '+r.ok.length+' música(s)</button>':'')+
+      r.dif.map(x=>'<div style="font-size:13px;margin:6px 0"><b>'+e(x.m.titulo)+'</b><br><small>1ª: '+e(x.a)+'<br>2ª: '+e(x.b)+'</small><br><button class="mini-btn" onclick="editorCifra(\''+e(x.m.id)+'\')">✏️ Abrir editor</button></div>').join('')+'</div>';
+    const i=h.indexOf('<div class="card">'); return i>=0? h.slice(0,i)+card+h.slice(i) : h+card; };
 }
 const st=document.createElement('style'); st.textContent='.ed-intro{background:#fffbea;border:1px solid #efe1a5;border-radius:10px;padding:8px 10px;margin-bottom:10px}.ed-intro label small{font-weight:600;color:#8a7a3a}.ed-intro textarea{display:block;width:100%;box-sizing:border-box;min-height:64px;resize:vertical;font-family:"Courier New",ui-monospace,monospace;font-size:14px;font-weight:700;line-height:1.6;white-space:pre;overflow-x:auto;padding:8px 10px;border:1px solid #cfdad4;border-radius:8px;background:#fff;color:var(--verde-escuro)}';
 document.head.appendChild(st);
