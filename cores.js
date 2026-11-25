@@ -40,9 +40,11 @@ function linhaDoCursor(el){
 window.edDestacar=function(){
   const el=document.getElementById('edCifra'); if(!el || !window.__linhasDoHtml || !window.__htmlLinhaAcordes) return;
   const li=linhaDoCursor(el);
-  const ls=window.__linhasDoHtml(el);
   const esc1=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  el.innerHTML=ls.map(l=>'<div>'+(l? (window.__ehLinhaDeAcordes(l)? window.__htmlLinhaAcordes(l) : esc1(l)) : '<br>')+'</div>').join('') || '<div><br></div>';
+  if(window.__linhasFmt){ const ls=window.__linhasFmt(el);
+    el.innerHTML=window.__fmtRender(ls,l=>window.__ehLinhaDeAcordes(l)? window.__htmlLinhaAcordes(l) : null).map(h=>'<div>'+(h||'<br>')+'</div>').join('') || '<div><br></div>'; }
+  else { const ls=window.__linhasDoHtml(el);
+  el.innerHTML=ls.map(l=>'<div>'+(l? (window.__ehLinhaDeAcordes(l)? window.__htmlLinhaAcordes(l) : esc1(l)) : '<br>')+'</div>').join('') || '<div><br></div>'; }
   if(li>=0){ const alvo=el.childNodes[Math.min(li,el.childNodes.length-1)]; if(alvo){ const r=document.createRange(); r.selectNodeContents(alvo); r.collapse(false); const s=getSelection(); s.removeAllRanges(); s.addRange(r); } }
   try{ if(typeof edCommit==='function') edCommit(); }catch(_){}
 };
@@ -50,7 +52,7 @@ function arrumaBarra(){
   const tb=document.getElementById('edTb'); if(!tb || tb.dataset.cores) return; tb.dataset.cores='1';
   /* fora: tipo de fonte, tamanho, itálico, sublinhado e a cor manual (o app padroniza) */
   tb.querySelectorAll('select.edsel').forEach(x=>x.remove());
-  tb.querySelectorAll('button').forEach(b=>{ const t=b.getAttribute('title')||''; if(/Itálico|Sublinhado|Cor do texto|Negrito/.test(t)) b.remove(); });
+  tb.querySelectorAll('button').forEach(b=>{ const t=b.getAttribute('title')||''; if(/Cor do texto/.test(t)) b.remove(); });
   tb.querySelectorAll('.sep').forEach((s,i,arr)=>{ if(s.previousElementSibling && s.previousElementSibling.classList.contains('sep')) s.remove(); });
   tb.insertAdjacentHTML('afterbegin','');
   const lp=[...tb.querySelectorAll('button')].find(b=>/Limpar/.test(b.getAttribute('title')||''));

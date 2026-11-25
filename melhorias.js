@@ -82,7 +82,9 @@ function ehAcorde(tok){ return ACORDE.test(tok); }
 window.__ehAcorde=ehAcorde;
 /* linha só de acordes (aceita rótulos tipo [Intro], (2x), |, -, x2) */
 function ehLinhaCifra(l){ const toks=String(l).trim().split(/\s+/).filter(Boolean); if(!toks.length) return false; let ac=0;
-  for(const t of toks){ if(ehAcorde(t)){ ac++; continue; } if(/^\[[^\]]*\]$/.test(t)||/^(\(?\d*x\d*\)?|[|/.\-()]+)$/i.test(t)) continue; return false; } return ac>0; }
+  for(const t0 of toks){ const t=t0.replace(/[,.;]+$/,''); if(ehAcorde(t)){ ac++; continue; }
+    if(/^(n\.?c\.?|%|\*+|:|\|\|?:?|:\|\|?|bis|→|-+>|\.{2,})$/i.test(t0)) continue;
+    if(t0===toks[0] && /^[A-Za-zÀ-ú]{2,}[\d]*:$/.test(t0)) continue; if(/^\[[^\]]*\]$/.test(t)||/^(\(?\d*x\d*\)?|[|/.\-()]+)$/i.test(t)) continue; return false; } return ac>0; }
 window.__ehLinhaCifra=ehLinhaCifra;
 window.__transpTexto=(t,st)=>transporTexto('Intro: '+t,st,bemolNoDestino('Intro: '+t,st)).replace(/^Intro: /,'');
 function usaBemol(texto){ const b=(texto.match(/\b[A-G]b/g)||[]).length, s=(texto.match(/\b[A-G]#/g)||[]).length; return b>s; }
@@ -788,7 +790,7 @@ const RE_INTRO=/^(\s*intro(?:du[cç][aã]o)?\s*[:\-–]\s*)(.*)$/i;
 function htmlLinhaAcordes(l){
   const pi=l.match(RE_INTRO); let pre='', resto=l;
   if(pi){ pre='<span class="cf-lb">'+escH(pi[1])+'</span>'; resto=pi[2]; }
-  return pre+resto.replace(/(\S+)|(\s+)/g,(m,tok,esp)=>{ if(esp) return esp; const mm=tok.match(/^([(\[]*)(.*?)([)\],]*)$/); let pe=mm[1], k=mm[2], po=mm[3]; while((k.match(/\(/g)||[]).length>(k.match(/\)/g)||[]).length && po[0]===')'){ k+=')'; po=po.slice(1); } return ehAc(k)? escH(pe)+'<span class="cf-ac">'+escH(k)+'</span>'+escH(po) : (/^\[[^\]]*\]$/.test(tok)?'<span class="cf-lb">'+escH(tok)+'</span>':escH(tok)); });
+  return pre+resto.replace(/(\S+)|(\s+)/g,(m,tok,esp)=>{ if(esp) return esp; const mm=tok.match(/^([(\[]*)(.*?)([)\],.;:]*)$/); let pe=mm[1], k=mm[2], po=mm[3]; while((k.match(/\(/g)||[]).length>(k.match(/\)/g)||[]).length && po[0]===')'){ k+=')'; po=po.slice(1); } return ehAc(k)? escH(pe)+'<span class="cf-ac">'+escH(k)+'</span>'+escH(po) : (/^\[[^\]]*\]$/.test(tok)?'<span class="cf-lb">'+escH(tok)+'</span>':escH(tok)); });
 }
 function ehLinhaDeAcordes(t){ return ehLinhaC(t) || (RE_INTRO.test(t) && t.replace(RE_INTRO,'$2').trim().split(/\s+/).some(x=>ehAc(x.replace(/[(),]/g,'')))); }
 /* acordes entre colchetes no meio da letra: [G]Senhor */
@@ -799,7 +801,33 @@ function marcaColchetes(root){
     n.replaceWith(...sp.childNodes); });
 }
 /* lê a cifra linha por linha, venha ela como for (um <div> por linha, <br>, <p>, <font>, texto puro…) */
-function linhasDoHtml(el){
+/* ---- formatação manual (negrito/itálico/sublinhado) guardada como marcas invisíveis por linha ---- */
+const FMK={b:['\uE000','\uE001'],i:['\uE002','\uE003'],u:['\uE004','\uE005']}, FMK_RE=/[\uE000-\uE005]/g;
+const fmtTira=l=>String(l).replace(FMK_RE,'');
+function fmtTipos(c){
+  if(c.classList && (c.classList.contains('cf-ac')||c.classList.contains('ch')||c.classList.contains('cf-ch')||c.classList.contains('cf-lb'))) return '';
+  const t=c.tagName, s=c.style||{}; let k='';
+  const fw=String(s.fontWeight||''); if(t==='B'||t==='STRONG'||fw==='bold'||fw==='bolder'||(+fw>=600)) k+='b';
+  if(t==='I'||t==='EM'||/italic|oblique/.test(s.fontStyle||'')) k+='i';
+  if(t==='U'||/underline/.test((s.textDecoration||'')+' '+(s.textDecorationLine||''))) k+='u';
+  return k;
+}
+/* transforma as linhas com marcas em HTML; quemLinha(textoSemMarcas) pode devolver o HTML pronto (linha de acordes etc.) */
+function fmtRender(ls,quemLinha){
+  let est=[]; const ab=a=>a.map(k=>'<'+k+'>').join(''), fe=a=>a.slice().reverse().map(k=>'</'+k+'>').join('');
+  return ls.map(l=>{
+    const plano=fmtTira(l), ini=est.slice(); let pronto=quemLinha? quemLinha(plano) : null; let out='';
+    if(pronto!=null){ for(const ch of l){ for(const k in FMK){ if(ch===FMK[k][0]&&!est.includes(k)) est.push(k); if(ch===FMK[k][1]){ const i=est.lastIndexOf(k); if(i>=0) est.splice(i,1); } } }
+      return plano.trim()? ab(ini)+pronto+fe(ini) : ''; }
+    out=ab(est);
+    for(const ch of l){ let mk=false;
+      for(const k in FMK){ if(ch===FMK[k][0]){ mk=true; if(!est.includes(k)){ est.push(k); out+='<'+k+'>'; } }
+        else if(ch===FMK[k][1]){ mk=true; const i=est.lastIndexOf(k); if(i>=0){ const resto=est.slice(i+1); out+=fe(resto)+'</'+k+'>'; est.splice(i,1); out+=ab(resto); } } }
+      if(!mk) out+=escH(ch); }
+    out+=fe(est); return plano.trim()? out.replace(/<(b|i|u)><\/\1>/g,'') : '';
+  });
+}
+function linhasDoHtml(el,fmt){
   const L=['']; const BLOCO=/^(DIV|P|LI|H[1-6]|PRE|BLOCKQUOTE|TR)$/;
   (function anda(n){ n.childNodes.forEach(c=>{
     if(c.nodeType===3){ const partes=c.nodeValue.replace(/\u00a0/g,' ').split('\n'); partes.forEach((t,i)=>{ if(i>0) L.push(''); L[L.length-1]+=t; }); }
@@ -807,13 +835,16 @@ function linhasDoHtml(el){
       if(c.tagName==='BR'){ L.push(''); return; }
       const bloco=BLOCO.test(c.tagName);
       if(bloco && L[L.length-1]!=='') L.push('');
+      const fk=fmt? fmtTipos(c) : '';
+      if(fk) L[L.length-1]+=fk.split('').map(k=>FMK[k][0]).join('');
       anda(c);
+      if(fk){ const fc=fk.split('').reverse().map(k=>FMK[k][1]).join(''); if(L[L.length-1]==='' && L.length>1) L[L.length-2]+=fc; else L[L.length-1]+=fc; }
       if(bloco && L[L.length-1]!=='') L.push('');
     } }); })(el);
   let ls=L.map(limpaLinha);
-  while(ls.length && ls[ls.length-1].trim()==='') ls.pop();
-  while(ls.length && ls[0].trim()==='') ls.shift();
-  ls=desespaca(ls);
+  while(ls.length && fmtTira(ls[ls.length-1]).trim()==='' && !/[\uE001\uE003\uE005]/.test(ls[ls.length-1])) ls.pop();
+  while(ls.length && fmtTira(ls[0]).trim()==='' && !/[\uE000\uE002\uE004]/.test(ls[0])) ls.shift();
+  { const pl=ls.map(fmtTira), ds=desespaca(pl); if(ds.join('\n')!==pl.join('\n')) ls=ds; }
   return ls.map(l=>l.replace(/^(\s*)(intro|introdu[cç][aã]o|refr[aã]o|pr[eé]-refr[aã]o|ponte|final|solo|coro|verso|parte\s*\d+|primeira parte|segunda parte|terceira parte|interl[uú]dio|tab|riff)\]/i,'$1[$2]'));
 }
 /* caracteres invisíveis, espaços especiais e símbolos de sustenido/bemol do PDF/site */
@@ -833,16 +864,17 @@ function desespaca(ls){
   if(n/cands.length<0.7) return ls;
   return ls.map(l=>{ const out=[]; for(let i=0;i<l.length;i++){ if(l[i]!==' '){ let c=Math.floor(i/2); while(out[c]!==undefined && out[c]!==' ') c++; out[c]=l[i]; } } for(let i=0;i<out.length;i++) if(out[i]===undefined) out[i]=' '; return out.join('').replace(/\s+$/,''); });
 }
-window.__linhasDoHtml=linhasDoHtml;
+window.__linhasDoHtml=el=>linhasDoHtml(el);
+window.__linhasFmt=el=>linhasDoHtml(el,true); window.__fmtRender=fmtRender; window.__fmtTira=fmtTira;
 window.__htmlLinhaAcordes=l=>htmlLinhaAcordes(l); window.__ehLinhaDeAcordes=t=>ehLinhaDeAcordes(t);
 /* reconstrói a cifra: só os acordes ganham destaque; a letra fica normal */
 function marcarAcordes(el){
-  const ls=linhasDoHtml(el);
-  el.innerHTML=ls.map(l=>{
+  const ls=linhasDoHtml(el,true);
+  el.innerHTML=fmtRender(ls,l=>{
     if(ehLinhaDeAcordes(l)) return '<span class="cf-ch">'+htmlLinhaAcordes(l)+'</span>';
     if(/^\s*[A-Ga-g]?\|[-\d|hpbr\/\\~x\s]+\|?\s*$/.test(l)) return '<span class="cf-tab">'+escH(l)+'</span>';
     if(/^\s*\[[^\]]+\]\s*$/.test(l)) return '<span class="cf-sec">'+escH(l)+'</span>';
-    return escH(l);
+    return null;
   }).join('\n');
   marcaColchetes(el);
 }
@@ -872,6 +904,11 @@ const st=document.createElement('style'); st.textContent=`
 .cifra-box.cf-fit,.cifra-box.cf-fit *{letter-spacing:0!important;word-spacing:normal!important;font-weight:400!important;font-style:normal!important;color:#262626!important;text-decoration:none!important;background:none!important;font-family:'Courier New',ui-monospace,monospace!important}
 .cifra-box.cf-fit{background:#fffdf5!important}
 .cifra-box.cf-fit .cf-ac,.cifra-box.cf-fit .ch{font-weight:800!important;color:var(--cor-acorde,#a8350a)!important}
+.cf-ac,.cifra-box .ch,.cc-song .c,.cc-tx .cf-ac,.prev-box .cf-ac,.editor-rich .cf-ac{font-weight:800!important;-webkit-text-stroke:.3px currentColor;paint-order:stroke fill}
+.cifra-box b,.cifra-box strong,.cc-tx b,.editor-rich b,.editor-rich strong{font-weight:800}
+.cifra-box.cf-fit b,.cifra-box.cf-fit strong,.cifra-box.cf-fit b *,.cifra-box.cf-fit strong *{font-weight:800!important}
+.cifra-box.cf-fit i,.cifra-box.cf-fit em,.cifra-box.cf-fit i *,.cifra-box.cf-fit em *{font-style:italic!important}
+.cifra-box.cf-fit u{text-decoration:underline!important}
 .cifra-box.cf-fit .cf-lb{color:#6b7c74!important}
 .cifra-box.cf-fit .cf-sec{color:#6b7c74!important}
 .editor-rich{white-space:pre!important;overflow-x:auto;overflow-y:visible!important;max-height:none!important;height:auto!important;overscroll-behavior:auto}
@@ -1091,6 +1128,7 @@ function padroniza(html){
   if(!window.__linhasDoHtml) return html;
   const box=document.createElement('div'); box.innerHTML=String(html||'');
   if(!/<[a-z]/i.test(html||'')) box.textContent=String(html||'');            /* texto puro */
+  if(window.__linhasFmt){ const ls=window.__linhasFmt(box); return window.__fmtRender(ls,null).map(h=>'<div>'+(h||'<br>')+'</div>').join(''); }
   const ls=window.__linhasDoHtml(box);
   return ls.map(l=>'<div>'+(l? esc1(l) : '<br>')+'</div>').join('');
 }
