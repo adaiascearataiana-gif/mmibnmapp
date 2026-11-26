@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.50)
+   MM IBNM — Extras (v1.51)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -2783,6 +2783,94 @@ if(typeof window.uploadParaDrive==='function'){ const _u50=window.uploadParaDriv
   try{ if(navigator.storage && navigator.storage.persist && !localStorage.getItem('ibnm_persist')){ localStorage.setItem('ibnm_persist','1'); navigator.storage.persist().catch(()=>{}); } }catch(_){}
 })();
 
+/* ======================= 54) 📦 ARQUIVOS FORA DO SUPABASE (partituras e áudios vão para o Google Drive) ======================= */
+/* O que estourou a cota grátis do Supabase foi baixar ARQUIVOS (partituras, áudios). Agora:
+   • partitura nova enviada pelo app vai para o Google Drive do ADM (pasta "MM IBNM - Partituras");
+   • Painel → Conectividade → "📦 Tirar arquivos do Supabase": move os que já estão lá para o Drive,
+     troca o endereço no app e apaga do Supabase (cada arquivo só sai do Supabase depois que o novo endereço foi salvo). */
+const SB_ARQ=/\/storage\/v1\/object\/public\/(partituras|audios)\/(.+)$/;
+function sbCaminho(url){ const m=String(url||'').split('?')[0].match(SB_ARQ); return m? {bucket:m[1],path:decodeURIComponent(m[2]),url:String(url)} : null; }
+/* endereço que abre um arquivo do Drive dentro do app (imagem ou PDF) */
+function drvArquivo(url,tipo){ const id=DRV_ID(url); if(!id) return url; const k=drvChaveApi();
+  if(k) return 'https://www.googleapis.com/drive/v3/files/'+id+'?alt=media&key='+encodeURIComponent(k);
+  return tipo==='pdf'? '' : 'https://drive.google.com/thumbnail?id='+id+'&sz=w2000'; }
+window.__drvArquivo=drvArquivo;
+async function driveProntoAdm(){
+  const D=window.__drive; if(!D||!D.ok()) { toast('Configure o Google Drive no Painel do ADM primeiro.'); return null; }
+  if(!D.conectado()){ const ok=await D.conectar(); if(!ok) return null; }
+  return D;
+}
+window.__driveProntoAdm=driveProntoAdm;
+/* tudo o que ainda está guardado no Supabase */
+async function arqPendentes(){
+  const L=[];
+  try{ const {data}=await sb.from('partituras_hinos').select('livro,num,url,tipo');
+    (data||[]).forEach(r=>{ const c=sbCaminho(r.url); if(c) L.push({tipo:'part',r,c,nome:'Partitura '+({cc:'Cantor',hr:'Harpa',hcc:'HCC'}[r.livro]||r.livro)+' '+r.num+(r.tipo==='pdf'?'.pdf':'.jpg')}); }); }catch(_){}
+  (DB.musicas||[]).forEach(m=>(m.audios||[]).forEach((a,i)=>{ const c=sbCaminho(a.url); if(c) L.push({tipo:'mus',m,i,c,nome:(m.titulo||'Música')+' - '+(a.nome||'áudio')}); }));
+  try{ Object.keys(HAUDIOS||{}).forEach(k=>(HAUDIOS[k]||[]).forEach((a,i)=>{ const c=sbCaminho(a.url); if(c){ const [lv,n]=k.split(':'); L.push({tipo:'hino',lv,n:+n,i,c,nome:'Hino '+lv+' '+n+' - '+(a.nome||'áudio')}); } })); }catch(_){}
+  return L;
+}
+/* quanto ainda ocupa cada pasta do Supabase (se o banco deixar listar) */
+async function tamanhoBucket(b){
+  let tot=0,n=0;
+  async function anda(pref,prof){ if(prof>3) return; let off=0;
+    while(true){ const {data,error}=await sb.storage.from(b).list(pref,{limit:1000,offset:off}); if(error||!data) return;
+      for(const x of data){ if(x.id===null||!x.metadata){ await anda((pref?pref+'/':'')+x.name,prof+1); } else { tot+=(x.metadata.size||0); n++; } }
+      if(data.length<1000) return; off+=1000; } }
+  try{ await anda('',0); }catch(_){}
+  return {tot,n};
+}
+const mb=b=>(b/1048576).toFixed(b>10485760?0:1).replace('.',',')+' MB';
+window.arqTela=async function(){
+  if(!(window.ehAdmin&&ehAdmin())) return;
+  abrirModal('<h3>📦 Arquivos no Supabase</h3><p class="small">Os arquivos baixados do Supabase gastam a cota grátis. Aqui eles vão para o Google Drive (que não tem esse limite).</p><div id="arqRes">Conferindo…</div>');
+  const L=await arqPendentes(); const box=document.getElementById('arqRes'); if(!box) return;
+  let h='<p><b>'+L.length+'</b> arquivo(s) do app ainda estão no Supabase'+(L.length?':':'.')+'</p>';
+  if(L.length) h+='<ul class="arq-lista">'+L.slice(0,40).map(x=>'<li>'+escA(x.nome)+'</li>').join('')+(L.length>40?'<li>… e mais '+(L.length-40)+'</li>':'')+'</ul><button class="btn btn-primary" id="arqBt" onclick="arqMigrar()">📦 Mover '+L.length+' para o Google Drive</button>';
+  else h+='<p>✅ Partituras e áudios já estão fora do Supabase.</p>';
+  h+='<div id="arqTam" class="small" style="margin-top:10px">Medindo o espaço usado…</div>';
+  box.innerHTML=h;
+  const out=[]; for(const b of ['partituras','audios','anexos','fotos','comprovantes']){ const t=await tamanhoBucket(b); if(t.n) out.push(b+': '+mb(t.tot)+' ('+t.n+' arquivos)'); }
+  const tz=document.getElementById('arqTam'); if(tz) tz.innerHTML=out.length? '<b>Espaço no Supabase Storage:</b><br>'+out.map(escA).join('<br>')+'<br><small>Anexos e comprovantes (financeiro/inventário) ficam no Supabase por serem privados; fotos de perfil são pequenas e ficam guardadas no celular.</small>' : '';
+};
+window.arqMigrar=async function(){
+  const D=await driveProntoAdm(); if(!D) return;
+  const L=await arqPendentes(); if(!L.length) return toast('Nada para mover.');
+  if(!confirm('Mover '+L.length+' arquivo(s) do Supabase para o Google Drive?\n\nCada arquivo é baixado 1 vez, enviado para o seu Drive e só depois apagado do Supabase. Não feche o app até terminar.')) return;
+  const box=document.getElementById('arqRes'); const st=t=>{ if(box) box.innerHTML='<p>'+t+'</p>'; };
+  let ok=0, falha=[]; const musMud=new Set(), hinoMud=new Set();
+  for(let k=0;k<L.length;k++){ const x=L[k]; st('Movendo '+(k+1)+' de '+L.length+'…<br><small>'+escA(x.nome)+'</small>');
+    try{
+      const r=await fetch(x.c.url); if(!r.ok) throw new Error('baixar '+r.status); const blob=await r.blob();
+      const pasta=x.tipo==='part'?'MM IBNM - Partituras':'MM IBNM - Áudios';
+      const fid=await D.sobe(blob,x.nome.replace(/[\\/:*?"<>|]+/g,'-'),pasta); if(!fid) throw new Error('Drive');
+      if(x.tipo==='part'){ const nu='https://drive.google.com/file/d/'+fid+'/view';
+        const u=await sb.from('partituras_hinos').update({url:nu,updated_at:new Date().toISOString()}).eq('livro',x.r.livro).eq('num',x.r.num); if(u.error) throw u.error;
+        PARTS[x.r.livro+':'+x.r.num]=Object.assign({},x.r,{url:nu}); }
+      else if(x.tipo==='mus'){ const a=x.m.audios[x.i]; a.url='https://drive.google.com/uc?export=download&id='+fid; a.drive=fid; musMud.add(x.m); }
+      else { const lst=HAUDIOS[x.lv+':'+x.n]; lst[x.i]=Object.assign({},lst[x.i],{url:'https://drive.google.com/uc?export=download&id='+fid,drive:fid}); hinoMud.add(x.lv+':'+x.n); }
+      x.fid=fid; x.ok=true;
+      if(x.tipo==='part'){ await sb.storage.from(x.c.bucket).remove([x.c.path]); ok++; }
+    }catch(err){ falha.push(x.nome+' ('+(err.message||err)+')'); }
+  }
+  /* grava as listas de áudios (1 vez por música/hino) e só então apaga do Supabase */
+  for(const m of musMud){ const r=await sb.from('musicas').update({audios:m.audios}).eq('id',m.id);
+    const xs=L.filter(x=>x.tipo==='mus'&&x.m===m&&x.ok);
+    if(r.error){ xs.forEach(x=>falha.push(x.nome+' (não salvou: '+r.error.message+')')); continue; }
+    for(const x of xs){ try{ await sb.storage.from(x.c.bucket).remove([x.c.path]); }catch(_){} ok++; } }
+  for(const key of hinoMud){ const [lv,n]=key.split(':'); const r=await sb.from('hinos_audios').upsert({livro:lv,num:+n,audios:HAUDIOS[key],updated_at:new Date().toISOString()});
+    const xs=L.filter(x=>x.tipo==='hino'&&(x.lv+':'+x.n)===key&&x.ok);
+    if(r.error){ xs.forEach(x=>falha.push(x.nome+' (não salvou: '+r.error.message+')')); continue; }
+    for(const x of xs){ try{ await sb.storage.from(x.c.bucket).remove([x.c.path]); }catch(_){} ok++; } }
+  try{ localStorage.setItem('ibnm_parts',JSON.stringify(PARTS)); localStorage.setItem('ibnm_haudios',JSON.stringify(HAUDIOS)); }catch(_){}
+  st('✅ <b>'+ok+'</b> arquivo(s) movidos para o Google Drive e apagados do Supabase.'+(falha.length?'<br><br>⚠️ Não consegui mover '+falha.length+':<br><small>'+falha.map(escA).join('<br>')+'</small><br>Pode tentar de novo depois.':''));
+};
+aoMudar(function(){
+  const d=document.getElementById('btDrvVerif'); if(!d || document.getElementById('btArq')) return;
+  d.insertAdjacentHTML('afterend','<button id="btArq" class="mini-btn" style="margin:8px 0 0 8px" onclick="arqTela()">📦 Tirar arquivos do Supabase</button>');
+});
+{ const st54=document.createElement('style'); st54.textContent='.arq-lista{max-height:30vh;overflow:auto;font-size:13px;margin:6px 0 10px;padding-left:18px}'; document.head.appendChild(st54); }
+
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
    saem do próprio código e são preenchidos sozinhos. Ao salvar, mostra o erro real se o banco recusar. */
@@ -3330,6 +3418,8 @@ function temPartitura(h,harpa){ const L=livroDe(harpa); if(PARTS[L+':'+h.n]) ret
   if(L==='hr') return !!(h.partitura); if(L==='cc') return !!CC_SITE[h.n]; return !!HCC_SITE[h.n]; }
 const ehPdf=u=>/\.pdf(\?|$)/i.test(String(u||''));
 function mostraPartitura(url,h,tipo){ const tit='Partitura · '+h.n+' · '+h.titulo;
+  if(DRV_ID(url)){ const u=drvArquivo(url,tipo); if(!u){ window.open('https://drive.google.com/file/d/'+DRV_ID(url)+'/preview','_blank','noopener'); return; }
+    return tipo==='pdf'? abrirLeitorPdf(u,tit) : leitorImagem([u],tit); }
   if(tipo==='pdf'||ehPdf(url)) return abrirLeitorPdf(url,tit);
   leitorImagem([url],tit); }
 function urlHarpa(h){ const loc=(h&&h.partitura)||('partituras_harpa/h'+String(h.n).padStart(3,'0')+'.jpg'); return {cdn:PART_BASE+'harpa/'+loc.split('/').pop(), local:loc}; }
@@ -3359,9 +3449,13 @@ async function enviarPartitura(file){
   toast('Enviando partitura…');
   try{
     const blob= pdf? file : await reduzImagem(file);
-    const path=L+'/'+h.n+'-'+Date.now()+(pdf?'.pdf':'.jpg');
-    const up=await sb.storage.from('partituras').upload(path,blob,{contentType:pdf?'application/pdf':'image/jpeg',upsert:true}); if(up.error) throw up.error;
-    const url=sb.storage.from('partituras').getPublicUrl(path).data.publicUrl;
+    let url='';
+    const D=(window.__drive&&__drive.ok())? await driveProntoAdm() : null;
+    if(D){ const fid=await D.sobe(blob,'Partitura '+({cc:'Cantor',hr:'Harpa',hcc:'HCC'}[L]||L)+' '+h.n+(pdf?'.pdf':'.jpg'),'MM IBNM - Partituras'); url='https://drive.google.com/file/d/'+fid+'/view'; }
+    else { toast('Google Drive não conectado: a partitura vai para o Supabase (gasta a cota grátis).');
+      const path=L+'/'+h.n+'-'+Date.now()+(pdf?'.pdf':'.jpg');
+      const up=await sb.storage.from('partituras').upload(path,blob,{contentType:pdf?'application/pdf':'image/jpeg',upsert:true}); if(up.error) throw up.error;
+      url=sb.storage.from('partituras').getPublicUrl(path).data.publicUrl; }
     const r=await sb.from('partituras_hinos').upsert({livro:L,num:h.n,url,tipo:pdf?'pdf':'img',updated_at:new Date().toISOString()}); if(r.error) throw r.error;
     PARTS[L+':'+h.n]={livro:L,num:h.n,url,tipo:pdf?'pdf':'img'}; localStorage.setItem('ibnm_parts',JSON.stringify(PARTS));
     toast('Partitura salva. Lendo a cifra e a letra…');
