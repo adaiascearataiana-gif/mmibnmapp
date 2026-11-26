@@ -248,6 +248,7 @@ function info(id){
 window.abrirItem=function(id,ctx){ id=String(id); if(ctx!==undefined) window.__slCtx=ctx; window.__slAbre=id; if(id.indexOf('cc:')===0){ if(window.cantorAbrir) cantorAbrir(+id.slice(3)); } else if(id.indexOf('hr:')===0){ if(window.harpaAbrir) harpaAbrir(+id.slice(3)); } else if(id.indexOf('hcc:')===0){ if(window.hccAbrir) hccAbrir(+id.slice(4)); } else abrirMusica(id,'cifra'); };
 function rotuloSemitom(v){ return v? (v>0?'+':'')+v : ''; }
 function disponivel(id){
+  if(window.__etiquetasDe){ const t=window.__etiquetasDe(id); return t.length? '<span class="sl-ok">'+t.join(' · ')+'</span>' : ''; }
   if(String(id).indexOf('hr:')===0) return '<span class="sl-ok">cifra · partitura</span>';
   if(String(id).indexOf('cc:')===0) return '<span class="sl-ok">letra · cifra</span>';
   if(String(id).indexOf('hcc:')===0){ const n=+String(id).slice(4); const h=(typeof hccHino==='function')?hccHino(n):null; return (h&&h.texto)? '<span class="sl-ok">cifra · letra</span>' : ''; }

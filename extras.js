@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Extras (v1.51)
+   MM IBNM — Extras (v1.52)
    1) ⛪ Modo Culto: tela cheia, tela sempre acesa, deslizar o dedo
       para passar de música (na ordem do SETLIST)
    2) 🎚️ Ensaio com áudio: velocidade (sem mudar o tom) e repetir trecho A–B
@@ -2871,6 +2871,78 @@ aoMudar(function(){
 });
 { const st54=document.createElement('style'); st54.textContent='.arq-lista{max-height:30vh;overflow:auto;font-size:13px;margin:6px 0 10px;padding-left:18px}'; document.head.appendChild(st54); }
 
+/* ======================= 55) 🏷️ CHECK-UP DAS ETIQUETAS (cifra · letra · áudio · youtube) ======================= */
+/* Painel → "🏷️ Conferir etiquetas de todas as músicas": mostra o que cada música tem e o que falta,
+   e corrige o que dá para corrigir sozinho (letra que só estava dentro da cifra). */
+function letraDaCifra(cifra){
+  const c=String(cifra||''); if(!c.trim()) return '';
+  const box=document.createElement('div'); box.innerHTML=/<[a-z][\s\S]*>/i.test(c)? c : c.split('\n').map(l=>'<div>'+(l?escA(l):'<br>')+'</div>').join('');
+  let ls=[]; try{ ls=(window.__linhasDoHtml? window.__linhasDoHtml(box) : box.innerText.split('\n')); }catch(_){ ls=box.innerText.split('\n'); }
+  const fora=l=>{ const t=String(l).trim(); if(!t) return false;
+    if(window.__ehLinhaDeAcordes && window.__ehLinhaDeAcordes(t)) return true;
+    if(/^\[?\s*(intro|introdu[cç][aã]o|solo|final|ponte|interl[uú]dio|riff|tab)\b/i.test(t)) return true;
+    if(/^[A-Ga-g]?\|[-\d|hpbr\/\\~x\s]+\|?$/.test(t)) return true;
+    if(/^\[[^\]]+\]$/.test(t)) return true;
+    return false; };
+  const out=[]; ls.forEach(l=>{ if(fora(l)) return; const t=String(l).replace(/\s+$/,'').replace(/^\s+/,''); if(!t){ if(out.length&&out[out.length-1]!=='') out.push(''); return; } out.push(t); });
+  while(out.length&&out[out.length-1]==='') out.pop();
+  return out.join('\n');
+}
+function etqConfere(){
+  const L=DB.musicas||[], r={tot:L.length,cifra:0,letra:0,audio:0,yt:0,semNada:[],letraNaCifra:[],cifraVazia:[],ytRuim:[],audioRuim:[]};
+  L.forEach(m=>{ const t=etiquetasDe(m.id);
+    if(t.includes('cifra')) r.cifra++; if(t.includes('letra')) r.letra++; if(t.includes('áudio')) r.audio++; if(t.includes('youtube')) r.yt++;
+    if(!t.length) r.semNada.push(m);
+    if(!String(m.letra||'').trim() && t.includes('cifra')){ const lt=letraDaCifra(m.cifra); if(lt.replace(/\s/g,'').length>=20) r.letraNaCifra.push({m,lt}); }
+    if(String(m.cifra||'').trim() && !t.includes('cifra')) r.cifraVazia.push(m);
+    if(String(m.youtube||'').trim() && !t.includes('youtube')) r.ytRuim.push(m);
+    if(Array.isArray(m.audios) && m.audios.length && !t.includes('áudio')) r.audioRuim.push(m); });
+  return r;
+}
+window.etqTela=function(){
+  if(!(window.ehAdmin&&ehAdmin())) return;
+  const r=etqConfere(); const lst=(a,f)=>'<ul class="arq-lista">'+a.slice(0,60).map(x=>'<li>'+f(x)+'</li>').join('')+(a.length>60?'<li>… e mais '+(a.length-60)+'</li>':'')+'</ul>';
+  const ab=m=>'<a href="javascript:void(0)" onclick="fecharModal();abrirMusica(\''+escA(m.id)+'\',\'cifra\')">'+escA(m.titulo)+'</a>'+(m.artista?' <small>· '+escA(m.artista)+'</small>':'');
+  let h='<h3>🏷️ Etiquetas das músicas</h3><p class="small">Cada música mostra só o que tem: <b>cifra · letra · áudio · youtube</b> (e <b>partitura</b> nos hinos).</p>'+
+    '<p><b>'+r.tot+'</b> músicas · cifra <b>'+r.cifra+'</b> · letra <b>'+r.letra+'</b> · áudio <b>'+r.audio+'</b> · youtube <b>'+r.yt+'</b></p>';
+  if(r.letraNaCifra.length) h+='<div class="etq-bloco"><b>📝 '+r.letraNaCifra.length+' música(s) com a letra só dentro da cifra</b> (por isso sem a etiqueta "letra"):'+lst(r.letraNaCifra,x=>ab(x.m))+
+    '<button class="btn btn-primary" id="etqBt" onclick="etqGerarLetras()">📝 Criar a letra dessas '+r.letraNaCifra.length+' a partir da cifra</button><small style="display:block;margin-top:4px">Tira os acordes e as linhas de intro/solo. Depois você pode ajustar cada letra no editor.</small></div>';
+  if(r.cifraVazia.length) h+='<div class="etq-bloco"><b>⚠️ '+r.cifraVazia.length+' com a cifra salva em branco</b> (só formatação, sem texto):'+lst(r.cifraVazia,ab)+'</div>';
+  if(r.ytRuim.length) h+='<div class="etq-bloco"><b>⚠️ '+r.ytRuim.length+' com link do YouTube inválido</b> (não é youtube.com / youtu.be):'+lst(r.ytRuim,m=>ab(m)+'<br><small>'+escA(m.youtube)+'</small>')+'</div>';
+  if(r.audioRuim.length) h+='<div class="etq-bloco"><b>⚠️ '+r.audioRuim.length+' com áudio sem arquivo</b>:'+lst(r.audioRuim,ab)+'</div>';
+  if(r.semNada.length) h+='<div class="etq-bloco"><b>📭 '+r.semNada.length+' sem nada ainda</b> (nenhuma cifra, letra, áudio ou YouTube):'+lst(r.semNada,ab)+'</div>';
+  if(!r.letraNaCifra.length&&!r.cifraVazia.length&&!r.ytRuim.length&&!r.audioRuim.length) h+='<p>✅ Todas as etiquetas batem com o conteúdo de cada música.</p>';
+  abrirModal(h);
+};
+window.etqGerarLetras=async function(){
+  const r=etqConfere(); if(!r.letraNaCifra.length) return toast('Nada para criar.');
+  if(!confirm('Criar a letra de '+r.letraNaCifra.length+' música(s) a partir da cifra (sem os acordes)?')) return;
+  const bt=document.getElementById('etqBt'); let ok=0, erro=0;
+  for(let i=0;i<r.letraNaCifra.length;i++){ const {m,lt}=r.letraNaCifra[i]; if(bt) bt.textContent='Criando '+(i+1)+' de '+r.letraNaCifra.length+'…';
+    try{ const {error}=await sb.from('musicas').update({letra:lt}).eq('id',m.id); if(error) throw error; m.letra=lt; ok++; }catch(_){ erro++; } }
+  try{ saveDB(); }catch(_){}
+  toast('✅ Letra criada em '+ok+' música(s)'+(erro?' · '+erro+' não salvaram':'')+'.'); atualizaEtiquetas(); etqTela();
+};
+/* etiquetas também nas LISTAS dos hinos (Cantor Cristão, Harpa e HCC) */
+let _harpaN=null;
+function etqListaHinos(){
+  const links=document.querySelectorAll('#content li > a[onclick^="cantorAbrir("], #content li > a[onclick^="harpaAbrir("], #content li > a[onclick^="hccAbrir("]');
+  if(!links.length) return;
+  links.forEach(a=>{ const m=(a.getAttribute('onclick')||'').match(/^(cantorAbrir|harpaAbrir|hccAbrir)\((\d+)\)/); if(!m) return;
+    const id=({cantorAbrir:'cc:',harpaAbrir:'hr:',hccAbrir:'hcc:'}[m[1]])+m[2];
+    const txt=etiquetasDe(id).join(' · ');
+    let sp=a.querySelector('.etq-hino');
+    if(!txt){ if(sp) sp.remove(); return; }
+    if(!sp){ const alvo=a.querySelector('.fl')||a.lastElementChild||a; alvo.insertAdjacentHTML('afterend','<span class="sl-ok etq-hino"></span>'); sp=a.querySelector('.etq-hino'); }
+    if(sp && sp.textContent!==txt) sp.textContent=txt; });
+}
+aoMudar(etqListaHinos);
+aoMudar(function(){
+  const d=document.getElementById('btArq')||document.getElementById('btDrvVerif'); if(!d || document.getElementById('btEtq')) return;
+  d.insertAdjacentHTML('afterend','<button id="btEtq" class="mini-btn" style="margin:8px 0 0 8px" onclick="etqTela()">🏷️ Conferir etiquetas de todas as músicas</button>');
+});
+{ const st55=document.createElement('style'); st55.textContent='.etq-hino{display:block;margin:4px 0 0!important;font-size:12px;font-weight:700;color:#0b5d3b;background:#e3f4ea;border-radius:999px;padding:2px 9px;width:max-content;max-width:100%}.etq-bloco{border:1px solid #e3e8e5;border-radius:12px;padding:10px;margin:10px 0}.etq-bloco .btn{width:100%;margin-top:6px}'; document.head.appendChild(st55); }
+
 /* ======================= 30) PIX DA DOAÇÃO: o copia e cola fica inteiro ======================= */
 /* O campo guarda exatamente o que o ADM colar (o código do QR Code do banco). Nome e cidade
    saem do próprio código e são preenchidos sozinhos. Ao salvar, mostra o erro real se o banco recusar. */
@@ -3061,18 +3133,27 @@ setTimeout(()=>{ try{ if(typeof sb==='undefined'||!sb.channel) return; sb.channe
 /* o ADM salvou/apagou um link agora mesmo: atualiza na hora (sem esperar a nuvem) */
 document.addEventListener('click',ev=>{ const b=ev.target.closest&&ev.target.closest('.cc-sheet button'); if(b && /Salvar|Remover/i.test(b.textContent)) setTimeout(carregaLinksHinos,900); },true);
 const ytCache=k=>{ try{ return JSON.parse(localStorage.getItem(k)||'{}')||{}; }catch(_){ return {}; } };
+/* As 4 etiquetas, sempre nesta ordem e só quando há conteúdo: cifra · letra · áudio · youtube */
+const ETQ_ORDEM=['cifra','letra','áudio','youtube','partitura'];   /* partitura: só nos hinos */
+const temTexto=v=>String(v||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/g,' ').replace(/[\s\u00a0\u200b]+/g,'').length>0;
+const ytValido=v=>/(^|\/\/)([a-z0-9-]+\.)*(youtube\.com|youtu\.be)\//i.test(String(v||'').trim());
+const temAudio=a=>Array.isArray(a) && a.some(x=>x && String(x.url||x.drive||'').trim());
 function etiquetasDe(id){
-  id=String(id||''); const t=[];
-  if(id.startsWith('cc:')){ const n=+id.slice(3); t.push('letra','cifra'); if(LINKS_HINOS.cc[n]) t.push('youtube'); return t; }
-  if(id.startsWith('hr:')){ const n=+id.slice(3); t.push('cifra','partitura'); if(LINKS_HINOS.hr[n]) t.push('youtube'); return t; }
-  if(id.startsWith('hcc:')){ const r=(HCC_DB||{})[+id.slice(4)]||{}; if(r.texto) t.push('cifra','letra'); if(r.youtube) t.push('youtube'); return t; }
-  const m=(DB.musicas||[]).find(x=>x.id===id); if(!m) return t;
-  if(String(m.cifra||'').replace(/<[^>]+>/g,'').trim()) t.push('cifra');
-  if(String(m.letra||'').trim()) t.push('letra');
-  if(Array.isArray(m.audios) && m.audios.length) t.push('áudio');
-  if(String(m.youtube||'').trim()) t.push('youtube');
-  return t;
+  id=String(id||''); const t=new Set();
+  const hino=(lv,n)=>{ if(temAudio((typeof HAUDIOS!=='undefined'&&HAUDIOS)?HAUDIOS[lv+':'+n]:null)) t.add('áudio');
+    try{ const h= lv==='hr'? ((window.HARPA||[]).find(x=>+x.n===n)||{n}) : {n};
+      if(temPartitura(h, lv==='hr'? true : lv==='hcc'? 'hcc' : false)) t.add('partitura'); }catch(_){} };
+  if(id.startsWith('cc:')){ const n=+id.slice(3); t.add('cifra'); t.add('letra'); hino('cc',n); if(LINKS_HINOS.cc[n]) t.add('youtube'); }
+  else if(id.startsWith('hr:')){ const n=+id.slice(3); t.add('cifra'); t.add('letra'); hino('hr',n); if(LINKS_HINOS.hr[n]) t.add('youtube'); }
+  else if(id.startsWith('hcc:')){ const n=+id.slice(4); const r=(HCC_DB||{})[n]||{}; if(temTexto(r.texto)){ t.add('cifra'); t.add('letra'); } hino('hcc',n); if(r.youtube) t.add('youtube'); }
+  else { const m=(DB.musicas||[]).find(x=>x.id===id); if(!m) return [];
+    if(temTexto(m.cifra)) t.add('cifra');
+    if(temTexto(m.letra)) t.add('letra');
+    if(temAudio(m.audios)) t.add('áudio');
+    if(ytValido(m.youtube)) t.add('youtube'); }
+  return ETQ_ORDEM.filter(x=>t.has(x));
 }
+window.__etiquetasDe=etiquetasDe;
 function poeEtiqueta(row,id){
   const tags=etiquetasDe(id); const txt=tags.join(' · '); const ar=row.querySelector('.s-ar'); if(!ar) return;
   let sp=ar.querySelector('.sl-ok'); if(!txt){ if(sp) sp.remove(); return; }
