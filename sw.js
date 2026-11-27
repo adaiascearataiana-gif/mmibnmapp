@@ -1,5 +1,5 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v163';
+const CACHE = 'mmibnm-v164';
 const CORE = [
   './',
   './index.html',
@@ -64,6 +64,8 @@ self.addEventListener('fetch', function (e) {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  // ícones das notificações (selo e sino): o navegador busca direto, sem passar pelo cache do app
+  if (/\/(notif-icon-192|badge-96)\.png$/.test(url.pathname)) return;
   // sw.js sempre vai direto à rede: a página usa isso para conferir se há versão nova
   if (/\/sw\.js$/.test(url.pathname)) return;
   // Partituras, áudios, anexos e fotos do Supabase: baixam 1 vez e ficam no celular (economiza a cota do Supabase).
@@ -134,6 +136,17 @@ self.addEventListener('fetch', function (e) {
 });
 
 /* ===== Notificações na barra do celular (Web Push) ===== */
+const ICONE_NOTIF = new URL('notif-icon-192.png', self.registration.scope).href;
+const BADGE_NOTIF = new URL('badge-96.png', self.registration.scope).href;
+/* a página pede e o próprio Service Worker mostra a notificação (selo do app no lugar do sino) */
+self.addEventListener('message', function (e) {
+  var m = e.data || {};
+  if (m.tipo !== 'notificar') return;
+  e.waitUntil(self.registration.showNotification(m.title || 'Ministério de Música IBNM', {
+    body: m.body || '', icon: ICONE_NOTIF, badge: BADGE_NOTIF,
+    tag: m.tag || undefined, data: { link: m.link || '' }
+  }));
+});
 self.addEventListener('push', function (e) {
   var d = {};
   try { d = e.data ? e.data.json() : {}; } catch (x) { d = { title: 'MM IBNM', body: e.data ? e.data.text() : '' }; }
@@ -141,7 +154,7 @@ self.addEventListener('push', function (e) {
     // app aberto na tela: ele mesmo mostra o aviso (som/janela)
     if (cs.some(function (c) { return c.visibilityState === 'visible'; })) return;
     return self.registration.showNotification(d.title || 'Ministério de Música IBNM', {
-      body: d.body || '', icon: 'notif-icon-192.png', badge: 'badge-96.png',
+      body: d.body || '', icon: ICONE_NOTIF, badge: BADGE_NOTIF,
       tag: d.id ? 'ibnm-' + d.id : undefined, renotify: true, vibrate: [80, 40, 80],
       data: { link: d.link || '' }
     });

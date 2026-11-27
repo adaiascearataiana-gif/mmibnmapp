@@ -74,7 +74,9 @@ function podeMostrar(){
 async function notifica(v,p){
   try{ if(!('Notification' in window) || Notification.permission!=='granted' || !navigator.serviceWorker) return false;
     const r=await navigator.serviceWorker.getRegistration(); if(!r) return false;
-    await r.showNotification(PER[p].ic+' Versículo '+PER[p].nm, {body:v[3]+'\n— '+ref(v[0],v[1],v[2]), icon:'notif-icon-192.png', badge:'badge-96.png', tag:'ibnm-versiculo', data:{link:'versiculo'}});
+    const dados={tipo:'notificar', title:PER[p].ic+' Versículo '+PER[p].nm, body:v[3]+'\n— '+ref(v[0],v[1],v[2]), tag:'ibnm-versiculo', link:'versiculo'};
+    if(r.active){ r.active.postMessage(dados); }
+    else { await r.showNotification(dados.title,{body:dados.body, icon:new URL('notif-icon-192.png',r.scope).href, badge:new URL('badge-96.png',r.scope).href, tag:dados.tag, data:{link:dados.link}}); }
     return true; }catch(_){ return false; }
 }
 let _verif=false;
