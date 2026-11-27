@@ -233,7 +233,22 @@ function phaseVocoderStretch(samples, stretch, frameSize, analysisHop){
     }
     synthPos += synthHop;
   }
-  for (let i = 0; i < outLen; i++) if (wsum[i] > 1e-8) out[i] /= wsum[i];
+  /* v147: o limite antigo (wsum>1e-8) era baixo demais — nas bordas do
+     overlap-add (começo/fim do áudio, onde as janelas ainda não se somam por
+     completo) o wsum fica bem pequeno porém acima de 1e-8, e dividir por um
+     número tão perto de zero "explodia" a amostra (valores >100x o normal),
+     virando um estouro/distorção audível bem no início/fim do áudio salvo.
+     Agora só normaliza onde já existe sobreposição significativa de janelas
+     (pelo menos 5% da energia de uma janela cheia); fora disso, silencia em
+     vez de amplificar um resto de sinal quase nulo. */
+  let wsumMax = 0;
+  for (let i = 0; i < outLen; i++) if (wsum[i] > wsumMax) wsumMax = wsum[i];
+  const pisoWsum = wsumMax * 0.2;
+  /* usar um piso (em vez de zerar de corte seco) evita um "clique" audível na
+     transição entre a borda silenciosa e o trecho com sobreposição plena —
+     a própria janela de Hann já vai a zero suavemente nas pontas, então
+     dividir por um piso em vez de cortar preserva esse fade natural. */
+  for (let i = 0; i < outLen; i++) out[i] = out[i] / Math.max(wsum[i], pisoWsum);
   const finalLen = Math.round(samples.length * stretch);
   return out.slice(0, finalLen);
 }

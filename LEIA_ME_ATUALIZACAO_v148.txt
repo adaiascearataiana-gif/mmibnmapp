@@ -1,0 +1,57 @@
+ATUALIZAÇÃO v148 — Ministério de Música IBNM
+==============================================
+
+Esta atualização contém as correções das duas últimas tarefas:
+
+1) BUG: "Sem escala correspondente" para datas que deveriam bater (ex: 15/11/2026)
+   -----------------------------------------------------------------------------
+   Causa: quando a sincronização com o servidor falhava (sem internet, erro de
+   rede, etc.), o app apagava TODA a escala guardada no celular e caía num
+   conjunto de dados antigo (que só ia até 18/10/2026) embutido no próprio
+   aplicativo. Por isso, datas de novembro/dezembro apareciam como "sem escala"
+   mesmo com a escala certa já estando salva no banco de dados.
+
+   Correção:
+   - sync.js: agora, se der erro ao buscar a escala do servidor, o app MANTÉM
+     a última escala boa que já tinha salvo no celular, em vez de apagá-la.
+   - index.html: o conjunto de dados de reserva (ESCALA_SEED) foi atualizado
+     com a escala real e atual (7/jun/2026 até 31/dez/2026), para o caso de
+     uma instalação nova sem conexão alguma.
+
+   Observação à parte (não é bug): datas de fevereiro/março de 2026 aparecerem
+   como "sem escala" é esperado — o banco guarda só UMA escala ativa por vez
+   (a mais recente importada), não um histórico. Se quiser guardar escalas
+   antigas também, dá pra criar essa função depois, é só pedir.
+
+2) BUG: áudio "picotado"/distorcido ao mudar o tom (Detectar e alterar o tom)
+   ----------------------------------------------------------------------------
+   Causa: no algoritmo de mudança de tom (phase vocoder), o trecho final que
+   recompõe o áudio dividia cada amostra por um número que podia ficar bem
+   perto de zero nas bordas do processamento — isso fazia a amostra "explodir"
+   (valores até 130x maiores que o normal), criando estouros/distorção forte
+   no áudio transposto, ouvido como picote/clique.
+
+   Correção:
+   - dsp_core.js: a normalização agora usa um piso seguro baseado no pico real
+     de sobreposição das janelas, evitando a divisão por valores quase zero.
+     Resultado testado numericamente: zero estouros, amplitude correta, sem
+     saltos bruscos — em vários tons e em áudio simulado com pausas.
+   - tom-audio.js: o áudio deixou de ser reduzido para 22050Hz antes de mudar
+     o tom (isso tirava brilho/agudo do som); agora só reduz a taxa se for
+     incomum e muito alta (ex: 96kHz). Áudio comum (44.1/48kHz) passa direto,
+     preservando mais fidelidade ao original.
+
+COMO INSTALAR (Termux / navegador)
+-----------------------------------
+1. Substitua os arquivos do seu projeto pelos arquivos desta pasta/zip:
+   index.html, sw.js, sync.js, dsp_core.js, tom-audio.js
+2. Depois de atualizar os arquivos no servidor/pasta do app, ao abrir o app
+   no celular, force uma atualização (feche e abra de novo, ou no navegador
+   dê um "recarregar" puxando a página para atualizar o Service Worker).
+   A versão interna do app mudou de v147 para v148 justamente para isso:
+   forçar o celular a baixar os arquivos novos em vez de usar os antigos
+   que ficaram guardados em cache.
+3. Teste: confira a escala de 15/11/2026 e teste mudar o tom de um áudio
+   para Sol ou Fá — o áudio deve sair limpo, sem picotes.
+
+Qualquer coisa, me avise que eu ajusto.

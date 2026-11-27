@@ -1,5 +1,5 @@
 /* Service Worker - Ministério de Música IBNM */
-const CACHE = 'mmibnm-v165';
+const CACHE = 'mmibnm-v148';
 const CORE = [
   './',
   './index.html',
@@ -31,10 +31,6 @@ const CORE = [
   './financeiro.js',
   './inventario.js',
   './papeis.js',
-  './biblia-versos.js',
-  './biblia.js',
-  './compasso-dsp.js',
-  './compasso.js',
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',
@@ -55,7 +51,7 @@ self.addEventListener('install', function (e) {
 self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys().then(function (ks) {
-      return Promise.all(ks.filter(function (k) { return k !== CACHE && k !== 'ibnm-fotos' && k !== 'ibnm-arquivos' && k !== 'mmibnm-audios'; }).map(function (k) { return caches.delete(k); }));
+      return Promise.all(ks.filter(function (k) { return k !== CACHE && k !== 'ibnm-fotos'; }).map(function (k) { return caches.delete(k); }));
     }).then(function () { return self.clients.claim(); })
   );
 });
@@ -64,15 +60,8 @@ self.addEventListener('fetch', function (e) {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  // ícones das notificações (selo e sino): o navegador busca direto, sem passar pelo cache do app
-  if (/\/(notif-icon-192|badge-96)\.png$/.test(url.pathname)) return;
   // sw.js sempre vai direto à rede: a página usa isso para conferir se há versão nova
   if (/\/sw\.js$/.test(url.pathname)) return;
-  // Partituras, áudios, anexos e fotos do Supabase: baixam 1 vez e ficam no celular (economiza a cota do Supabase).
-  if (/supabase\.co$/.test(url.hostname) && /\/storage\/v1\/object\/public\/(partituras|audios|anexos|fotos|materiais)\//.test(url.pathname) && url.pathname.indexOf('/__priv__/') < 0) {
-    e.respondWith(arquivoSupabase(req, url));
-    return;
-  }
   // Fotos de perfil do Supabase: guardadas no celular (não baixam de novo a cada abertura).
   if (/supabase\.co$/.test(url.hostname) && url.pathname.indexOf('/storage/v1/object/public/fotos/') >= 0) {
     e.respondWith(caches.open('ibnm-fotos').then(function (c) {
@@ -136,17 +125,6 @@ self.addEventListener('fetch', function (e) {
 });
 
 /* ===== Notificações na barra do celular (Web Push) ===== */
-const ICONE_NOTIF = new URL('notif-icon-192.png', self.registration.scope).href;
-const BADGE_NOTIF = new URL('badge-96.png', self.registration.scope).href;
-/* a página pede e o próprio Service Worker mostra a notificação (selo do app no lugar do sino) */
-self.addEventListener('message', function (e) {
-  var m = e.data || {};
-  if (m.tipo !== 'notificar') return;
-  e.waitUntil(self.registration.showNotification(m.title || 'Ministério de Música IBNM', {
-    body: m.body || '', icon: ICONE_NOTIF, badge: BADGE_NOTIF,
-    tag: m.tag || undefined, data: { link: m.link || '' }
-  }));
-});
 self.addEventListener('push', function (e) {
   var d = {};
   try { d = e.data ? e.data.json() : {}; } catch (x) { d = { title: 'MM IBNM', body: e.data ? e.data.text() : '' }; }
@@ -154,7 +132,7 @@ self.addEventListener('push', function (e) {
     // app aberto na tela: ele mesmo mostra o aviso (som/janela)
     if (cs.some(function (c) { return c.visibilityState === 'visible'; })) return;
     return self.registration.showNotification(d.title || 'Ministério de Música IBNM', {
-      body: d.body || '', icon: ICONE_NOTIF, badge: BADGE_NOTIF,
+      body: d.body || '', icon: 'notif-icon-192.png', badge: 'badge-96.png',
       tag: d.id ? 'ibnm-' + d.id : undefined, renotify: true, vibrate: [80, 40, 80],
       data: { link: d.link || '' }
     });
@@ -169,29 +147,3 @@ self.addEventListener('notificationclick', function (e) {
     return self.clients.openWindow(url);
   }));
 });
-
-/* ---- arquivos do Supabase guardados no celular (com suporte a trecho, para o áudio poder avançar) ---- */
-var ARQ = 'ibnm-arquivos';
-function arquivoSupabase(req, url) {
-  var chave = url.origin + url.pathname + (url.search || '');
-  return caches.open(ARQ).then(function (c) {
-    return c.match(chave).then(function (hit) {
-      if (hit) return hit;
-      return fetch(chave, { mode: 'cors', credentials: 'omit' }).then(function (r) {
-        if (r && r.status === 200) { c.put(chave, r.clone()).then(function () { limpaArq(c); }).catch(function () {}); }
-        return r;
-      });
-    });
-  }).then(function (resp) { return trecho(req, resp); }).catch(function () { return fetch(req); });
-}
-function trecho(req, resp) {
-  var rg = req.headers.get('range'); if (!rg || !resp || resp.status !== 200) return resp;
-  var m = /bytes=(\d*)-(\d*)/.exec(rg); if (!m) return resp;
-  return resp.arrayBuffer().then(function (buf) {
-    var tot = buf.byteLength, s, f;
-    if (m[1] === '') { s = Math.max(0, tot - (+m[2] || 0)); f = tot - 1; } else { s = +m[1]; f = m[2] === '' ? tot - 1 : Math.min(+m[2], tot - 1); }
-    if (s >= tot) return new Response(null, { status: 416, headers: { 'Content-Range': 'bytes */' + tot } });
-    return new Response(buf.slice(s, f + 1), { status: 206, headers: { 'Content-Type': resp.headers.get('Content-Type') || 'application/octet-stream', 'Content-Range': 'bytes ' + s + '-' + f + '/' + tot, 'Content-Length': String(f - s + 1), 'Accept-Ranges': 'bytes' } });
-  });
-}
-function limpaArq(c) { c.keys().then(function (ks) { var x = ks.length - 300; for (var i = 0; i < x; i++) c.delete(ks[i]); }); }

@@ -83,9 +83,20 @@ async function cloudEscalaEco(){
     if(!v.error && v.data && v.data.updated_at===cache.updated_at){ DB.escala={colunas:cache.colunas||[],linhas:cache.linhas||[]}; ST.escala=0; return; }
     if(v.error && semCol(v.error)) marcaSemUpd();
   }
-  const {data}=await sb.from('escala').select('*').eq('id',1).maybeSingle();
-  DB.escala={colunas:(data&&data.colunas)||[],linhas:(data&&data.linhas)||[]}; ST.escala=1;
-  if(data) IDB.set('escala',{colunas:data.colunas,linhas:data.linhas,updated_at:data.updated_at||''});
+  const {data,error}=await sb.from('escala').select('*').eq('id',1).maybeSingle();
+  if(error || !data){
+    /* v147: sem rede/erro ao buscar a escala atual — mantem a ultima escala boa
+       conhecida (cache local) em vez de zerar DB.escala. Zerar aqui fazia o app
+       cair no ESCALA_SEED (uma copia antiga, embutida no codigo, que para em
+       outubro/2026) e mostrar "sem escala correspondente" para datas recentes
+       que a escala de verdade ja tinha, so por causa de uma falha passageira
+       de conexao. */
+    if(cache && (cache.colunas||[]).length){ DB.escala={colunas:cache.colunas,linhas:cache.linhas||[]}; }
+    ST.escala=0;
+    return;
+  }
+  DB.escala={colunas:data.colunas||[],linhas:data.linhas||[]}; ST.escala=1;
+  IDB.set('escala',{colunas:data.colunas,linhas:data.linhas,updated_at:data.updated_at||''});
 }
 
 /* ---------- MÚSICAS QUE JÁ CANTAMOS: só baixa se a quantidade mudou ou 1x por semana ---------- */
@@ -201,7 +212,7 @@ if(typeof _booted!=='undefined' && _booted) ligarEco();
 let _oculto=0;
 document.addEventListener('visibilitychange',async()=>{
   if(document.visibilityState==='hidden'){ _oculto=Date.now(); return; }
-  if(!_oculto || Date.now()-_oculto<5*60*1000) return; _oculto=0;
+  if(!_oculto || Date.now()-_oculto<90*1000) return; _oculto=0;
   try{ await Promise.all([cloudMusicasEco(),cloudEscalaEco(),cloudNotifEco(false),cloudPerfis(),cloudPlaylist(),cloudConfig(),cloudPresencas(),cloudAoVivo()]); atualizaTela(); }catch(_){}
 });
 

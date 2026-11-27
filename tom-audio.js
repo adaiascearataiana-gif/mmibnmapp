@@ -59,7 +59,14 @@ async function prepararAudio(arrayBuffer){
   try{ decoded = await ctx.decodeAudioData(arrayBuffer.slice(0)); }
   finally{ try{ ctx.close(); }catch(_){} }
   const mono = paraMono(decoded);
-  const ds = (typeof DSP!=='undefined') ? DSP.downsample(mono, decoded.sampleRate, 22050) : {samples:mono, sr:decoded.sampleRate};
+  /* v147: antes isso reduzia TUDO para 22050Hz antes de mudar o tom — jogava fora
+     metade do brilho/agudo do áudio original e, junto com a janela do phase
+     vocoder (feita para funcionar bem em 44.1kHz), fazia o resultado sair
+     "picotado"/granulado mesmo em mudanças pequenas de tom. Agora só reduz a
+     taxa se for incomum e muito alta (ex.: 96kHz de alguns celulares) — áudio
+     comum de 44.1kHz/48kHz passa direto, sem perda de qualidade. Processar
+     pode levar alguns segundos a mais, mas sai muito mais limpo. */
+  const ds = (typeof DSP!=='undefined') ? DSP.downsample(mono, decoded.sampleRate, 48000) : {samples:mono, sr:decoded.sampleRate};
   return { samples: ds.samples, sr: ds.sr, duracao: decoded.duration };
 }
 
