@@ -195,8 +195,7 @@ function verNovas(){
   tocarSom();
   const n=novas[0];
   try{ if(document.visibilityState!=='visible' && ('Notification' in window) && Notification.permission==='granted'){
-    const no=new Notification(n.titulo||'MM IBNM',{body:n.corpo||'',icon:'notif-icon-192.png',badge:'badge-96.png',tag:'ibnm-'+n.id});
-    no.onclick=()=>{ try{ window.focus(); }catch(_){} no.close(); marcarLida(n.id); if(!abrirLinkNotif(linkDe(n))) go('notificacoes'); }; } }catch(_){}
+    notifSW(n.titulo||'MM IBNM', n.corpo||'', 'ibnm-'+n.id, linkDe(n)||'go:notificacoes'); } }catch(_){}
   novas.filter(x=>x.popup).reverse().forEach(x=>mostrarPopup(x));
 }
 if(typeof atualizaBadge==='function'){ const _ab=atualizaBadge; window.atualizaBadge=atualizaBadge=function(){ _ab.apply(this,arguments); try{ verNovas(); }catch(_){} }; }

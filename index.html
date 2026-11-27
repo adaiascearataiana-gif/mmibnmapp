@@ -2435,7 +2435,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v164';
+window.APP_V='v165';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */
@@ -2497,9 +2497,17 @@ function pedirPermissaoNotif(){
   if(!('Notification' in window)) return toast('Seu aparelho não suporta notificações.');
   Notification.requestPermission().then(p=>{ toast(p==='granted'?'Notificações ativadas! \uD83D\uDD14':'Permissao negada.'); if($('#appShell')&&!$('#appShell').classList.contains('hidden')) go('perfil'); });
 }
-function notifSistema(titulo,corpo){
-  try{ if(('Notification' in window)&&Notification.permission==='granted'){ new Notification(titulo||'IBNM Musica',{body:corpo||'',icon:'notif-icon-192.png',badge:'badge-96.png'}); } }catch(e){}
+/* notificação na barra do celular: quem mostra é o Service Worker (o Chrome do Android não aceita new Notification) */
+async function notifSW(titulo,corpo,tag,link){
+  try{ if(!('Notification' in window) || Notification.permission!=='granted' || !navigator.serviceWorker) return false;
+    const r=await navigator.serviceWorker.getRegistration(); if(!r) return false;
+    const d={tipo:'notificar',title:titulo||'MM IBNM',body:corpo||'',tag:tag||undefined,link:link||''};
+    if(r.active){ r.active.postMessage(d); }
+    else { await r.showNotification(d.title,{body:d.body,icon:new URL('notif-icon-192.png',r.scope).href,badge:new URL('badge-96.png',r.scope).href,tag:d.tag,data:{link:d.link}}); }
+    return true; }catch(e){ return false; }
 }
+window.notifSW=notifSW;
+function notifSistema(titulo,corpo){ notifSW(titulo||'IBNM Musica',corpo||''); }
 
 /* ---------- WRAPPERS v2 ---------- */
 const _cctPrev=cloudCarregarTudo;

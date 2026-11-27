@@ -95,10 +95,18 @@ window.atualizarAgora=async function(){
   try{ localStorage.setItem('ibnm_sw_novo','1'); }catch(_){}
   setTimeout(()=>location.replace(location.pathname+'?v='+Date.now()),300);
 };
+window.testarNotif=async function(){
+  if(!('Notification' in window)) return toast('Seu aparelho não suporta notificações.');
+  if(Notification.permission==='denied') return toast('As notificações estão bloqueadas. Libere nas configurações do Android para este app.');
+  if(Notification.permission!=='granted'){ pedirPermissaoNotif(); return; }
+  const ok=await notifSW('MM IBNM — teste','Se você vê o selo do Ministério, as notificações estão certas ✅','ibnm-teste','go:notificacoes');
+  toast(ok?'Notificação enviada! Puxe a barra do celular para ver. 🔔':'Não consegui enviar. Feche e abra o app e tente de novo.');
+};
 function cardVersao(){
   const v=(typeof APP_V!=='undefined'?APP_V:'')+' · '+(typeof VERSION!=='undefined'?VERSION:'');
   return '<div class="card av-ver"><h3>🔄 Versão do app</h3><p class="vr-l">Neste aparelho: <b>'+v+'</b><br><span id="vrSrv">Conferindo o servidor…</span></p>'+
-    '<button class="mini-btn" onclick="atualizarAgora()">🔄 Atualizar o app agora</button><p class="vr-d">Use se alguma novidade ainda não apareceu. Não apaga seus dados nem o login.</p></div>';
+    '<button class="mini-btn" onclick="atualizarAgora()">🔄 Atualizar o app agora</button><p class="vr-d">Use se alguma novidade ainda não apareceu. Não apaga seus dados nem o login.</p>'+
+    '<button class="mini-btn" onclick="testarNotif()">🔔 Testar notificação</button><p class="vr-d">Envia um aviso de teste para a barra do celular, para você ver o selo do Ministério.</p></div>';
 }
 if(typeof ROTAS!=='undefined' && ROTAS.perfil){
   const _pf=ROTAS.perfil;
