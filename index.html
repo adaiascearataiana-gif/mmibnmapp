@@ -693,7 +693,7 @@ function montaMenu(){
   });
   if(u.admin) h+=`<button class="sm-item" onclick="go('admin')"><span class="ic">\u2699\uFE0F</span>Painel do ADM</button>`;
   try{ const _nf=(typeof filaQtd==='function')?filaQtd():0; if(_nf) h+=`<button class="sm-item" onclick="filaTenta()"><span class="ic">⏳</span>Fila: ${_nf} (tocar p/ sincronizar)</button>`; }catch(e){}
-  h+=`<button class="sm-item" onclick="instalarApp()"><span class="ic">📲</span>Instalar o app</button>`;
+  if(!((window.matchMedia&&(matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: minimal-ui)').matches))||navigator.standalone===true||/; wv\)/.test(navigator.userAgent)||String(document.referrer).indexOf('android-app://')===0)) h+=`<button class="sm-item" onclick="instalarApp()"><span class="ic">📲</span>Instalar o app</button>`;
   h+=`</div><button class="sm-item" onclick="logout()"><span class="ic">\uD83D\uDEAA</span>Sair</button>
     <div class="sm-foot">Ministério de Música IBNM<br>${VERSION}</div>`;
   let _abertos=[]; try{ _abertos=[...document.querySelectorAll('#sidemenu .sm-item.open')].map(function(b){ return b.textContent.trim(); }); }catch(e){}
@@ -818,7 +818,6 @@ ROTAS.inicio = function(){
     : `<div class="card"><div class="empty" style="padding:20px"><div class="big">\uD83C\uDFBC</div>Nenhum SETLIST publicado ainda.</div></div>`;
   const naEscala = usuarioNaEscalaVigente(u);
   return `<div class="page">
-    <div class="page-ttl">Olá, ${esc(u.nome.split(' ')[0])}! \uD83D\uDC4B</div>
     ${plBox}
     <div class="card"><h3>Acesso rápido</h3>
       <div class="pl-acesso">
@@ -2436,7 +2435,7 @@ async function salvarDriveCfg(){
   _gisTok=null; _gisExp=0; toast('Client ID salvo!'); go('admin');
 }
 /* ---------- PWA + NOTIFICACOES ---------- */
-window.APP_V='v160';
+window.APP_V='v161';
 /* Confere a versão direto na rede (sem depender do ciclo do service worker):
    se o sw.js estiver à frente do que está rodando, limpa os caches do app
    e recarrega — a página vem nova da rede e os scripts também. */

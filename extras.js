@@ -2205,7 +2205,7 @@ function barraTopo2(){
     let i3=ttl.querySelector('.ola-info3');
     if(!i3){ ttl.insertAdjacentHTML('beforeend','<small class="ola-info3"><span class="ola-tp"></span><span class="ola-sd"></span></small>'); i3=ttl.querySelector('.ola-info3'); }
     let tp=''; if(_clima){ let [ic]=TEMPO[_clima.c]||['🌡️']; if(!_clima.dia && (_clima.c===0||_clima.c===1)) ic='🌙'; tp=ic+' '+_clima.t+'°'; }
-    const sd=_saldo!=null? '💰 '+brl(_saldo) : '';
+    const sd=_saldo!=null? '💰 Caixa: '+brl(_saldo) : '';
     const a=i3.querySelector('.ola-tp'), b=i3.querySelector('.ola-sd');
     if(a.textContent!==tp) a.textContent=tp; if(b.textContent!==sd) b.textContent=sd;
     const neg=_saldo!=null&&_saldo<0; if(b.classList.contains('neg')!==neg) b.classList.toggle('neg',neg);
@@ -2992,7 +2992,7 @@ function primeiroNome(){ try{ const u=usuarioAtual(); const n=String((u&&u.nome)
 function barraTopo(forca){
   const ttl=document.querySelector('.topbar .ttl'); if(!ttl) return;
   if(!ttl.classList.contains('ola')){ ttl.classList.add('ola'); ttl.innerHTML='<span class="ola-nome"></span><small class="ola-info"></small><small class="ola-info2"></small>'; }
-  const nm=primeiroNome(); const t=ttl.querySelector('.ola-nome'); const txt=nm? 'Olá, '+nm+'!' : 'Olá!'; if(t.textContent!==txt) t.textContent=txt;
+  const nm=primeiroNome(); const t=ttl.querySelector('.ola-nome'); const _h=new Date().getHours(), _sa=_h<12?'Bom dia':_h<18?'Boa tarde':'Boa noite'; const txt=nm? _sa+', '+nm+'!' : _sa+'!'; if(t.textContent!==txt) t.textContent=txt;
   const d=new Date(), p2=x=>String(x).padStart(2,'0');
   let info=DIAS[d.getDay()]+', '+p2(d.getDate())+'/'+p2(d.getMonth()+1)+' · '+p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds());
   let info2='';
