@@ -1192,6 +1192,7 @@ function loopAfin(){
   }
   AF.raf=setTimeout(loopAfin,70);
 }
+window.__metroDefinir=function(b,cp){ if(cp){ MT.comp=cp; localStorage.setItem('ibnm_comp',cp); MT.beat=0; } setBpm(b); };
 let abaFerr='metro';
 window.abrirFerramentas=function(aba){
   if(aba) abaFerr=aba;

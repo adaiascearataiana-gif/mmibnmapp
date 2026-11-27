@@ -1,5 +1,5 @@
 /* ============================================================
-   MM IBNM — Áudios por voz (v1.0.0)
+   MM IBNM — Áudios por voz (v1.1.0 · vários cantores por áudio)
    Na aba Áudio de cada música (ADM): PRINCIPAL, BACK 1 e BACK 2.
    Cada um: gravar / enviar arquivo / colar link, marcar o cantor
    (quem tem voz no cadastro, com prévia ao digitar) e 💾 Salvar.
@@ -12,7 +12,15 @@ const sem = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').t
 const $id = id => document.getElementById(id);
 const SLOTS=[['principal','🎤 PRINCIPAL'],['back1','🎶 BACK 1'],['back2','🎶 BACK 2']];
 const NOME_SLOT={principal:'Principal',back1:'Back 1',back2:'Back 2'};
-const PEND={};                        /* PEND[slot] = {blob, url, ext, cantor_id, cantor_nome, mexeu} */
+const PEND={};                        /* PEND[slot] = {blob, url, ext, cantores:[id], mexeu} */
+/* quem canta num áudio salvo: novo formato (cantores:[{id,nome}]) ou o antigo (cantor_id) */
+const idsDo = a => !a? [] : (Array.isArray(a.cantores)&&a.cantores.length? a.cantores.map(c=>c.id).filter(Boolean) : (a.cantor_id? [a.cantor_id] : []));
+const usu = id => (DB.usuarios||[]).find(x=>x.id===id);
+function idsPend(m,k){ const p=PEND[k]; if(p&&p.cantores) return p.cantores; return idsDo(audioDo(m,k)); }
+function nomeDe(m,k,id){ const u=usu(id); if(u) return u.nome; const a=audioDo(m,k); const c=a&&(a.cantores||[]).find(x=>x.id===id); return c? c.nome : (a&&a.cantor_id===id? a.cantor_nome : '?'); }
+function chipsHTML(m,k){ const ids=idsPend(m,k);
+  return ids.map(id=>{ const u=usu(id); const nm=nomeDe(m,k,id);
+    return '<span class="vz-chip">'+(u&&u.foto?'<img src="'+e(u.foto)+'" alt="">':'<i>'+e(nm.charAt(0))+'</i>')+e(nm.split(' ').slice(0,2).join(' '))+'<button type="button" onclick="vzTira(\''+k+'\',\''+e(id)+'\')" aria-label="Tirar '+e(nm)+'">✕</button></span>'; }).join(''); }
 let MID=null;
 
 function cantores(q){
@@ -28,14 +36,13 @@ function cartao(m){
 }
 function slotHTML(m,k,t){
   const a=audioDo(m,k); const p=PEND[k]||{};
-  const cid=p.cantor_id!==undefined? p.cantor_id : (a&&a.cantor_id)||''; const cnome=p.cantor_nome!==undefined? p.cantor_nome : (a&&a.cantor_nome)||'';
   return '<div class="vz-slot" id="vz_'+k+'"><div class="vz-h"><b>'+t+'</b>'+(a&&a.url?'<span class="vz-ok">✔ tem áudio</span>':'<span class="vz-no">sem áudio</span>')+'</div>'+
-    (a&&a.url?'<div class="vz-atual"><audio controls preload="none" src="'+e(a.url)+'"></audio><button class="vz-del" onclick="vzRemover(\''+k+'\')" aria-label="Remover áudio">🗑️</button></div>':'')+
+    (a&&a.url?'<div class="vz-atual"><audio controls preload="none" src="'+e(a.url)+'"></audio><button class="vz-del" onclick="vzRemover(\''+k+'\')" aria-label="Remover áudio">🗑️</button></div><button class="vz-bpm" onclick="vzBpm(\''+k+'\')">📈 Detectar BPM, compasso e tom deste áudio</button>':'')+
     '<div class="vz-acts"><button class="vz-b rec" id="vzRec_'+k+'" onclick="vzGravar(\''+k+'\')">🎙️ '+(a&&a.url?'Regravar':'Gravar')+'</button>'+
       '<button class="vz-b" onclick="vzArquivo(\''+k+'\')">📁 Enviar arquivo</button><input type="file" id="vzArq_'+k+'" hidden accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" onchange="vzArquivoEscolhido(\''+k+'\',this)">'+
       '<button class="vz-b" onclick="vzLink(\''+k+'\')">🔗 Link</button></div>'+
     '<div class="vz-prev" id="vzPrev_'+k+'">'+(p.blob||p.url? previaHTML(k) : '')+'</div>'+
-    '<div class="vz-cant"><label>Quem canta</label><input id="vzCan_'+k+'" autocomplete="off" placeholder="Digite o nome (só quem tem voz no cadastro)" value="'+e(cnome)+'" data-id="'+e(cid)+'" oninput="vzBusca(\''+k+'\')" onfocus="vzFecha(\''+k+'\')" onblur="setTimeout(()=>vzFecha(),180)">'+
+    '<div class="vz-cant"><label>Quem canta <small>(pode marcar mais de uma pessoa)</small></label><div class="vz-chips" id="vzChips_'+k+'">'+chipsHTML(m,k)+'</div><input id="vzCan_'+k+'" autocomplete="off" placeholder="'+(idsPend(m,k).length?'+ Adicionar outra pessoa…':'Digite o nome (só quem tem voz no cadastro)')+'" value="" oninput="vzBusca(\''+k+'\')" onfocus="vzFecha(\''+k+'\')" onblur="setTimeout(()=>vzFecha(),180)">'+
       '<div class="vz-sug" id="vzSug_'+k+'"></div></div>'+
     '<button class="vz-salvar" onclick="vzSalvar(\''+k+'\')">💾 Salvar '+NOME_SLOT[k]+'</button></div>';
 }
@@ -49,16 +56,25 @@ window.vzFecha=function(exceto){ document.querySelectorAll('.vz-sug').forEach(b=
 window.vzBusca=function(k){
   const inp=$id('vzCan_'+k), box=$id('vzSug_'+k); if(!inp||!box) return;
   vzFecha(k);
-  inp.dataset.id=''; PEND[k]=Object.assign(PEND[k]||{},{cantor_id:'',cantor_nome:inp.value,mexeu:true});
   if(!inp.value.trim()){ box.innerHTML=''; return; }            /* só mostra a lista quando começa a digitar */
-  const lista=cantores(inp.value);
+  const m=(DB.musicas||[]).find(x=>x.id===MID); const ja=m? idsPend(m,k) : [];
+  const lista=cantores(inp.value).filter(u=>!ja.includes(u.id));
   box.innerHTML=lista.length? lista.map(u=>'<button type="button" onmousedown="event.preventDefault()" onclick="vzEscolhe(\''+k+'\',\''+e(u.id)+'\')">'+(u.foto?'<img src="'+e(u.foto)+'" alt="">':'<span class="ini">'+e((u.nome||'?').charAt(0))+'</span>')+'<span><b>'+e(u.nome)+'</b><small>'+e((u.vocal||[]).join(', '))+'</small></span></button>').join('')
     : '<div class="vz-nada">Ninguém com voz cadastrada com esse nome.</div>';
 };
 window.vzEscolhe=function(k,uid){
   const u=(DB.usuarios||[]).find(x=>x.id===uid); if(!u) return;
-  const inp=$id('vzCan_'+k); inp.value=u.nome; inp.dataset.id=u.id; vzFecha(); inp.blur();
-  PEND[k]=Object.assign(PEND[k]||{},{cantor_id:u.id,cantor_nome:u.nome,mexeu:true});
+  const m=(DB.musicas||[]).find(x=>x.id===MID); if(!m) return;
+  const ids=idsPend(m,k).slice(); if(!ids.includes(u.id)) ids.push(u.id);
+  PEND[k]=Object.assign(PEND[k]||{},{cantores:ids,mexeu:true});
+  const inp=$id('vzCan_'+k); if(inp){ inp.value=''; inp.placeholder='+ Adicionar outra pessoa…'; } vzFecha();
+  const c=$id('vzChips_'+k); if(c) c.innerHTML=chipsHTML(m,k);
+};
+window.vzTira=function(k,uid){
+  const m=(DB.musicas||[]).find(x=>x.id===MID); if(!m) return;
+  PEND[k]=Object.assign(PEND[k]||{},{cantores:idsPend(m,k).filter(x=>x!==uid),mexeu:true});
+  const c=$id('vzChips_'+k); if(c) c.innerHTML=chipsHTML(m,k);
+  const inp=$id('vzCan_'+k); if(inp && !idsPend(m,k).length) inp.placeholder='Digite o nome (só quem tem voz no cadastro)';
 };
 document.addEventListener('click',ev=>{ if(!ev.target.closest('.vz-cant')) document.querySelectorAll('.vz-sug').forEach(b=>b.innerHTML=''); });
 
@@ -104,9 +120,10 @@ async function gravaLista(m){
 window.vzSalvar=async function(k){
   const m=(DB.musicas||[]).find(x=>x.id===MID); if(!m) return;
   const p=PEND[k]||{}; const atual=audioDo(m,k);
-  const inp=$id('vzCan_'+k); const cid=inp? inp.dataset.id||'' : (p.cantor_id||'');
-  const u=cid? (DB.usuarios||[]).find(x=>x.id===cid) : null;
-  if(inp && inp.value.trim() && !u) return toast('Escolha o cantor na lista (só quem tem voz no cadastro).');
+  const inp=$id('vzCan_'+k);
+  if(inp && inp.value.trim()) return toast('Toque no nome na lista para adicionar (só quem tem voz no cadastro).');
+  const ids=idsPend(m,k); const pessoas=ids.map(id=>({id,nome:nomeDe(m,k,id)})); const u=pessoas.length? usu(pessoas[0].id)||pessoas[0] : null;
+  const nomesTxt=pessoas.map(x=>x.nome).join(', ');
   if(!atual && !p.blob && !p.url) return toast('Grave, envie ou cole o link do áudio de '+NOME_SLOT[k]+' antes de salvar.');
   const bt=document.querySelector('#vz_'+k+' .vz-salvar'); if(bt){ bt.disabled=true; bt.textContent='Salvando…'; }
   try{
@@ -114,24 +131,27 @@ window.vzSalvar=async function(k){
     if(p.blob){
       const D=window.__drive; if(!D||!D.ok()) throw new Error('Configure o Google Drive no Painel do ADM.');
       if(!D.conectado()){ const ok=await D.conectar(); if(!ok) throw new Error('Conecte ao Google Drive.'); }
-      const nomeArq=(m.titulo+' - '+NOME_SLOT[k]+(u?' - '+u.nome:'')).replace(/[\\/:*?"<>|]+/g,' ').slice(0,90)+'.'+(p.ext||'webm');
+      const nomeArq=(m.titulo+' - '+NOME_SLOT[k]+(nomesTxt?' - '+nomesTxt:'')).replace(/[\\/:*?"<>|]+/g,' ').slice(0,90)+'.'+(p.ext||'webm');
       const fid=await D.sobe(p.blob,nomeArq,'MM IBNM - Áudios',f=>{ if(bt) bt.textContent='Enviando… '+Math.round(f*100)+'%'; });
       url=(typeof driveUrl==='function'? driveUrl(fid) : 'https://drive.google.com/uc?export=download&id='+fid); drive=fid;
     } else if(p.url){ url=p.url; drive=''; }
-    const novo={slot:k,nome:NOME_SLOT[k]+(u?' — '+u.nome:''),url,drive:drive||'',cantor_id:u?u.id:'',cantor_nome:u?u.nome:''};
-    const antes=atual? atual.cantor_id : '';
+    const novo={slot:k,nome:NOME_SLOT[k]+(nomesTxt?' — '+nomesTxt:''),url,drive:drive||'',cantores:pessoas,cantor_id:u?u.id:'',cantor_nome:nomesTxt};
+    if(atual) Object.keys(atual).forEach(c=>{ if(/^tom_/.test(c) && !(c in novo) && !p.blob && !p.url) novo[c]=atual[c]; });
+    const antes=idsDo(atual);
     m.audios=(m.audios||[]).filter(a=>a.slot!==k); m.audios.push(novo);
     if(!(await gravaLista(m))) throw new Error('não salvou');
     delete PEND[k];
     /* avisa quem foi marcado (se mudou ou se o áudio é novo) */
     const eu=(typeof usuarioAtual==='function'&&usuarioAtual())||{};
-    if(u && u.email!==eu.email && (u.id!==antes || p.blob || p.url)){
-      notificar(u.email,'🎤','Você foi marcado(a) em um áudio','"'+m.titulo+'" — voz '+NOME_SLOT[k].toUpperCase()+'. Toque para ouvir e ensaiar.',{link:'musaudio:'+m.id});
-      toast(NOME_SLOT[k]+' salvo. '+u.nome.split(' ')[0]+' foi avisado(a). 🔔');
-    } else toast(NOME_SLOT[k]+' salvo.');
+    const avisar=pessoas.map(x=>usu(x.id)).filter(x=>x && x.email && x.email!==eu.email && (!antes.includes(x.id) || p.blob || p.url));
+    avisar.forEach(x=>{ try{ notificar(x.email,'🎤','Você foi marcado(a) em um áudio','"'+m.titulo+'" — voz '+NOME_SLOT[k].toUpperCase()+'. Toque para ouvir e ensaiar.',{link:'musaudio:'+m.id}); }catch(_){} });
+    toast(NOME_SLOT[k]+' salvo.'+(avisar.length? ' '+avisar.map(x=>x.nome.split(' ')[0]).join(', ')+(avisar.length>1?' foram avisados(as)':' foi avisado(a)')+'. 🔔' : ''));
     redesenha();
   }catch(err){ toast('Não foi possível salvar: '+(err.message||err)); if(bt){ bt.disabled=false; bt.textContent='💾 Salvar '+NOME_SLOT[k]; } }
 };
+window.vzBpm=function(k){ const m=(DB.musicas||[]).find(x=>x.id===MID); const a=m&&audioDo(m,k); if(!a||!a.url) return;
+  if(typeof window.cpsDoAudio!=='function') return toast('Atualize o app para usar o detector de BPM.');
+  cpsDoAudio(a.url,a.drive||'',m.titulo,a.nome||NOME_SLOT[k]); };
 window.vzRemover=async function(k){
   const m=(DB.musicas||[]).find(x=>x.id===MID); if(!m) return; const a=audioDo(m,k); if(!a) return;
   if(!confirm('Remover o áudio de '+NOME_SLOT[k]+'?')) return;
@@ -177,6 +197,12 @@ const st=document.createElement('style'); st.textContent=`
 .vz-sug span{display:flex;flex-direction:column}
 .vz-sug b{font-size:14px;color:var(--verde-escuro)}
 .vz-sug small{font-size:11.5px;color:#6b8378}
+.vz-cant label small{font-weight:600;color:#8aa196}
+.vz-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.vz-chips:empty{display:none}
+.vz-chip{display:inline-flex;align-items:center;gap:6px;background:#e7f3ec;border:1px solid #bcd9c8;color:var(--verde-escuro);border-radius:20px;padding:3px 4px 3px 4px;font-size:13px;font-weight:800}
+.vz-chip img,.vz-chip i{width:24px;height:24px;border-radius:50%;object-fit:cover;background:var(--verde-med);color:#fff;font-style:normal;display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+.vz-chip button{border:0;background:#fff;color:#a33;border-radius:50%;width:24px;height:24px;font-size:12px;font-weight:900;line-height:1;padding:0}
 .vz-nada{font-size:12.5px;color:#9aa;padding:4px 2px}
 .vz-salvar{width:100%;height:44px;margin-top:10px;border:0;border-radius:12px;background:var(--dourado);color:#3a2f00;font-weight:900;font-size:14.5px}
 `; document.head.appendChild(st);
